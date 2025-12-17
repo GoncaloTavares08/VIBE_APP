@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Users, Euro, Edit, Award, X, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -26,6 +26,15 @@ export function RPManagement() {
   const [activeTab, setActiveTab] = useState<'all' | 'leaders' | 'performance'>('all');
   const [editingRP, setEditingRP] = useState<RP | null>(null);
   const [showModal, setShowModal] = useState(false);
+
+  // State for responsive view
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const teamLeaders = mockRPs.filter(rp => rp.role === 'team_leader');
   const regularRPs = mockRPs.filter(rp => rp.role === 'rp');
@@ -160,54 +169,37 @@ export function RPManagement() {
           <h2 className="text-2xl font-black text-white">
             {activeTab === 'performance' ? 'Ranking de Performance' : 'Todos os RPs'}
           </h2>
-          <div
-            className="rounded-3xl overflow-hidden overflow-x-auto"
-            style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              backdropFilter: 'blur(20px)',
-            }}
-          >
-            <table className="w-full min-w-[800px]">
-              <thead>
-                <tr
-                  style={{
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                  }}
-                >
-                  <th className="text-left p-4 text-sm font-semibold text-gray-400">RP</th>
-                  <th className="text-left p-4 text-sm font-semibold text-gray-400">Cargo</th>
-                  <th className="text-center p-4 text-sm font-semibold text-gray-400">Convidados Hoje</th>
-                  <th className="text-center p-4 text-sm font-semibold text-gray-400">Receita Total</th>
-                  <th className="text-center p-4 text-sm font-semibold text-gray-400">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mockRPs
-                  .sort((a, b) => b.totalRevenue - a.totalRevenue)
-                  .map((rp, index) => (
-                    <tr
-                      key={rp.id}
-                      style={{
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                      }}
-                    >
+
+          {/* Desktop Table View */}
+          {!isMobile && (
+            <div
+              className="rounded-3xl overflow-hidden overflow-x-auto"
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(20px)',
+              }}
+            >
+              <table className="w-full min-w-[800px]">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                    <th className="text-left p-4 text-sm font-semibold text-gray-400">RP</th>
+                    <th className="text-left p-4 text-sm font-semibold text-gray-400">Cargo</th>
+                    <th className="text-center p-4 text-sm font-semibold text-gray-400">Convidados Hoje</th>
+                    <th className="text-center p-4 text-sm font-semibold text-gray-400">Receita Total</th>
+                    <th className="text-center p-4 text-sm font-semibold text-gray-400">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mockRPs.sort((a, b) => b.totalRevenue - a.totalRevenue).map((rp, index) => (
+                    <tr key={rp.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           {activeTab === 'performance' && index < 3 && (
-                            <span className="text-2xl">
-                              {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
-                            </span>
+                            <span className="text-2xl">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
                           )}
-                          <div
-                            className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm"
-                            style={{
-                              background: rp.role === 'team_leader'
-                                ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)'
-                                : 'rgba(255, 255, 255, 0.1)',
-                              color: rp.role === 'team_leader' ? '#000000' : '#ffffff',
-                            }}
-                          >
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm"
+                            style={{ background: rp.role === 'team_leader' ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)' : 'rgba(255, 255, 255, 0.1)', color: rp.role === 'team_leader' ? '#000000' : '#ffffff' }}>
                             {rp.avatar}
                           </div>
                           <div>
@@ -217,41 +209,71 @@ export function RPManagement() {
                         </div>
                       </td>
                       <td className="p-4">
-                        <div
-                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold"
-                          style={{
-                            background: rp.role === 'team_leader'
-                              ? 'rgba(212, 175, 55, 0.2)'
-                              : 'rgba(255, 255, 255, 0.1)',
-                            color: rp.role === 'team_leader' ? '#D4AF37' : '#ffffff',
-                          }}
-                        >
+                        <div className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold"
+                          style={{ background: rp.role === 'team_leader' ? 'rgba(212, 175, 55, 0.2)' : 'rgba(255, 255, 255, 0.1)', color: rp.role === 'team_leader' ? '#D4AF37' : '#ffffff' }}>
                           {rp.role === 'team_leader' ? 'Chefe de Equipa' : 'RP'}
                         </div>
                       </td>
+                      <td className="p-4 text-center"><span className="font-black text-white text-lg">{rp.guestsTonight}</span></td>
+                      <td className="p-4 text-center"><span className="font-black text-[#D4AF37] text-lg">€{rp.totalRevenue}</span></td>
                       <td className="p-4 text-center">
-                        <span className="font-black text-white text-lg">{rp.guestsTonight}</span>
-                      </td>
-                      <td className="p-4 text-center">
-                        <span className="font-black text-[#D4AF37] text-lg">€{rp.totalRevenue}</span>
-                      </td>
-                      <td className="p-4 text-center">
-                        <button
-                          onClick={() => handleEdit(rp)}
-                          className="p-2 rounded-lg transition-all duration-300 hover:scale-110"
-                          style={{
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                          }}
-                        >
+                        <button onClick={() => handleEdit(rp)} className="p-2 rounded-lg transition-all duration-300 hover:scale-110"
+                          style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                           <Edit className="w-4 h-4 text-white" />
                         </button>
                       </td>
                     </tr>
                   ))}
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Mobile Card View */}
+          {isMobile && (
+            <div className="space-y-4">
+              {mockRPs.sort((a, b) => b.totalRevenue - a.totalRevenue).map((rp, index) => (
+                <div key={rp.id} className="p-4 rounded-2xl"
+                  style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(20px)' }}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      {activeTab === 'performance' && index < 3 && (
+                        <span className="text-2xl">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
+                      )}
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm"
+                        style={{ background: rp.role === 'team_leader' ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)' : 'rgba(255, 255, 255, 0.1)', color: rp.role === 'team_leader' ? '#000000' : '#ffffff' }}>
+                        {rp.avatar}
+                      </div>
+                      <div>
+                        <p className="font-bold text-white text-lg">{rp.name}</p>
+                        <div className="flex items-center gap-2">
+                          {rp.team && <p className="text-xs text-gray-400">{rp.team}</p>}
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold"
+                            style={{ background: rp.role === 'team_leader' ? 'rgba(212, 175, 55, 0.2)' : 'rgba(255, 255, 255, 0.1)', color: rp.role === 'team_leader' ? '#D4AF37' : '#ffffff' }}>
+                            {rp.role === 'team_leader' ? 'Chefe' : 'RP'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <button onClick={() => handleEdit(rp)} className="p-2 rounded-xl transition-all duration-300 active:scale-95"
+                      style={{ background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                      <Edit className="w-5 h-5 text-white" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-xl bg-black/20">
+                      <p className="text-xs text-gray-400 mb-1">Convidados</p>
+                      <p className="text-lg font-black text-white">{rp.guestsTonight}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-black/20">
+                      <p className="text-xs text-gray-400 mb-1">Receita</p>
+                      <p className="text-lg font-black text-[#D4AF37]">€{rp.totalRevenue}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

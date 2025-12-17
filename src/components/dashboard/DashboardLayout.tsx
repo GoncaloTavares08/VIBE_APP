@@ -1,3 +1,11 @@
+/* 
+  This patch implements:
+  1. Import 'X' icon.
+  2. isMobileMenuOpen state.
+  3. Modified Aside classes for mobile overlay behavior.
+  4. Mobile Bottom Bar component.
+  5. Close functionality for mobile sidebar.
+*/
 import { useState, useEffect } from 'react';
 import {
   Home,
@@ -11,7 +19,8 @@ import {
   Zap,
   ChevronRight,
   Menu,
-  LogOut
+  LogOut,
+  X // Added X icon
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -35,6 +44,7 @@ const menuItems = [
 export function DashboardLayout({ children, currentPage, onPageChange, user, onLogout }: DashboardLayoutProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // New state for mobile menu overlay
 
   const currentDate = new Date().toLocaleDateString('pt-PT', {
     weekday: 'long',
@@ -54,6 +64,8 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
       setIsMobile(mobile);
       if (mobile) {
         setIsCollapsed(true);
+      } else {
+        setIsMobileMenuOpen(false); // Close mobile menu when switching to desktop
       }
     };
 
@@ -64,8 +76,47 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Determine Sidebar Classes
+  // Refactored for Viewport-Constrained Layout
+  const getSidebarClasses = () => {
+    // Desktop: Flex behavior, height controlled by parent flex-row
+    const baseClasses = "flex flex-col transition-all duration-300 z-50";
+
+    if (isMobileMenuOpen) {
+      // Mobile Overlay Mode: Fixed, full screen
+      return `${baseClasses} fixed inset-0 w-full h-full bg-black/95 backdrop-blur-xl p-6`;
+    }
+
+    // Default Mode:
+    // Desktop: Visible (md:flex), no sticky needed as parent is h-screen
+    // Mobile: Hidden
+    return `${baseClasses} hidden md:flex ${isCollapsed ? 'w-20 md:w-24 p-2 md:p-4' : 'w-72 p-6'}`;
+  };
+
+  const getSidebarStyle = () => {
+    // Safety check: if detected as mobile but menu not open, force hide via inline style
+    // This handles cases where CSS 'hidden' might be overridden or conflicting
+    if (isMobile && !isMobileMenuOpen) {
+      return { display: 'none' };
+    }
+
+    // Only apply opaque black background if mobile menu is actively open
+    if (isMobileMenuOpen) {
+      return { background: '#000000' };
+    }
+
+    // Default desktop glassmorphism
+    // (Will be applied to hidden element on mobile, so no impact)
+    return {
+      background: 'rgba(255, 255, 255, 0.03)',
+      borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+      backdropFilter: 'blur(20px)',
+    };
+  };
+
   return (
-    <div className="flex min-h-screen w-full" style={{ background: '#0a0a0a' }}>
+    // Root: Viewport-constrained (h-screen), Mobile: Column, Desktop: Row
+    <div className="flex h-screen w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
       {/* Animated background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-[#D4AF37] opacity-10 blur-[150px] rounded-full animate-pulse"></div>
@@ -75,16 +126,25 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
 
       {/* Sidebar */}
       <aside
-        className={`h-screen sticky top-0 flex flex-col transition-all duration-300 z-50 ${isCollapsed ? 'w-20 md:w-24 p-2 md:p-4' : 'w-72 p-6'} ${isMobile && !isCollapsed ? 'fixed inset-y-0 left-0 w-72 bg-black/90 backdrop-blur-xl border-r border-white/10' : ''}`}
-        style={{
-          background: isMobile && !isCollapsed ? '#000000' : 'rgba(255, 255, 255, 0.03)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
-          backdropFilter: isMobile && !isCollapsed ? 'none' : 'blur(20px)',
-        }}
+        className={getSidebarClasses()}
+        style={getSidebarStyle()}
       >
-        {/* Logo & Toggle */}
-        <div className={`mb-8 md:mb-12 flex items-center ${isCollapsed ? 'justify-center flex-col gap-4' : 'justify-between'}`}>
-          <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
+        {/* Mobile Close Button */}
+        {isMobile && isMobileMenuOpen && (
+          <button
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="absolute top-4 right-4 p-2 text-white hover:text-gray-300"
+          >
+            <X className="w-8 h-8" />
+          </button>
+        )}
+
+        {/* Logo & Toggle - Hidden on Mobile Menu Overlay if desired, or kept for consistency.
+            Request says "permitindo fechar com um X no canto", so maybe we don't need the toggle button inside the overlay.
+            But let's keep the logo.
+        */}
+        <div className={`mb-8 md:mb-12 flex items-center ${isCollapsed && !isMobileMenuOpen ? 'justify-center flex-col gap-4' : 'justify-between'}`}>
+          <div className={`flex items-center gap-3 ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}>
             <div
               className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center shrink-0"
               style={{
@@ -94,7 +154,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
             >
               <Zap className="w-6 h-6 md:w-7 md:h-7 text-black" fill="black" />
             </div>
-            {!isCollapsed && (
+            {(!isCollapsed || isMobileMenuOpen) && (
               <span
                 className="text-xl md:text-2xl font-black tracking-tight"
                 style={{
@@ -109,12 +169,14 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
             )}
           </div>
 
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
+          {!isMobile && !isMobileMenuOpen && (
+            <button
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+          )}
         </div>
 
         {/* Menu Items */}
@@ -128,18 +190,20 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
                 key={item.id}
                 onClick={() => {
                   onPageChange(item.id);
-                  if (isMobile) setIsCollapsed(true);
+                  if (isMobile) {
+                    setIsMobileMenuOpen(false); // Close menu on selection
+                  }
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-3 md:px-4 rounded-xl transition-all duration-300 group ${isCollapsed ? 'justify-center' : ''}`}
+                className={`w-full flex items-center gap-3 px-3 py-3 md:px-4 rounded-xl transition-all duration-300 group ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}
                 style={{
                   background: isActive ? 'rgba(212, 175, 55, 0.15)' : 'transparent',
                   border: isActive ? '1px solid rgba(212, 175, 55, 0.3)' : '1px solid transparent',
                   color: isActive ? '#D4AF37' : '#ffffff',
                 }}
-                title={isCollapsed ? item.label : undefined}
+                title={isCollapsed && !isMobileMenuOpen ? item.label : undefined}
               >
                 <Icon className="w-5 h-5 shrink-0" />
-                {!isCollapsed && (
+                {(!isCollapsed || isMobileMenuOpen) && (
                   <>
                     <span className="flex-1 text-left font-medium text-sm md:text-base">{item.label}</span>
                     {isActive && <ChevronRight className="w-4 h-4" />}
@@ -152,7 +216,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
 
         {/* User Profile */}
         <div
-          className={`mt-6 p-3 md:p-4 rounded-2xl flex ${isCollapsed ? 'flex-col justify-center items-center' : 'flex-row items-center'} gap-3 transition-all duration-300`}
+          className={`mt-6 p-3 md:p-4 rounded-2xl flex ${isCollapsed && !isMobileMenuOpen ? 'flex-col justify-center items-center' : 'flex-row items-center'} gap-3 transition-all duration-300`}
           style={{
             background: 'rgba(255, 255, 255, 0.05)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -168,7 +232,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
             {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
           </div>
 
-          {!isCollapsed ? (
+          {!isCollapsed || isMobileMenuOpen ? (
             <>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-white truncate text-sm md:text-base">{user?.name || 'Admin'}</p>
@@ -195,7 +259,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 relative transition-all duration-300 w-full overflow-hidden">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden relative transition-all duration-300 w-full">
         {/* Header */}
         <header
           className="sticky top-0 z-10 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between"
@@ -241,10 +305,67 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
         </header>
 
         {/* Page Content */}
-        <div className="p-4 md:p-8 overflow-x-hidden">
+        {/* Standard padding, no huge bottom padding needed as Bottom Nav is external block */}
+        <div className="p-4 md:p-8">
           {children}
         </div>
       </main>
+
+      {/* Mobile Bottom Navigation Bar (Static Block) */}
+      {isMobile && (
+        <div
+          className="shrink-0 z-40 px-6 py-4 flex items-center justify-between"
+          style={{
+            background: '#000000',
+            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+          }}
+        >
+          {/* 1. Open Menu Button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
+          >
+            <Menu className="w-6 h-6" />
+            <span className="text-[10px] font-medium">Menu</span>
+          </button>
+
+          {/* 2. Dashboard */}
+          <button
+            onClick={() => onPageChange('dashboard')}
+            className={`flex flex-col items-center gap-1 transition-colors ${currentPage === 'dashboard' ? 'text-[#D4AF37]' : 'text-gray-400'}`}
+          >
+            <Home className="w-6 h-6" />
+            <span className="text-[10px] font-medium">Dashboard</span>
+          </button>
+
+          {/* 3. RPs */}
+          <button
+            onClick={() => onPageChange('rps')}
+            className={`flex flex-col items-center gap-1 transition-colors ${currentPage === 'rps' ? 'text-[#D4AF37]' : 'text-gray-400'}`}
+          >
+            <Users className="w-6 h-6" />
+            <span className="text-[10px] font-medium">RPs</span>
+          </button>
+
+          {/* 4. Events */}
+          <button
+            onClick={() => onPageChange('events')}
+            className={`flex flex-col items-center gap-1 transition-colors ${currentPage === 'events' ? 'text-[#D4AF37]' : 'text-gray-400'}`}
+          >
+            <Calendar className="w-6 h-6" />
+            <span className="text-[10px] font-medium">Eventos</span>
+          </button>
+
+          {/* 5. Settings */}
+          <button
+            onClick={() => onPageChange('settings')}
+            className={`flex flex-col items-center gap-1 transition-colors ${currentPage === 'settings' ? 'text-[#D4AF37]' : 'text-gray-400'}`}
+          >
+            <Settings className="w-6 h-6" />
+            <span className="text-[10px] font-medium">Definições</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
