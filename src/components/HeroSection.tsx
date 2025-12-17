@@ -1,6 +1,10 @@
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
-export function HeroSection() {
+interface HeroSectionProps {
+  onLoginClick?: () => void;
+}
+
+export function HeroSection({ onLoginClick }: HeroSectionProps) {
   return (
     <section className="container mx-auto px-4 py-20 md:py-32">
       <div className="grid md:grid-cols-2 gap-12 items-center">
@@ -27,6 +31,7 @@ export function HeroSection() {
 
           <div className="pt-4">
             <button 
+              onClick={onLoginClick}
               className="group relative px-8 py-4 rounded-xl overflow-hidden transition-all duration-300 hover:scale-105"
               style={{
                 background: 'rgba(255, 255, 255, 0.05)',

@@ -11,10 +11,10 @@ class Database
     {
         $this->loadEnv(__DIR__ . '/../../.env');
 
-        $this->host = $_ENV['DB_HOST'] ?? 'localhost';
-        $this->db_name = $_ENV['DB_DATABASE'] ?? 'vibe_db';
-        $this->username = $_ENV['DB_USERNAME'] ?? 'root';
-        $this->password = $_ENV['DB_PASSWORD'] ?? '';
+        $this->host = $_ENV['DB_HOST'];
+        $this->db_name = $_ENV['DB_NAME'];
+        $this->username = $_ENV['DB_USER'];
+        $this->password = $_ENV['DB_PASS'];
     }
 
     private function loadEnv($path)

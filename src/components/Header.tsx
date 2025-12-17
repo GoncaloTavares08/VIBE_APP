@@ -1,6 +1,10 @@
 import { Zap } from 'lucide-react';
 
-export function Header() {
+interface HeaderProps {
+  onLoginClick?: () => void;
+}
+
+export function Header({ onLoginClick }: HeaderProps) {
   return (
     <header className="container mx-auto px-4 py-6">
       <nav className="flex items-center justify-between">
@@ -31,6 +35,7 @@ export function Header() {
         {/* Navigation (optional - can add menu items later) */}
         <div className="flex items-center gap-4">
           <button 
+            onClick={onLoginClick}
             className="px-6 py-2 rounded-lg transition-all duration-300 hover:scale-105"
             style={{
               background: 'rgba(255, 255, 255, 0.05)',
