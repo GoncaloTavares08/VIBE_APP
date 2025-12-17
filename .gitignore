@@ -1,0 +1,26 @@
+# System & Tools
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Backend (PHP/Composer)
+vendor/
+composer.lock
+
+# Frontend (Node/NPM)
+node_modules/
+package-lock.json
+build/
+dist/
+
+# Security & Config
+.env
+config.php
+
+# Documentation (User Request)
+README.md
+ROADMAP.md
+
+# Uploads
+public/uploads/
