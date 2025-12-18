@@ -143,7 +143,7 @@ export function Auth({ onLoginSuccess }: AuthProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://127.0.0.1/api/controllers/auth.php', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/controllers/auth.php`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
