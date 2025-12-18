@@ -5,12 +5,16 @@ import { HeroSection } from './components/HeroSection';
 import { FeaturesGrid } from './components/FeaturesGrid';
 import { Auth } from './components/Auth';
 import { Dashboard } from './components/Dashboard';
+import { RPDashboard } from './components/RPDashboard';
+import { DoorOpsApp } from './components/staff/StaffApp';
 import { useState, useEffect } from 'react';
 import './styles/globals.css';
 
 export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showRPDashboard, setShowRPDashboard] = useState<false | 'rp' | 'team_leader'>(false);
+  const [showStaffApp, setShowStaffApp] = useState(false);
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
@@ -20,6 +24,10 @@ export default function App() {
       setUser(parsedUser);
       if (parsedUser.role === 'ADMIN') {
         setShowDashboard(true);
+      } else if (parsedUser.role === 'RP' || parsedUser.role === 'TEAM_LEADER') {
+        setShowRPDashboard(parsedUser.role === 'TEAM_LEADER' ? 'team_leader' : 'rp');
+      } else if (parsedUser.role === 'STAFF') {
+        setShowStaffApp(true);
       }
     }
   }, []);
@@ -29,6 +37,10 @@ export default function App() {
     setShowAuth(false); // Close auth modal
     if (userData.role === 'ADMIN') {
       setShowDashboard(true);
+    } else if (userData.role === 'RP' || userData.role === 'TEAM_LEADER') {
+      setShowRPDashboard(userData.role === 'TEAM_LEADER' ? 'team_leader' : 'rp');
+    } else if (userData.role === 'STAFF') {
+      setShowStaffApp(true);
     }
   };
 
@@ -36,11 +48,23 @@ export default function App() {
     localStorage.removeItem('user');
     setUser(null);
     setShowDashboard(false);
+    setShowRPDashboard(false);
+    setShowStaffApp(false);
   };
 
   // Show dashboard (simulate logged in admin)
   if (showDashboard) {
     return <Dashboard user={user} onLogout={handleLogout} />;
+  }
+
+  // Show RP dashboard
+  if (showRPDashboard) {
+    return <RPDashboard userRole={showRPDashboard} user={user} onLogout={handleLogout} />;
+  }
+
+  // Show Staff App
+  if (showStaffApp) {
+    return <DoorOpsApp onLogout={handleLogout} />;
   }
 
   // Show auth screen
