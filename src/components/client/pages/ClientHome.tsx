@@ -1,0 +1,390 @@
+import { useState } from 'react';
+import { ImageWithFallback } from '../../figma/ImageWithFallback';
+import { Clock, Lock, MapPin, QrCode, TrendingUp, Users, Heart, Award } from 'lucide-react';
+import { WhoIsHere } from '../WhoIsHere';
+import { PersonProfileModal } from '../PersonProfileModal';
+import { Leaderboard } from '../Leaderboard';
+
+type PartyState = 'no-guestlist' | 'has-guestlist' | 'live-party';
+
+interface Person {
+  id: number;
+  name: string;
+  age: number;
+  bio: string;
+  vibes: number;
+  photos: string[];
+  distance: string;
+  points?: number;
+  instagram?: string;
+}
+
+export function ClientHome() {
+  // Change this to toggle between states
+  const [partyState, setPartyState] = useState<PartyState>('no-guestlist');
+  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const [matches, setMatches] = useState<number[]>([]);
+
+  const handleMatch = (person: Person) => {
+    setMatches([...matches, person.id]);
+  };
+
+  const handlePersonClick = (person: Person) => {
+    setSelectedPerson(person);
+  };
+
+  return (
+    <div className="min-h-screen" style={{ background: '#0a0a0a' }}>
+      {/* Ambient background glow */}
+      <div
+        className="fixed inset-0 opacity-20 pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle at 20% 20%, rgba(212, 175, 55, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(147, 51, 234, 0.2) 0%, transparent 50%)',
+        }}
+      />
+
+      <div className="relative z-10 p-4 lg:p-8 space-y-6">
+        {/* State Switcher (for demo purposes) */}
+        <div className="flex gap-2 justify-center mb-4">
+          <button
+            onClick={() => setPartyState('no-guestlist')}
+            className="px-4 py-2 rounded-lg text-sm"
+            style={{
+              background: partyState === 'no-guestlist' ? 'rgba(212, 175, 55, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+              color: partyState === 'no-guestlist' ? '#D4AF37' : '#888',
+            }}
+          >
+            No Guestlist
+          </button>
+          <button
+            onClick={() => setPartyState('has-guestlist')}
+            className="px-4 py-2 rounded-lg text-sm"
+            style={{
+              background: partyState === 'has-guestlist' ? 'rgba(212, 175, 55, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+              color: partyState === 'has-guestlist' ? '#D4AF37' : '#888',
+            }}
+          >
+            Has Guestlist
+          </button>
+          <button
+            onClick={() => setPartyState('live-party')}
+            className="px-4 py-2 rounded-lg text-sm"
+            style={{
+              background: partyState === 'live-party' ? 'rgba(212, 175, 55, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+              color: partyState === 'live-party' ? '#D4AF37' : '#888',
+            }}
+          >
+            Live Party
+          </button>
+        </div>
+
+        {/* Variation A: No Guestlist */}
+        {partyState === 'no-guestlist' && <NoGuestlistView />}
+
+        {/* Variation B: Has Guestlist */}
+        {partyState === 'has-guestlist' && <HasGuestlistView />}
+
+        {/* Variation C: Live Party */}
+        {partyState === 'live-party' && <LivePartyView />}
+      </div>
+    </div>
+  );
+}
+
+// Variation A: No Guestlist
+function NoGuestlistView() {
+  return (
+    <>
+      {/* Hero: Next Event Card */}
+      <div
+        className="relative overflow-hidden rounded-3xl"
+        style={{
+          background: 'rgba(0, 0, 0, 0.4)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        {/* Background Image */}
+        <div className="absolute inset-0">
+          <ImageWithFallback
+            src="https://images.unsplash.com/photo-1744314080490-ed41f6319475?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxuaWdodGNsdWIlMjBwYXJ0eSUyMGNyb3dkfGVufDF8fHx8MTc2NjA2ODIwN3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
+            alt="Party"
+            className="w-full h-full object-cover"
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.9) 100%)',
+            }}
+          />
+        </div>
+
+        {/* Content */}
+        <div className="relative z-10 p-8 space-y-6">
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Next Event</p>
+            <h2
+              className="text-4xl font-black"
+              style={{
+                background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              Saturday Night Fever
+            </h2>
+            <p className="text-gray-300 mt-2">Main Club · Rua Augusta 45</p>
+          </div>
+
+          {/* Countdown Timer */}
+          <div className="flex gap-4">
+            <div className="text-center">
+              <div
+                className="text-3xl font-black"
+                style={{ color: '#D4AF37' }}
+              >
+                02
+              </div>
+              <div className="text-xs text-gray-400">DAYS</div>
+            </div>
+            <div className="text-3xl text-gray-600">:</div>
+            <div className="text-center">
+              <div
+                className="text-3xl font-black"
+                style={{ color: '#D4AF37' }}
+              >
+                12
+              </div>
+              <div className="text-xs text-gray-400">HOURS</div>
+            </div>
+            <div className="text-3xl text-gray-600">:</div>
+            <div className="text-center">
+              <div
+                className="text-3xl font-black"
+                style={{ color: '#D4AF37' }}
+              >
+                30
+              </div>
+              <div className="text-xs text-gray-400">MIN</div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <button
+            className="w-full py-4 rounded-xl transition-all duration-300 hover:scale-105"
+            style={{
+              background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+              boxShadow: '0 8px 30px rgba(212, 175, 55, 0.4)',
+            }}
+          >
+            <span className="text-black font-black">Get on Guestlist</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Recommended RPs */}
+      <div className="space-y-4">
+        <h3 className="text-xl font-black text-white">Recommended RPs</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            { name: 'Carlos Mendes', status: 'Gold RP' },
+            { name: 'Maria Santos', status: 'Platinum RP' },
+            { name: 'João Costa', status: 'Diamond RP' },
+          ].map((rp, i) => (
+            <div
+              key={i}
+              className="p-6 rounded-2xl transition-all duration-300 hover:scale-105"
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              <div className="flex items-center gap-4 mb-4">
+                <div
+                  className="w-14 h-14 rounded-full"
+                  style={{
+                    background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                  }}
+                />
+                <div>
+                  <p className="text-white">{rp.name}</p>
+                  <p className="text-xs text-gray-400">{rp.status}</p>
+                </div>
+              </div>
+              <button
+                className="w-full py-3 rounded-lg transition-all"
+                style={{
+                  background: 'rgba(212, 175, 55, 0.2)',
+                  border: '1px solid rgba(212, 175, 55, 0.4)',
+                  color: '#D4AF37',
+                }}
+              >
+                Enter List
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Variation B: Has Guestlist (Locked)
+function HasGuestlistView() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div
+        className="max-w-md w-full p-10 rounded-3xl text-center space-y-6"
+        style={{
+          background: 'rgba(255, 255, 255, 0.03)',
+          backdropFilter: 'blur(40px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        {/* Lock Icon */}
+        <div className="flex justify-center">
+          <div
+            className="w-20 h-20 rounded-full flex items-center justify-center"
+            style={{
+              background: 'rgba(212, 175, 55, 0.2)',
+              border: '2px solid rgba(212, 175, 55, 0.4)',
+              boxShadow: '0 0 40px rgba(212, 175, 55, 0.3)',
+            }}
+          >
+            <Lock className="w-10 h-10 text-[#D4AF37]" />
+          </div>
+        </div>
+
+        {/* Text */}
+        <div className="space-y-3">
+          <h3
+            className="text-2xl font-black"
+            style={{
+              background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+            }}
+          >
+            You are on the list for
+            <br />
+            Friday Madness
+          </h3>
+          <p className="text-gray-400">
+            This area unlocks when you arrive at the party.
+            <br />
+            Until then, boost your VIBE score.
+          </p>
+        </div>
+
+        {/* Status Badge */}
+        <div
+          className="inline-flex items-center gap-2 px-5 py-2 rounded-full"
+          style={{
+            background: 'rgba(34, 197, 94, 0.2)',
+            border: '1px solid rgba(34, 197, 94, 0.4)',
+          }}
+        >
+          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+          <span className="text-green-400 text-sm">Guestlist Confirmed</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Variation C: Live Party (WOW FACTOR!)
+function LivePartyView() {
+  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const [matches, setMatches] = useState<number[]>([]);
+
+  const handleMatch = (person: Person) => {
+    setMatches([...matches, person.id]);
+  };
+
+  const handlePersonClick = (person: Person) => {
+    setSelectedPerson(person);
+  };
+
+  return (
+    <>
+      {/* Live Header */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+          <span className="text-red-500 font-black uppercase tracking-wider">Live</span>
+        </div>
+        <span className="text-white">at Main Club</span>
+        <MapPin className="w-4 h-4 text-gray-400" />
+      </div>
+
+      {/* Bar QR Card */}
+      <div
+        className="p-8 rounded-3xl text-center space-y-4 transition-all duration-300 hover:scale-105 cursor-pointer"
+        style={{
+          background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(255, 215, 0, 0.2) 100%)',
+          backdropFilter: 'blur(30px)',
+          border: '2px solid rgba(212, 175, 55, 0.5)',
+          boxShadow: '0 0 60px rgba(212, 175, 55, 0.4)',
+        }}
+      >
+        <QrCode className="w-24 h-24 mx-auto text-[#D4AF37]" />
+        <p className="text-[#D4AF37] font-black text-xl">Show Bar QR</p>
+        <p className="text-sm text-gray-300">Tap to accumulate points</p>
+      </div>
+
+      {/* Who is Here - Tinder Style */}
+      <div
+        className="p-6 rounded-2xl space-y-4"
+        style={{
+          background: 'rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-white font-black">Who is Here</h3>
+          <Users className="w-5 h-5 text-gray-400" />
+        </div>
+        <WhoIsHere onMatch={handleMatch} onPersonClick={handlePersonClick} />
+      </div>
+
+      {/* Leaderboard with Tabs */}
+      <Leaderboard onPersonClick={handlePersonClick} />
+
+      {/* Person Profile Modal */}
+      {selectedPerson && (
+        <PersonProfileModal
+          person={selectedPerson}
+          isMatch={matches.includes(selectedPerson.id)}
+          onClose={() => setSelectedPerson(null)}
+        />
+      )}
+
+      {/* Vibe Mode Toggle */}
+      <div
+        className="p-6 rounded-2xl flex items-center justify-between"
+        style={{
+          background: 'rgba(147, 51, 234, 0.1)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(147, 51, 234, 0.3)',
+        }}
+      >
+        <div>
+          <p className="text-white font-black">Vibe Mode</p>
+          <p className="text-sm text-gray-400">Auto-share your moments</p>
+        </div>
+        <div
+          className="w-14 h-8 rounded-full p-1 cursor-pointer transition-all"
+          style={{
+            background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+          }}
+        >
+          <div
+            className="w-6 h-6 bg-black rounded-full transition-transform"
+            style={{ transform: 'translateX(24px)' }}
+          />
+        </div>
+      </div>
+    </>
+  );
+}

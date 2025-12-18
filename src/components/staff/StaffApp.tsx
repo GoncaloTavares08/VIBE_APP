@@ -106,8 +106,12 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
     // Re-using the mobile layout from before, as that was specifically requested for mobile
     return (
       <div className="h-screen flex flex-col" style={{ background: '#0a0a0a' }}>
-        <div className="flex-1 relative overflow-hidden pb-20">
-          {currentView === 'scanner' && <Scanner onOpenManual={() => setShowManualCheckin(true)} />}
+        <div className="flex-1 relative overflow-hidden h-full">
+          {currentView === 'scanner' && (
+            <div className="h-full overflow-hidden">
+              <Scanner onOpenManual={() => setShowManualCheckin(true)} />
+            </div>
+          )}
           {currentView === 'statistics' && <Statistics />}
         </div>
         {/* Floating Manual Check-in Button */}

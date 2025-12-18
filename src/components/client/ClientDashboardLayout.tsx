@@ -1,42 +1,41 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Home,
-  Users,
-  History,
-  Calendar,
-  Trophy,
-  Gift,
-  Settings,
+  Wallet,
+  ScanQrCode,
+  Clock,
+  User,
+  LogOut,
+  Menu,
+  X,
   Bell,
   Zap,
-  ChevronRight,
-  Menu,
-  LogOut,
-  X // Added X icon
+  ChevronRight
 } from 'lucide-react';
 
-interface DashboardLayoutProps {
+interface ClientDashboardLayoutProps {
   children: React.ReactNode;
   currentPage: string;
   onPageChange: (page: string) => void;
-  user?: any;
+  user?: any; // Added user prop
   onLogout?: () => void;
 }
 
 const menuItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: Home },
-  { id: 'rps', label: 'RPs e Equipas', icon: Users },
-  { id: 'history', label: 'Histórico', icon: History },
-  { id: 'events', label: 'Eventos', icon: Calendar },
-  { id: 'competitions', label: 'Competições', icon: Trophy },
-  { id: 'rewards', label: 'Prémios', icon: Gift },
-  { id: 'settings', label: 'Definições', icon: Settings },
+  { id: 'home', label: 'Festa Atual', icon: Home },
+  { id: 'wallet', label: 'Carteira', icon: Wallet },
+  { id: 'qr', label: 'QR Code', icon: ScanQrCode },
+  { id: 'history', label: 'Histórico', icon: Clock },
+  { id: 'profile', label: 'Perfil', icon: User },
 ];
 
-export function DashboardLayout({ children, currentPage, onPageChange, user, onLogout }: DashboardLayoutProps) {
+export function ClientDashboardLayout({ children, currentPage, onPageChange, user, onLogout }: ClientDashboardLayoutProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // New state for mobile menu overlay
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Default Name if user is missing
+  const userName = user?.name || "Cliente VIBE";
 
   const currentDate = new Date().toLocaleDateString('pt-PT', {
     weekday: 'long',
@@ -78,9 +77,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
   }, [currentPage]);
 
   // Determine Sidebar Classes
-  // Refactored for Viewport-Constrained Layout
   const getSidebarClasses = () => {
-    // Desktop: Flex behavior, height controlled by parent flex-row
     const baseClasses = "flex flex-col transition-all duration-300 z-50";
 
     if (isMobileMenuOpen) {
@@ -95,19 +92,14 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
   };
 
   const getSidebarStyle = () => {
-    // Safety check: if detected as mobile but menu not open, force hide via inline style
-    // This handles cases where CSS 'hidden' might be overridden or conflicting
     if (isMobile && !isMobileMenuOpen) {
       return { display: 'none' };
     }
 
-    // Only apply opaque black background if mobile menu is actively open
     if (isMobileMenuOpen) {
       return { background: '#000000' };
     }
 
-    // Default desktop glassmorphism
-    // (Will be applied to hidden element on mobile, so no impact)
     return {
       background: 'rgba(255, 255, 255, 0.03)',
       borderRight: '1px solid rgba(255, 255, 255, 0.1)',
@@ -116,7 +108,6 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
   };
 
   return (
-    // Root: Viewport-constrained (h-screen), Mobile: Column, Desktop: Row
     <div className="flex h-screen w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
       {/* Animated background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -140,10 +131,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
           </button>
         )}
 
-        {/* Logo & Toggle - Hidden on Mobile Menu Overlay if desired, or kept for consistency.
-            Request says "permitindo fechar com um X no canto", so maybe we don't need the toggle button inside the overlay.
-            But let's keep the logo.
-        */}
+        {/* Logo & Toggle */}
         <div className={`mb-8 md:mb-12 flex items-center ${isCollapsed && !isMobileMenuOpen ? 'justify-center flex-col gap-4' : 'justify-between'}`}>
           <div className={`flex items-center gap-3 ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}>
             <div
@@ -156,17 +144,20 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
               <Zap className="w-6 h-6 md:w-7 md:h-7 text-black" fill="black" />
             </div>
             {(!isCollapsed || isMobileMenuOpen) && (
-              <span
-                className="text-xl md:text-2xl font-black tracking-tight"
-                style={{
-                  background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text'
-                }}
-              >
-                VIBE
-              </span>
+              <div className="flex flex-col">
+                <span
+                  className="text-xl md:text-2xl font-black tracking-tight leading-none"
+                  style={{
+                    background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text'
+                  }}
+                >
+                  VIBE
+                </span>
+                <span className="text-[10px] text-[#D4AF37] font-bold tracking-widest uppercase">Client Hub</span>
+              </div>
             )}
           </div>
 
@@ -230,14 +221,14 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
               color: '#000000',
             }}
           >
-            {user?.name ? user.name.charAt(0).toUpperCase() : 'A'}
+            {userName.charAt(0)}
           </div>
 
           {!isCollapsed || isMobileMenuOpen ? (
             <>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-white truncate text-sm md:text-base">{user?.name || 'Admin'}</p>
-                <p className="text-xs text-gray-400 truncate">{user?.email || 'admin@vibe.pt'}</p>
+                <p className="font-semibold text-white truncate text-sm md:text-base">{userName}</p>
+                <p className="text-xs text-gray-400 truncate">VIBE Guest</p>
               </div>
               <button
                 onClick={onLogout}
@@ -260,7 +251,11 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
       </aside>
 
       {/* Main Content */}
-      <main ref={mainContentRef} className="flex-1 overflow-y-auto overflow-x-hidden relative transition-all duration-300 w-full">
+      <main
+        ref={mainContentRef}
+        className={`flex-1 overflow-x-hidden relative transition-all duration-300 w-full ${['qr'].includes(currentPage) ? 'overflow-y-hidden' : 'overflow-y-auto'
+          }`}
+      >
         {/* Header */}
         <header
           className="sticky top-0 z-10 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between"
@@ -268,6 +263,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
             background: 'rgba(10, 10, 10, 0.8)',
             backdropFilter: 'blur(20px)',
             borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            zIndex: 30, // Increased z-index
           }}
         >
           <div>
@@ -280,7 +276,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
                 backgroundClip: 'text'
               }}
             >
-              Olá, {user?.name || 'Admin'}
+              Olá, {userName.split(' ')[0]}
             </h1>
             <p className="text-xs md:text-sm text-gray-400">{currentDate} • {currentTime}</p>
           </div>
@@ -306,7 +302,6 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
         </header>
 
         {/* Page Content */}
-        {/* Standard padding, large bottom padding for mobile to account for fixed Bottom Nav */}
         <div className="p-4 md:p-8 pb-24 md:pb-8">
           {children}
         </div>
@@ -319,7 +314,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
           style={{
             background: '#000000',
             borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-            paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' // Respect safe area
+            paddingBottom: 'max(1rem, env(safe-area-inset-bottom))'
           }}
         >
           {/* 1. Open Menu Button */}
@@ -331,41 +326,30 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
             <span className="text-[10px] font-medium">Menu</span>
           </button>
 
-          {/* 2. Dashboard */}
-          <button
-            onClick={() => onPageChange('dashboard')}
-            className={`flex flex-col items-center gap-1 transition-colors ${currentPage === 'dashboard' ? 'text-[#D4AF37]' : 'text-gray-400'}`}
-          >
-            <Home className="w-6 h-6" />
-            <span className="text-[10px] font-medium">Dashboard</span>
-          </button>
-
-          {/* 3. RPs */}
-          <button
-            onClick={() => onPageChange('rps')}
-            className={`flex flex-col items-center gap-1 transition-colors ${currentPage === 'rps' ? 'text-[#D4AF37]' : 'text-gray-400'}`}
-          >
-            <Users className="w-6 h-6" />
-            <span className="text-[10px] font-medium">RPs</span>
-          </button>
-
-          {/* 4. Events */}
-          <button
-            onClick={() => onPageChange('events')}
-            className={`flex flex-col items-center gap-1 transition-colors ${currentPage === 'events' ? 'text-[#D4AF37]' : 'text-gray-400'}`}
-          >
-            <Calendar className="w-6 h-6" />
-            <span className="text-[10px] font-medium">Eventos</span>
-          </button>
-
-          {/* 5. Settings */}
-          <button
-            onClick={() => onPageChange('settings')}
-            className={`flex flex-col items-center gap-1 transition-colors ${currentPage === 'settings' ? 'text-[#D4AF37]' : 'text-gray-400'}`}
-          >
-            <Settings className="w-6 h-6" />
-            <span className="text-[10px] font-medium">Definições</span>
-          </button>
+          {/* Render All Menu Items except Profile (or last one) to fit? 
+              User wants "sidebar bottom bar... corresponda com as restantes paginas".
+              RP Layout shows slice(1, 5).
+              Here we have 5 items: Home, Wallet, QR, History, Profile.
+              Let's show Home, Wallet, QR, History. Menu opens sidebar for Profile?
+              Or maybe replace Menu with Home if Menu is separate...
+              RP Layout: Menu Button + 4 items.
+              Here we have 5 items. 
+              Let's put Home, Wallet, QR, History in the bar. Profile in Menu.
+          */}
+          {menuItems.slice(0, 4).map((item) => {
+            const Icon = item.icon;
+            const isActive = currentPage === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => onPageChange(item.id)}
+                className={`flex flex-col items-center gap-1 transition-colors ${isActive ? 'text-[#D4AF37]' : 'text-gray-400'}`}
+              >
+                <Icon className="w-6 h-6" />
+                <span className="text-[10px] font-medium">{item.label}</span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
