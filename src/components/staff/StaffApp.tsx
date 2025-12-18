@@ -136,6 +136,10 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
               <div className="p-2 rounded-2xl" style={{ background: currentView === 'statistics' ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}><BarChart3 className="w-6 h-6" /></div>
               <span className="text-xs font-medium">Statistics</span>
             </button>
+            <button onClick={onLogout} className="flex flex-col items-center gap-1 px-6 py-2" style={{ color: '#888888' }}>
+              <div className="p-2 rounded-2xl"><LogOut className="w-6 h-6" /></div>
+              <span className="text-xs font-medium">Sair</span>
+            </button>
           </div>
         </div>
         {showManualCheckin && <ManualCheckin onClose={() => setShowManualCheckin(false)} />}

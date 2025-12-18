@@ -297,8 +297,8 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
         </header>
 
         {/* Page Content */}
-        {/* Standard padding, no huge bottom padding needed as Bottom Nav is external block */}
-        <div className="p-4 md:p-8">
+        {/* Standard padding, large bottom padding for mobile to account for fixed Bottom Nav */}
+        <div className="p-4 md:p-8 pb-24 md:pb-8">
           {children}
         </div>
       </main>
@@ -306,10 +306,11 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
       {/* Mobile Bottom Navigation Bar (Static Block) */}
       {isMobile && (
         <div
-          className="shrink-0 z-40 px-6 py-4 flex items-center justify-between"
+          className="fixed bottom-0 left-0 right-0 z-40 px-6 py-4 flex items-center justify-between"
           style={{
             background: '#000000',
             borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+            paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' // Respect safe area
           }}
         >
           {/* 1. Open Menu Button */}

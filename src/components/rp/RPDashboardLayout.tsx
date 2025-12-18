@@ -285,7 +285,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
         </header>
 
         {/* Page Content */}
-        <div className="p-4 md:p-8">
+        <div className="p-4 md:p-8 pb-24 md:pb-8">
           {children}
         </div>
       </main>
@@ -293,10 +293,11 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
       {/* Mobile Bottom Navigation Bar (Static Block) */}
       {isMobile && (
         <div
-          className="shrink-0 z-40 px-6 py-4 flex items-center justify-between"
+          className="fixed bottom-0 left-0 right-0 z-40 px-6 py-4 flex items-center justify-between"
           style={{
             background: '#000000',
             borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+            paddingBottom: 'max(1rem, env(safe-area-inset-bottom))'
           }}
         >
           {/* 1. Open Menu Button */}
