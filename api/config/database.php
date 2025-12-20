@@ -1,36 +1,93 @@
 <?php
 include_once __DIR__ . '/../utils/load_env.php';
+
+loadEnv(__DIR__ . '/../../.env');
+
 class Database
 {
     private $host;
-    private $db_name;
     private $username;
     private $password;
     public $conn;
 
     public function __construct()
     {
-        loadEnv(__DIR__ . '/../../.env');
-
         $this->host = $_ENV['DB_HOST'] ?? getenv('DB_HOST');
-        $this->db_name = $_ENV['DB_NAME'] ?? getenv('DB_NAME');
         $this->username = $_ENV['DB_USER'] ?? getenv('DB_USER');
         $this->password = $_ENV['DB_PASS'] ?? getenv('DB_PASS');
     }
 
-    public function getConnection()
+    /**
+     * Get connection to GLOBAL database (for authentication, users table)
+     */
+    public function getGlobalConnection()
     {
-        $this->conn = null;
+        $global_db = $_ENV['GLOBAL_DB_NAME'] ?? getenv('GLOBAL_DB_NAME');
 
         try {
-            $this->conn = new PDO("mysql:host=" . $this->host . ";dbname=" . $this->db_name, $this->username, $this->password);
-            $this->conn->exec("set names utf8");
+            $conn = new PDO(
+                "mysql:host=" . $this->host . ";dbname=" . $global_db,
+                $this->username,
+                $this->password
+            );
+            $conn->exec("set names utf8mb4");
+            $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            return $conn;
         } catch (PDOException $exception) {
-            // error_log("Connection error: " . $exception->getMessage());
-            // Do not echo here, it breaks JSON
+            error_log("Global DB Connection error: " . $exception->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get connection to CLIENT-SPECIFIC database based on X-Client-ID header
+     */
+    public function getClientConnection()
+    {
+        // Get client ID from header - InfinityFree compatible way
+        $clientId = 'vr'; // default
+
+        // Try to get from $_SERVER (works on InfinityFree)
+        if (isset($_SERVER['HTTP_X_CLIENT_ID'])) {
+            $clientId = strtolower($_SERVER['HTTP_X_CLIENT_ID']);
         }
 
-        return $this->conn;
+        // Map client IDs to database names from .env
+        $databaseMap = [
+            'vr' => $_ENV['VR_DB_NAME'] ?? getenv('VR_DB_NAME'),
+            'eskada' => $_ENV['ESKADA_DB_NAME'] ?? getenv('ESKADA_DB_NAME'),
+            'lux' => $_ENV['LUX_DB_NAME'] ?? getenv('LUX_DB_NAME'),
+            'default' => $_ENV['VR_DB_NAME'] ?? getenv('VR_DB_NAME'),
+        ];
+
+        $client_db = $databaseMap[$clientId] ?? $databaseMap['default'];
+
+        try {
+            $conn = new PDO(
+                "mysql:host=" . $this->host . ";dbname=" . $client_db,
+                $this->username,
+                $this->password
+            );
+            $conn->exec("set names utf8mb4");
+            $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            return [
+                'conn' => $conn,
+                'client_id' => $clientId,
+                'db_name' => $client_db
+            ];
+        } catch (PDOException $exception) {
+            error_log("Client DB Connection error: " . $exception->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Legacy method for backward compatibility
+     * Defaults to global connection
+     */
+    public function getConnection()
+    {
+        return $this->getGlobalConnection();
     }
 }
 ?>

@@ -2,7 +2,7 @@
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: POST");
-header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With, X-Client-ID");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
@@ -13,15 +13,15 @@ include_once '../config/database.php';
 include_once '../models/User.php';
 include_once '../utils/send_email.php';
 
+// Use GLOBAL database for authentication
 $database = new Database();
-$db = $database->getConnection();
+$db = $database->getGlobalConnection();
 
 if (!$db) {
-    // Debug: show what we tried to connect to
-    $debug = "Host: " . getenv('DB_HOST') . " User: " . getenv('DB_USER');
-    echo json_encode(array("status" => "error", "message" => "Erro de conexão à base de dados. " . $debug));
+    echo json_encode(array("status" => "error", "message" => "Erro de conexão à base de dados global."));
     exit();
 }
+
 
 $user = new User($db);
 
@@ -50,6 +50,25 @@ if ($data->action == 'register') {
             echo json_encode(array("status" => "error", "message" => "Este email já está registado."));
         } else {
             if ($user->create()) {
+                // Get the newly created user ID
+                $newUserId = $db->lastInsertId();
+
+                // Get client ID from header - InfinityFree compatible
+                $clientSlug = isset($_SERVER['HTTP_X_CLIENT_ID'])
+                    ? strtolower($_SERVER['HTTP_X_CLIENT_ID'])
+                    : 'vr';
+
+                // Get club ID from slug
+                $stmt = $db->prepare("SELECT id FROM clubs WHERE slug = ?");
+                $stmt->execute([$clientSlug]);
+                $club = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($club) {
+                    // Create user_club_access entry
+                    $stmt = $db->prepare("INSERT INTO user_club_access (user_id, club_id, role) VALUES (?, ?, ?)");
+                    $stmt->execute([$newUserId, $club['id'], $user->role]);
+                }
+
                 echo json_encode(array("status" => "success", "message" => "Conta criada com sucesso!"));
             } else {
                 echo json_encode(array("status" => "error", "message" => "Erro ao criar conta."));
@@ -66,6 +85,29 @@ elseif ($data->action == 'login') {
         $email_exists = $user->emailExists();
 
         if ($email_exists && password_verify($data->password, $user->password)) {
+            // Get client ID from header - InfinityFree compatible
+            $clientSlug = isset($_SERVER['HTTP_X_CLIENT_ID'])
+                ? strtolower($_SERVER['HTTP_X_CLIENT_ID'])
+                : 'vr';
+
+            // Get club ID from slug
+            $stmt = $db->prepare("SELECT id FROM clubs WHERE slug = ?");
+            $stmt->execute([$clientSlug]);
+            $club = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($club) {
+                // Check if user_club_access already exists
+                $stmt = $db->prepare("SELECT id FROM user_club_access WHERE user_id = ? AND club_id = ?");
+                $stmt->execute([$user->id, $club['id']]);
+                $access = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                // If not exists, create it
+                if (!$access) {
+                    $stmt = $db->prepare("INSERT INTO user_club_access (user_id, club_id, role) VALUES (?, ?, ?)");
+                    $stmt->execute([$user->id, $club['id'], $user->role]);
+                }
+            }
+
             echo json_encode(array(
                 "status" => "success",
                 "message" => "Login efetuado com sucesso.",
@@ -73,7 +115,8 @@ elseif ($data->action == 'login') {
                     "id" => $user->id,
                     "name" => $user->name,
                     "email" => $user->email,
-                    "role" => $user->role
+                    "role" => $user->role,
+                    "club_slug" => $clientSlug
                 )
             ));
         } else {
@@ -91,7 +134,7 @@ elseif ($data->action == 'reset-request') {
             // Generate a random 6 character code (Uppercase Letters + Numbers)
             $chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
             $code = substr(str_shuffle($chars), 0, 6);
-            
+
             if ($user->setResetToken($code)) {
                 // Send Email
                 $subject = "VIBE App - Recuperar Password";
@@ -130,18 +173,18 @@ elseif ($data->action == 'reset-request') {
                     </body>
                     </html>
                 ";
-                
+
                 $emailResult = sendEmail($data->email, $subject, $body);
-                
+
                 if ($emailResult === true) {
                     echo json_encode(array(
-                        "status" => "success", 
+                        "status" => "success",
                         "message" => "Código enviado para o email."
                     ));
                 } else {
                     // Fallback if email fails (show actual error)
-                     echo json_encode(array(
-                        "status" => "error", 
+                    echo json_encode(array(
+                        "status" => "error",
                         "message" => "Erro de Email: " . $emailResult
                     ));
                 }
@@ -149,11 +192,11 @@ elseif ($data->action == 'reset-request') {
                 echo json_encode(array("status" => "error", "message" => "Erro ao gerar código."));
             }
         } else {
-             // Security: Don't reveal if email exists, or behave as success but do nothing.
-             // For this prompt user wants "verifique se o email existe se sim segue".
-             // If not exists, we should probably tell them or just not proceed.
-             // User said: "quero que verifique se o email existe se sim segue"
-             echo json_encode(array("status" => "error", "message" => "Email não encontrado."));
+            // Security: Don't reveal if email exists, or behave as success but do nothing.
+            // For this prompt user wants "verifique se o email existe se sim segue".
+            // If not exists, we should probably tell them or just not proceed.
+            // User said: "quero que verifique se o email existe se sim segue"
+            echo json_encode(array("status" => "error", "message" => "Email não encontrado."));
         }
     } else {
         echo json_encode(array("status" => "error", "message" => "Email é obrigatório."));
@@ -166,7 +209,7 @@ elseif ($data->action == 'verify-code') {
         if ($user->verifyResetToken($data->code)) {
             echo json_encode(array("status" => "success", "message" => "Código válido."));
         } else {
-             echo json_encode(array("status" => "error", "message" => "Código inválido ou expirado."));
+            echo json_encode(array("status" => "error", "message" => "Código inválido ou expirado."));
         }
     } else {
         echo json_encode(array("status" => "error", "message" => "Dados inválidos."));
@@ -179,7 +222,7 @@ elseif ($data->action == 'reset-password') {
         if ($user->updatePassword($data->password)) {
             echo json_encode(array("status" => "success", "message" => "Password atualizada com sucesso!"));
         } else {
-             echo json_encode(array("status" => "error", "message" => "Erro ao atualizar password."));
+            echo json_encode(array("status" => "error", "message" => "Erro ao atualizar password."));
         }
     } else {
         echo json_encode(array("status" => "error", "message" => "Dados incompletos."));

@@ -12,6 +12,7 @@ import {
   Zap,
   ChevronRight
 } from 'lucide-react';
+import { NotificationPanel } from '../NotificationPanel';
 
 interface RPDashboardLayoutProps {
   children: React.ReactNode;
@@ -30,6 +31,7 @@ const menuItems = [
 ];
 
 export function RPDashboardLayout({ children, currentPage, onPageChange, rpName = "João Silva", onLogout }: RPDashboardLayoutProps) {
+  const [showNotifications, setShowNotifications] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -279,6 +281,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
               background: 'rgba(255, 255, 255, 0.05)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
             }}
+            onClick={() => setShowNotifications(!showNotifications)}
           >
             <Bell className="w-5 h-5 text-white" />
             <span
@@ -291,6 +294,11 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
               2
             </span>
           </button>
+
+          <NotificationPanel
+            isOpen={showNotifications}
+            onClose={() => setShowNotifications(false)}
+          />
         </header>
 
         {/* Page Content */}

@@ -14,6 +14,7 @@ import {
   LogOut,
   X // Added X icon
 } from 'lucide-react';
+import { NotificationPanel } from '../NotificationPanel';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -34,6 +35,7 @@ const menuItems = [
 ];
 
 export function DashboardLayout({ children, currentPage, onPageChange, user, onLogout }: DashboardLayoutProps) {
+  const [showNotifications, setShowNotifications] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // New state for mobile menu overlay
@@ -291,6 +293,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
               background: 'rgba(255, 255, 255, 0.05)',
               border: '1px solid rgba(255, 255, 255, 0.1)',
             }}
+            onClick={() => setShowNotifications(!showNotifications)}
           >
             <Bell className="w-5 h-5 text-white" />
             <span
@@ -303,6 +306,11 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
               3
             </span>
           </button>
+
+          <NotificationPanel 
+              isOpen={showNotifications} 
+              onClose={() => setShowNotifications(false)} 
+            />
         </header>
 
         {/* Page Content */}
