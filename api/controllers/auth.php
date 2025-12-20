@@ -11,12 +11,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 include_once '../config/database.php';
 include_once '../models/User.php';
+include_once '../utils/send_email.php';
 
 $database = new Database();
 $db = $database->getConnection();
 
 if (!$db) {
-    echo json_encode(array("status" => "error", "message" => "Erro de conexão à base de dados."));
+    // Debug: show what we tried to connect to
+    $debug = "Host: " . getenv('DB_HOST') . " User: " . getenv('DB_USER');
+    echo json_encode(array("status" => "error", "message" => "Erro de conexão à base de dados. " . $debug));
     exit();
 }
 
@@ -85,15 +88,63 @@ elseif ($data->action == 'reset-request') {
     if (!empty($data->email)) {
         $user->email = $data->email;
         if ($user->emailExists()) {
-            // Generate a random 6 digit code (even if not sending email, we save it)
-            // User requested "any code works", but let's save a dummy one for structure or use 123456
-            $code = '123456'; 
+            // Generate a random 6 character code (Uppercase Letters + Numbers)
+            $chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            $code = substr(str_shuffle($chars), 0, 6);
             
             if ($user->setResetToken($code)) {
-                echo json_encode(array(
-                    "status" => "success", 
-                    "message" => "Código enviado para o email (Simulado: 123456)."
-                ));
+                // Send Email
+                $subject = "VIBE App - Recuperar Password";
+                $body = "
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <style>
+                            body { margin: 0; padding: 0; background-color: #0a0a0a; font-family: 'Arial', sans-serif; color: #ffffff; }
+                            .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #0a0a0a; }
+                            .logo { color: #D4AF37; font-size: 24px; font-weight: bold; text-align: center; margin-bottom: 30px; letter-spacing: 2px; }
+                            .card { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 40px; text-align: center; backdrop-filter: blur(10px); }
+                            .title { color: #ffffff; font-size: 20px; margin-bottom: 20px; font-weight: normal; }
+                            .token-box { background: linear-gradient(135deg, #D4AF37 0%, #FFD700 100%); color: #000000; font-size: 32px; font-weight: bold; padding: 20px; border-radius: 12px; margin: 30px 0; letter-spacing: 5px; display: inline-block; box-shadow: 0 0 20px rgba(212, 175, 55, 0.3); }
+                            .text { color: #9ca3af; font-size: 14px; line-height: 1.6; margin-bottom: 10px; }
+                            .footer { text-align: center; margin-top: 30px; color: #4b5563; font-size: 12px; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class='container'>
+                            <div class='logo'>VIBE</div>
+                            <div class='card'>
+                                <h1 class='title'>Recuperar Password</h1>
+                                <p class='text'>Recebemos um pedido para recuperar a password da tua conta.</p>
+                                <p class='text'>Usa o código abaixo para continuar:</p>
+                                
+                                <div class='token-box'>$code</div>
+                                
+                                <p class='text'>Este código expira em 15 minutos.</p>
+                                <p class='text' style='font-size: 12px; opacity: 0.7;'>Se não foste tu, por favor ignora este email.</p>
+                            </div>
+                            <div class='footer'>
+                                &copy; " . date("Y") . " VIBE App. All rights reserved.
+                            </div>
+                        </div>
+                    </body>
+                    </html>
+                ";
+                
+                $emailResult = sendEmail($data->email, $subject, $body);
+                
+                if ($emailResult === true) {
+                    echo json_encode(array(
+                        "status" => "success", 
+                        "message" => "Código enviado para o email."
+                    ));
+                } else {
+                    // Fallback if email fails (show actual error)
+                     echo json_encode(array(
+                        "status" => "error", 
+                        "message" => "Erro de Email: " . $emailResult
+                    ));
+                }
             } else {
                 echo json_encode(array("status" => "error", "message" => "Erro ao gerar código."));
             }
@@ -110,10 +161,13 @@ elseif ($data->action == 'reset-request') {
 }
 // VERIFY CODE
 elseif ($data->action == 'verify-code') {
-    // User said: "o codigo pode ser qualquer um por enquanto"
-    // We just check if email exists basically.
     if (!empty($data->email) && !empty($data->code)) {
-        echo json_encode(array("status" => "success", "message" => "Código válido."));
+        $user->email = $data->email;
+        if ($user->verifyResetToken($data->code)) {
+            echo json_encode(array("status" => "success", "message" => "Código válido."));
+        } else {
+             echo json_encode(array("status" => "error", "message" => "Código inválido ou expirado."));
+        }
     } else {
         echo json_encode(array("status" => "error", "message" => "Dados inválidos."));
     }

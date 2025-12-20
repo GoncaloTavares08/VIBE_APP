@@ -37,7 +37,7 @@ class User
         $stmt->bindParam(":email", $this->email);
 
         // Hash password before saving
-        $password_hash = password_hash($this->password, PASSWORD_BCRYPT);
+        $password_hash = password_hash($this->password, PASSWORD_ARGON2ID);
         $stmt->bindParam(":password", $password_hash);
 
         $stmt->bindParam(":role", $this->role);
@@ -101,8 +101,31 @@ class User
     // Verify reset token (Simple check if matches and not expired)
     // For now the user said "Accept any code", but logically we should check if email exists.
     // We will still check if it matches in DB for best practice, or just return true if strictly following "any code" for dev.
-    // The user said: "depois o codigo pode ser qualquer um por enquanto" (code can be anyone for now).
-    // So I will just check if user exists.
+    // Verify reset token
+    public function verifyResetToken($token)
+    {
+        $query = "SELECT id FROM " . $this->table_name . "
+                  WHERE email = :email 
+                  AND reset_token = :token
+                  AND reset_token_expiry > NOW()
+                  LIMIT 0,1";
+
+        $stmt = $this->conn->prepare($query);
+
+        $this->email = htmlspecialchars(strip_tags($this->email));
+        $token = htmlspecialchars(strip_tags($token));
+
+        $stmt->bindParam(":email", $this->email);
+        $stmt->bindParam(":token", $token);
+
+        $stmt->execute();
+
+        if ($stmt->rowCount() > 0) {
+            return true;
+        }
+
+        return false;
+    }
     
     // Update Password
     public function updatePassword($new_password)
@@ -117,7 +140,7 @@ class User
 
         $this->email = htmlspecialchars(strip_tags($this->email));
         
-        $password_hash = password_hash($new_password, PASSWORD_BCRYPT);
+        $password_hash = password_hash($new_password, PASSWORD_ARGON2ID);
         
         $stmt->bindParam(":password", $password_hash);
         $stmt->bindParam(":email", $this->email);

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Zap, Mail, Lock, User, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Zap, Mail, Lock, User, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { InteractiveBackground } from './InteractiveBackground';
 import { ForgotPassword } from './ForgotPassword';
@@ -19,7 +19,7 @@ export function Auth({ onLoginSuccess }: AuthProps) {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
+
   const [errors, setErrors] = useState({
     name: '',
     email: '',
@@ -38,6 +38,22 @@ export function Auth({ onLoginSuccess }: AuthProps) {
 
   // Show confirm password field when password has content in register mode
   const showConfirmPasswordField = mode === 'register' && formData.password.length > 0;
+
+  const validatePassword = (password: string) => {
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    if (password.length < minLength) return 'A password deve ter pelo menos 8 caracteres.';
+    if (!hasUpperCase) return 'A password deve ter pelo menos uma letra maiúscula.';
+    if (!hasLowerCase) return 'A password deve ter pelo menos uma letra minúscula.';
+    if (!hasNumbers) return 'A password deve ter pelo menos um número.';
+    if (!hasSpecialChar) return 'A password deve ter pelo menos um caracter especial.';
+
+    return '';
+  };
 
   const validateField = (field: string, value: string) => {
     let error = '';
@@ -60,7 +76,10 @@ export function Auth({ onLoginSuccess }: AuthProps) {
       case 'password':
         if (!value) {
           error = 'Password é obrigatória';
+        } else if (mode === 'register') {
+          error = validatePassword(value);
         } else if (value.length < 6) {
+          // Login mode simple check
           error = 'Password deve ter pelo menos 6 caracteres';
         }
         break;
@@ -130,6 +149,12 @@ export function Auth({ onLoginSuccess }: AuthProps) {
       if (!formData.password) {
         currentErrors.password = 'Password é obrigatória';
         hasErrors = true;
+      } else if (mode === 'register') {
+        const passErr = validatePassword(formData.password);
+        if (passErr) {
+          currentErrors.password = passErr;
+          hasErrors = true;
+        }
       }
       if (mode === 'register' && key === 'confirmPassword' && formData.password !== formData.confirmPassword) {
         currentErrors.confirmPassword = 'Passwords não coincidem';
@@ -233,6 +258,8 @@ export function Auth({ onLoginSuccess }: AuthProps) {
           </div>
         </div>
 
+
+
         {/* Auth Card */}
         {view === 'forgot-password' ? (
           <ForgotPassword onBack={() => setView('auth')} />
@@ -244,7 +271,7 @@ export function Auth({ onLoginSuccess }: AuthProps) {
             transition={{ duration: 0.5 }}
           >
             <div
-              className="rounded-3xl p-8 md:p-10"
+              className="rounded-3xl p-8 md:p-10 relative"
               style={{
                 background: 'rgba(255, 255, 255, 0.05)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -252,8 +279,16 @@ export function Auth({ onLoginSuccess }: AuthProps) {
                 boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
               }}
             >
+              {/* Back to Home Button (Icon Only) */}
+              <button
+                onClick={() => window.location.href = '/'}
+                className="absolute top-6 left-6 text-gray-400 hover:text-white transition-colors"
+                title="Voltar ao Início"
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
               {/* Sliding Toggle */}
-              <div className="mb-8">
+              <div className="mb-8 mt-12">
                 <div
                   className="relative p-1 rounded-full"
                   style={{
@@ -407,8 +442,7 @@ export function Auth({ onLoginSuccess }: AuthProps) {
                         placeholder="Password"
                         value={formData.password}
                         onChange={(e) => handleInputChange('password', e.target.value)}
-                        onFocus={() => setPasswordFocused(true)}
-                        onBlur={() => setPasswordFocused(false)}
+
                         className="w-full pl-12 pr-12 py-4 rounded-xl outline-none transition-all duration-300"
                         style={{
                           background: 'rgba(0, 0, 0, 0.4)',
@@ -566,6 +600,6 @@ export function Auth({ onLoginSuccess }: AuthProps) {
           Exclusive access to Portugal's premier nightlife
         </p>
       </div>
-    </div>
+    </div >
   );
 }
