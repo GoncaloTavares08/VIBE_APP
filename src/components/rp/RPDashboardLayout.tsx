@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Home,
   UsersRound,
@@ -63,6 +63,15 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const mainContentRef = useRef<HTMLElement>(null);
+
+  // Scroll to Top on Page Change
+  useEffect(() => {
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTop = 0;
+    }
+  }, [currentPage]);
 
   // Determine Sidebar Classes
   const getSidebarClasses = () => {
@@ -239,7 +248,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden relative transition-all duration-300 w-full">
+      <main ref={mainContentRef} className="flex-1 overflow-y-auto overflow-x-hidden relative transition-all duration-300 w-full">
         {/* Header */}
         <header
           className="sticky top-0 z-10 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between"

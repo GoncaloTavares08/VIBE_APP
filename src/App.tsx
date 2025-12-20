@@ -6,6 +6,7 @@ import { FeaturesGrid } from './components/FeaturesGrid';
 import { Auth } from './components/Auth';
 import { Dashboard } from './components/Dashboard';
 import { RPDashboard } from './components/RPDashboard';
+import { ClientDashboard } from './components/ClientDashboard';
 import { DoorOpsApp } from './components/staff/StaffApp';
 import { useState, useEffect } from 'react';
 import './styles/globals.css';
@@ -28,6 +29,9 @@ export default function App() {
         setShowRPDashboard(parsedUser.role === 'TEAM_LEADER' ? 'team_leader' : 'rp');
       } else if (parsedUser.role === 'STAFF') {
         setShowStaffApp(true);
+      } else if (parsedUser.role === 'CLIENT') {
+        // Just ensures we have user state, the render logic handles the rest
+        setUser(parsedUser);
       }
     }
   }, []);
@@ -41,6 +45,8 @@ export default function App() {
       setShowRPDashboard(userData.role === 'TEAM_LEADER' ? 'team_leader' : 'rp');
     } else if (userData.role === 'STAFF') {
       setShowStaffApp(true);
+    } else if (userData.role === 'CLIENT') {
+      // Logic handled by render condition
     }
   };
 
@@ -60,6 +66,11 @@ export default function App() {
   // Show RP dashboard
   if (showRPDashboard) {
     return <RPDashboard userRole={showRPDashboard} user={user} onLogout={handleLogout} />;
+  }
+
+  // Show Client Dashboard
+  if (user && user.role === 'CLIENT') {
+    return <ClientDashboard user={user} onLogout={handleLogout} />;
   }
 
   // Show Staff App
