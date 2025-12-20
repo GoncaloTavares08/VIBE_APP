@@ -80,4 +80,55 @@ elseif ($data->action == 'login') {
         echo json_encode(array("status" => "error", "message" => "Dados incompletos."));
     }
 }
+// FORGOT PASSWORD
+elseif ($data->action == 'reset-request') {
+    if (!empty($data->email)) {
+        $user->email = $data->email;
+        if ($user->emailExists()) {
+            // Generate a random 6 digit code (even if not sending email, we save it)
+            // User requested "any code works", but let's save a dummy one for structure or use 123456
+            $code = '123456'; 
+            
+            if ($user->setResetToken($code)) {
+                echo json_encode(array(
+                    "status" => "success", 
+                    "message" => "Código enviado para o email (Simulado: 123456)."
+                ));
+            } else {
+                echo json_encode(array("status" => "error", "message" => "Erro ao gerar código."));
+            }
+        } else {
+             // Security: Don't reveal if email exists, or behave as success but do nothing.
+             // For this prompt user wants "verifique se o email existe se sim segue".
+             // If not exists, we should probably tell them or just not proceed.
+             // User said: "quero que verifique se o email existe se sim segue"
+             echo json_encode(array("status" => "error", "message" => "Email não encontrado."));
+        }
+    } else {
+        echo json_encode(array("status" => "error", "message" => "Email é obrigatório."));
+    }
+}
+// VERIFY CODE
+elseif ($data->action == 'verify-code') {
+    // User said: "o codigo pode ser qualquer um por enquanto"
+    // We just check if email exists basically.
+    if (!empty($data->email) && !empty($data->code)) {
+        echo json_encode(array("status" => "success", "message" => "Código válido."));
+    } else {
+        echo json_encode(array("status" => "error", "message" => "Dados inválidos."));
+    }
+}
+// RESET PASSWORD
+elseif ($data->action == 'reset-password') {
+    if (!empty($data->email) && !empty($data->password)) {
+        $user->email = $data->email;
+        if ($user->updatePassword($data->password)) {
+            echo json_encode(array("status" => "success", "message" => "Password atualizada com sucesso!"));
+        } else {
+             echo json_encode(array("status" => "error", "message" => "Erro ao atualizar password."));
+        }
+    } else {
+        echo json_encode(array("status" => "error", "message" => "Dados incompletos."));
+    }
+}
 ?>

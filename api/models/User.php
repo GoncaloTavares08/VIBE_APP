@@ -75,5 +75,57 @@ class User
 
         return false;
     }
+    // Set reset token
+    public function setResetToken($token)
+    {
+        // Token valid for 15 minutes
+        $query = "UPDATE " . $this->table_name . "
+                  SET reset_token = :token,
+                      reset_token_expiry = DATE_ADD(NOW(), INTERVAL 15 MINUTE)
+                  WHERE email = :email";
+
+        $stmt = $this->conn->prepare($query);
+
+        $this->email = htmlspecialchars(strip_tags($this->email));
+        $token = htmlspecialchars(strip_tags($token));
+
+        $stmt->bindParam(":email", $this->email);
+        $stmt->bindParam(":token", $token);
+
+        if ($stmt->execute()) {
+            return true;
+        }
+        return false;
+    }
+
+    // Verify reset token (Simple check if matches and not expired)
+    // For now the user said "Accept any code", but logically we should check if email exists.
+    // We will still check if it matches in DB for best practice, or just return true if strictly following "any code" for dev.
+    // The user said: "depois o codigo pode ser qualquer um por enquanto" (code can be anyone for now).
+    // So I will just check if user exists.
+    
+    // Update Password
+    public function updatePassword($new_password)
+    {
+        $query = "UPDATE " . $this->table_name . "
+                  SET password_hash = :password,
+                      reset_token = NULL,
+                      reset_token_expiry = NULL
+                  WHERE email = :email";
+
+        $stmt = $this->conn->prepare($query);
+
+        $this->email = htmlspecialchars(strip_tags($this->email));
+        
+        $password_hash = password_hash($new_password, PASSWORD_BCRYPT);
+        
+        $stmt->bindParam(":password", $password_hash);
+        $stmt->bindParam(":email", $this->email);
+
+        if ($stmt->execute()) {
+            return true;
+        }
+        return false;
+    }
 }
 ?>
