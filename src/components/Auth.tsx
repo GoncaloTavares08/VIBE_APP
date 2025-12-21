@@ -3,6 +3,7 @@ import { Zap, Mail, Lock, User, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-r
 import { motion, AnimatePresence } from 'motion/react';
 import { InteractiveBackground } from './InteractiveBackground';
 import { ForgotPassword } from './ForgotPassword';
+import { apiFetch } from '../services/api';
 
 interface AuthProps {
   onLoginSuccess: (user: any) => void;
@@ -170,11 +171,8 @@ export function Auth({ onLoginSuccess }: AuthProps) {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/controllers/auth.php`, {
+      const data = await apiFetch(`/controllers/auth.php`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           action: mode,
           email: formData.email,
@@ -183,18 +181,8 @@ export function Auth({ onLoginSuccess }: AuthProps) {
         }),
       });
 
-      const text = await response.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        throw new Error('Server returned invalid JSON: ' + text.substring(0, 100));
-      }
-
       if (data.status === 'success') {
         if (mode === 'login') {
-          // Handle successful login (e.g., store user, redirect)
-          // Handle successful login
           console.log('Login success:', data.user);
           localStorage.setItem('user', JSON.stringify(data.user));
           setApiSuccess('Login efetuado com sucesso! A entrar...');
@@ -204,7 +192,6 @@ export function Auth({ onLoginSuccess }: AuthProps) {
           }, 1000);
         } else {
           setApiSuccess(data.message);
-          // Switch to login after success?
           setTimeout(() => {
             handleModeChange('login');
           }, 2000);
