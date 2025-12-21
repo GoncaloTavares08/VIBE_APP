@@ -42,13 +42,6 @@ try {
         exit();
     }
 
-    // Get user role first
-    $stmt = $db->prepare("SELECT role FROM users WHERE id = ?");
-    $stmt->execute([$data->user_id]);
-    $userRole = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    
-
     // Get club ID from slug
     $stmt = $db->prepare("SELECT id, name FROM clubs WHERE slug = ?");
     $stmt->execute([$clientSlug]);
@@ -85,11 +78,13 @@ try {
             "joined_at" => $access['joined_at']
         ]);
     } else {
+        // IMPORTANT: Include club name even when access is denied!
         echo json_encode([
             "status" => "error",
             "message" => "Não tens acesso a este clube",
             "has_access" => false,
             "club" => [
+                "id" => $club['id'],
                 "name" => $club['name'],
                 "slug" => $clientSlug
             ]

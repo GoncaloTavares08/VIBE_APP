@@ -182,6 +182,11 @@ export function Auth({ onLoginSuccess }: AuthProps) {
       });
 
       if (data.status === 'success') {
+        // Save JWT token and user data
+        if (data.token) {
+          localStorage.setItem('authToken', data.token);
+        }
+
         if (mode === 'login') {
           console.log('Login success:', data.user);
           localStorage.setItem('user', JSON.stringify(data.user));
@@ -191,13 +196,22 @@ export function Auth({ onLoginSuccess }: AuthProps) {
             onLoginSuccess(data.user);
           }, 1000);
         } else {
+          // Register success - switch to login mode with email pre-filled
           setApiSuccess(data.message);
+
           setTimeout(() => {
             handleModeChange('login');
+            // Keep email but clear password and name
+            setFormData(prev => ({ ...prev, password: '', confirmPassword: '', name: '' }));
           }, 2000);
         }
       } else {
-        setApiError(data.message || 'Ocorreu um erro.');
+        // Show password errors if they exist
+        if (data.errors && Array.isArray(data.errors)) {
+          setApiError(data.errors.join('\n'));
+        } else {
+          setApiError(data.message || 'Ocorreu um erro.');
+        }
       }
     } catch (error: any) {
       console.error('Auth Error:', error);

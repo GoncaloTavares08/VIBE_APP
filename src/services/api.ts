@@ -1,19 +1,32 @@
 // 1. Lógica para detetar o cliente
 const getClientId = () => {
   const pathSegments = window.location.pathname.split('/').filter(Boolean);
-  return pathSegments[0] || 'vr'; // default to 'vr' instead of 'default'
+  // Only return club ID if it exists in URL, otherwise null
+  return pathSegments[0] || null;
 };
 
 // 2. Função personalizada de fetch com error handling
 export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
   const baseURL = 'https://vibe.infinityfree.me/api';
   
+  const clientId = getClientId();
+  
   // Prepara os headers
-  const headers = {
+  const headers: any = {
     'Content-Type': 'application/json',
-    'X-Client-ID': getClientId(),
     ...(options.headers || {}),
   };
+
+  // ONLY add X-Client-ID if there's actually a club in the URL
+  if (clientId) {
+    headers['X-Client-ID'] = clientId;
+  }
+
+  // Add JWT token to Authorization header if exists
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
 
   try {
     const response = await fetch(`${baseURL}${endpoint}`, {
