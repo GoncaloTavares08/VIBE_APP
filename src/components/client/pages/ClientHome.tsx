@@ -1,11 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ImageWithFallback } from '../../figma/ImageWithFallback';
-import { Clock, Lock, MapPin, QrCode, TrendingUp, Users, Heart, Award } from 'lucide-react';
+import { Clock, Lock, MapPin, QrCode, TrendingUp, Users, Heart, Award, Calendar } from 'lucide-react';
+import { apiFetch } from '../../../services/api';
 import { WhoIsHere } from '../WhoIsHere';
 import { PersonProfileModal } from '../PersonProfileModal';
 import { Leaderboard } from '../Leaderboard';
 
 type PartyState = 'no-guestlist' | 'has-guestlist' | 'live-party';
+
+interface Event {
+  id: number;
+  name: string;
+  description?: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  capacity: number;
+  organizer_name?: string;
+  image_url?: string;
+  status: 'upcoming' | 'completed';
+}
 
 interface Person {
   id: number;
@@ -93,21 +107,51 @@ export function ClientHome() {
 
 // Variation A: No Guestlist
 function NoGuestlistView() {
+  const [nextEvent, setNextEvent] = useState<Event | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchNextEvent = async () => {
+      try {
+        const response = await apiFetch('/controllers/events.php');
+        if (response.status === 'success' && response.data) {
+          const upcomingEvents = response.data.filter((e: Event) => e.status === 'upcoming');
+          if (upcomingEvents.length > 0) {
+            // Ordenar por data para pegar o mais próximo
+            const sortedEvents = upcomingEvents.sort((a: Event, b: Event) => {
+              const dateA = new Date(a.date + ' ' + a.start_time);
+              const dateB = new Date(b.date + ' ' + b.start_time);
+              return dateA.getTime() - dateB.getTime();
+            });
+            setNextEvent(sortedEvents[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching events:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchNextEvent();
+  }, []);
+
   return (
     <>
       {/* Hero: Next Event Card */}
       <div
-        className="relative overflow-hidden rounded-3xl"
+        className="relative overflow-hidden rounded-3xl cursor-pointer transition-all duration-300 hover:scale-[1.02]"
         style={{
           background: 'rgba(0, 0, 0, 0.4)',
           border: '1px solid rgba(255, 255, 255, 0.1)',
         }}
+        onClick={() => nextEvent && setSelectedEvent(nextEvent)}
       >
         {/* Background Image */}
         <div className="absolute inset-0">
           <ImageWithFallback
-            src="https://images.unsplash.com/photo-1744314080490-ed41f6319475?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxuaWdodGNsdWIlMjBwYXJ0eSUyMGNyb3dkfGVufDF8fHx8MTc2NjA2ODIwN3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-            alt="Party"
+            src={nextEvent?.image_url || "https://images.unsplash.com/photo-1744314080490-ed41f6319475?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxuaWdodGNsdWIlMjBwYXJ0eSUyMGNyb3dkfGVufDF8fHx8MTc2NjA2ODIwN3ww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"}
+            alt={nextEvent?.name || "Party"}
             className="w-full h-full object-cover"
           />
           <div
@@ -120,64 +164,50 @@ function NoGuestlistView() {
 
         {/* Content */}
         <div className="relative z-10 p-8 space-y-6">
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Next Event</p>
-            <h2
-              className="text-4xl font-black"
-              style={{
-                background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              Saturday Night Fever
-            </h2>
-            <p className="text-gray-300 mt-2">Main Club · Rua Augusta 45</p>
-          </div>
+          {loading ? (
+            <div className="text-center text-gray-400">Carregando...</div>
+          ) : nextEvent ? (
+            <>
+              <div>
+                <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Próximo Evento</p>
+                <h2
+                  className="text-4xl font-black"
+                  style={{
+                    background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                  }}
+                >
+                  {nextEvent.name}
+                </h2>
+                <p className="text-gray-300 mt-2 flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  {new Date(nextEvent.date).toLocaleDateString('pt-PT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                </p>
+                <p className="text-gray-300 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  {nextEvent.start_time} - {nextEvent.end_time}
+                </p>
+              </div>
 
-          {/* Countdown Timer */}
-          <div className="flex gap-4">
-            <div className="text-center">
-              <div
-                className="text-3xl font-black"
-                style={{ color: '#D4AF37' }}
+              {/* CTA */}
+              <button
+                className="w-full py-4 rounded-xl transition-all duration-300 hover:scale-105"
+                style={{
+                  background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                  boxShadow: '0 8px 30px rgba(212, 175, 55, 0.4)',
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Add guestlist logic here
+                }}
               >
-                02
-              </div>
-              <div className="text-xs text-gray-400">DAYS</div>
-            </div>
-            <div className="text-3xl text-gray-600">:</div>
-            <div className="text-center">
-              <div
-                className="text-3xl font-black"
-                style={{ color: '#D4AF37' }}
-              >
-                12
-              </div>
-              <div className="text-xs text-gray-400">HOURS</div>
-            </div>
-            <div className="text-3xl text-gray-600">:</div>
-            <div className="text-center">
-              <div
-                className="text-3xl font-black"
-                style={{ color: '#D4AF37' }}
-              >
-                30
-              </div>
-              <div className="text-xs text-gray-400">MIN</div>
-            </div>
-          </div>
-
-          {/* CTA */}
-          <button
-            className="w-full py-4 rounded-xl transition-all duration-300 hover:scale-105"
-            style={{
-              background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-              boxShadow: '0 8px 30px rgba(212, 175, 55, 0.4)',
-            }}
-          >
-            <span className="text-black font-black">Get on Guestlist</span>
-          </button>
+                <span className="text-black font-black">Entrar na Lista</span>
+              </button>
+            </>
+          ) : (
+            <div className="text-center text-gray-400">Nenhum evento próximo</div>
+          )}
         </div>
       </div>
 
@@ -225,6 +255,82 @@ function NoGuestlistView() {
           ))}
         </div>
       </div>
+
+      {/* Event Details Modal */}
+      {selectedEvent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(10px)' }}
+          onClick={() => setSelectedEvent(null)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl backdrop-blur-xl overflow-hidden"
+            style={{
+              background: 'rgba(10, 10, 10, 0.95)',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+              boxShadow: '0 0 60px rgba(212, 175, 55, 0.2)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {selectedEvent.image_url && (
+              <div style={{ height: '300px' }}>
+                <img src={selectedEvent.image_url} alt={selectedEvent.name} className="w-full h-full object-cover" />
+              </div>
+            )}
+
+            <div className="p-8">
+              <h2 className="text-3xl text-white font-bold mb-2">{selectedEvent.name}</h2>
+              {selectedEvent.description && <p className="text-gray-400 mb-6" style={{ whiteSpace: 'pre-wrap' }}>{selectedEvent.description}</p>}
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                  <div className="flex items-center gap-2 text-gray-400 mb-2">
+                    <Calendar className="w-5 h-5" /><span className="text-sm">Data</span>
+                  </div>
+                  <div className="text-white text-lg font-semibold">
+                    {new Date(selectedEvent.date).toLocaleDateString('pt-PT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  </div>
+                </div>
+                <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                  <div className="flex items-center gap-2 text-gray-400 mb-2">
+                    <Clock className="w-5 h-5" /><span className="text-sm">Horário</span>
+                  </div>
+                  <div className="text-white text-lg font-semibold">{selectedEvent.start_time} - {selectedEvent.end_time}</div>
+                </div>
+                <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                  <div className="flex items-center gap-2 text-gray-400 mb-2">
+                    <Users className="w-5 h-5" /><span className="text-sm">Capacidade</span>
+                  </div>
+                  <div className="text-white text-lg font-semibold">{selectedEvent.capacity} pessoas</div>
+                </div>
+                {selectedEvent.organizer_name && (
+                  <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                    <div className="text-gray-400 mb-2 text-sm">Organizador</div>
+                    <div className="text-white text-lg font-semibold">{selectedEvent.organizer_name}</div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-4">
+                <button onClick={() => setSelectedEvent(null)} className="flex-1 px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-colors">
+                  Fechar
+                </button>
+                <button
+                  className="flex-1 px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105"
+                  style={{
+                    background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                    boxShadow: '0 8px 30px rgba(212, 175, 55, 0.4)',
+                  }}
+                >
+                  <span className="text-black font-black">Entrar na Lista</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

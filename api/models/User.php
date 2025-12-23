@@ -8,7 +8,6 @@ class User
     public $name;
     public $email;
     public $password;
-    public $role;
 
     public function __construct($db)
     {
@@ -22,15 +21,13 @@ class User
                 SET
                     name = :name,
                     email = :email,
-                    password_hash = :password,
-                    role = :role";
+                    password_hash = :password";
 
         $stmt = $this->conn->prepare($query);
 
         // Sanitize
         $this->name = htmlspecialchars(strip_tags($this->name));
         $this->email = htmlspecialchars(strip_tags($this->email));
-        $this->role = htmlspecialchars(strip_tags($this->role));
 
         // Bind values
         $stmt->bindParam(":name", $this->name);
@@ -39,8 +36,6 @@ class User
         // Hash password before saving
         $password_hash = password_hash($this->password, PASSWORD_ARGON2ID);
         $stmt->bindParam(":password", $password_hash);
-
-        $stmt->bindParam(":role", $this->role);
 
         if ($stmt->execute()) {
             return true;
@@ -52,7 +47,7 @@ class User
     // Check if email exists
     public function emailExists()
     {
-        $query = "SELECT id, name, password_hash, role
+        $query = "SELECT id, name, password_hash
                 FROM " . $this->table_name . "
                 WHERE email = ?
                 LIMIT 0,1";
@@ -69,7 +64,6 @@ class User
             $this->id = $row['id'];
             $this->name = $row['name'];
             $this->password = $row['password_hash']; // Store hash for verification
-            $this->role = $row['role'];
             return true;
         }
 

@@ -12,6 +12,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 include_once '../config/database.php';
 include_once '../models/User.php';
 include_once '../utils/send_email.php';
+include_once '../utils/RateLimiter.php';
+include_once '../utils/PasswordValidator.php';
+include_once '../utils/ClubValidator.php';
+include_once '../utils/SessionHelper.php';
 
 // Use GLOBAL database for authentication
 $database = new Database();
@@ -22,6 +26,21 @@ if (!$db) {
     exit();
 }
 
+// Validate club slug from header (if provided)
+$clientSlug = isset($_SERVER['HTTP_X_CLIENT_ID'])
+    ? strtolower($_SERVER['HTTP_X_CLIENT_ID'])
+    : null;
+
+if ($clientSlug) {
+    $clubValidation = ClubValidator::validate($clientSlug);
+    if (!$clubValidation['valid']) {
+        echo json_encode(array(
+            "status" => "error",
+            "message" => $clubValidation['message']
+        ));
+        exit();
+    }
+}
 
 $user = new User($db);
 
@@ -39,12 +58,28 @@ if ($data->action == 'register') {
         !empty($data->email) &&
         !empty($data->password)
     ) {
-        $user->name = $data->name;
-        $user->email = $data->email;
-        $user->password = $data->password;
+        // Sanitize email (XSS protection)
+        $user->email = filter_var($data->email, FILTER_SANITIZE_EMAIL);
 
-        // Default role logic based on client request or hardcoded default
-        $user->role = isset($data->role) ? $data->role : 'CLIENT';
+        // Validate email format
+        if (!filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(array("status" => "error", "message" => "Email inválido"));
+            exit();
+        }
+
+        // Validate password strength
+        $passwordValidation = PasswordValidator::validate($data->password);
+        if (!$passwordValidation['valid']) {
+            echo json_encode(array(
+                "status" => "error",
+                "message" => "Password fraca",
+                "errors" => $passwordValidation['errors']
+            ));
+            exit();
+        }
+
+        $user->name = $data->name;
+        $user->password = $data->password;
 
         if ($user->emailExists()) {
             echo json_encode(array("status" => "error", "message" => "Este email já está registado."));
@@ -56,20 +91,45 @@ if ($data->action == 'register') {
                 // Get client ID from header - InfinityFree compatible
                 $clientSlug = isset($_SERVER['HTTP_X_CLIENT_ID'])
                     ? strtolower($_SERVER['HTTP_X_CLIENT_ID'])
-                    : 'vr';
+                    : null;
 
-                // Get club ID from slug
-                $stmt = $db->prepare("SELECT id FROM clubs WHERE slug = ?");
-                $stmt->execute([$clientSlug]);
-                $club = $stmt->fetch(PDO::FETCH_ASSOC);
+                $userRole = null;
 
-                if ($club) {
-                    // Create user_club_access entry
-                    $stmt = $db->prepare("INSERT INTO user_club_access (user_id, club_id, role) VALUES (?, ?, ?)");
-                    $stmt->execute([$newUserId, $club['id'], $user->role]);
+                // Only create club access if there's a club specified
+                if ($clientSlug) {
+                    // Get club ID from slug
+                    $stmt = $db->prepare("SELECT id FROM clubs WHERE slug = ?");
+                    $stmt->execute([$clientSlug]);
+                    $club = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                    if ($club) {
+                        // Create user_club_access entry with CLIENT role by default
+                        $stmt = $db->prepare("INSERT INTO user_club_access (user_id, club_id, role) VALUES (?, ?, 'CLIENT')");
+                        $stmt->execute([$newUserId, $club['id']]);
+                        $userRole = 'CLIENT';
+                    }
                 }
 
-                echo json_encode(array("status" => "success", "message" => "Conta criada com sucesso!"));
+                // Set session instead of JWT
+                SessionHelper::setUser(array(
+                    'id' => $newUserId,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $userRole,
+                    'club_slug' => $clientSlug
+                ));
+
+                echo json_encode(array(
+                    "status" => "success",
+                    "message" => "Conta criada com sucesso!",
+                    "user" => array(
+                        "id" => $newUserId,
+                        "name" => $user->name,
+                        "email" => $user->email,
+                        "role" => $userRole,
+                        "club_slug" => $clientSlug
+                    )
+                ));
             } else {
                 echo json_encode(array("status" => "error", "message" => "Erro ao criar conta."));
             }
@@ -81,45 +141,96 @@ if ($data->action == 'register') {
 // LOGIN
 elseif ($data->action == 'login') {
     if (!empty($data->email) && !empty($data->password)) {
-        $user->email = $data->email;
+        // Sanitize email
+        $email = filter_var($data->email, FILTER_SANITIZE_EMAIL);
+
+        // Initialize rate limiter
+        $rateLimiter = new RateLimiter($db);
+        $clientIP = RateLimiter::getClientIP();
+
+        // Check if rate limited
+        $rateCheck = $rateLimiter->isAllowed($email, $clientIP);
+        if (!$rateCheck['allowed']) {
+            echo json_encode(array(
+                "status" => "error",
+                "message" => $rateCheck['message'],
+                "retry_after" => $rateCheck['retry_after']
+            ));
+            exit();
+        }
+
+        $user->email = $email;
         $email_exists = $user->emailExists();
 
         if ($email_exists && password_verify($data->password, $user->password)) {
+            // Record successful login attempt
+            $rateLimiter->recordAttempt($email, true, $clientIP);
+
             // Get client ID from header - InfinityFree compatible
             $clientSlug = isset($_SERVER['HTTP_X_CLIENT_ID'])
                 ? strtolower($_SERVER['HTTP_X_CLIENT_ID'])
-                : 'vr';
+                : null;
 
-            // Get club ID from slug
-            $stmt = $db->prepare("SELECT id FROM clubs WHERE slug = ?");
-            $stmt->execute([$clientSlug]);
-            $club = $stmt->fetch(PDO::FETCH_ASSOC);
+            $userRole = null; // Default: no role if no club
 
-            if ($club) {
-                // Check if user_club_access already exists
-                $stmt = $db->prepare("SELECT id FROM user_club_access WHERE user_id = ? AND club_id = ?");
-                $stmt->execute([$user->id, $club['id']]);
-                $access = $stmt->fetch(PDO::FETCH_ASSOC);
+            // Only fetch/create club access if there's a club specified
+            if ($clientSlug) {
+                // Get club ID from slug
+                $stmt = $db->prepare("SELECT id FROM clubs WHERE slug = ?");
+                $stmt->execute([$clientSlug]);
+                $club = $stmt->fetch(PDO::FETCH_ASSOC);
 
-                // If not exists, create it
-                if (!$access) {
-                    $stmt = $db->prepare("INSERT INTO user_club_access (user_id, club_id, role) VALUES (?, ?, ?)");
-                    $stmt->execute([$user->id, $club['id'], $user->role]);
+                if ($club) {
+                    // Check if user_club_access already exists and get role
+                    $stmt = $db->prepare("SELECT role FROM user_club_access WHERE user_id = ? AND club_id = ?");
+                    $stmt->execute([$user->id, $club['id']]);
+                    $access = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                    if ($access) {
+                        // User already has access, use existing role
+                        $userRole = $access['role'];
+                    } else {
+                        // First time accessing this club, create with CLIENT role
+                        $stmt = $db->prepare("INSERT INTO user_club_access (user_id, club_id, role) VALUES (?, ?, 'CLIENT')");
+                        $stmt->execute([$user->id, $club['id']]);
+                        $userRole = 'CLIENT';
+                    }
                 }
             }
 
-            echo json_encode(array(
+            // Set session instead of JWT
+            $userData = array(
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $userRole,
+                'club_slug' => $clientSlug
+            );
+
+            SessionHelper::setUser($userData);
+
+            // Build response - include role only if club specified
+            $response = array(
                 "status" => "success",
                 "message" => "Login efetuado com sucesso.",
                 "user" => array(
                     "id" => $user->id,
                     "name" => $user->name,
-                    "email" => $user->email,
-                    "role" => $user->role,
-                    "club_slug" => $clientSlug
+                    "email" => $user->email
                 )
-            ));
+            );
+
+            // Add role and club_slug only if there's a club
+            if ($clientSlug && $userRole) {
+                $response["user"]["role"] = $userRole;
+                $response["user"]["club_slug"] = $clientSlug;
+            }
+
+            echo json_encode($response);
         } else {
+            // Record failed login attempt
+            $rateLimiter->recordAttempt($email, false, $clientIP);
+
             echo json_encode(array("status" => "error", "message" => "Email ou password incorretos."));
         }
     } else {
@@ -227,5 +338,10 @@ elseif ($data->action == 'reset-password') {
     } else {
         echo json_encode(array("status" => "error", "message" => "Dados incompletos."));
     }
+}
+// LOGOUT
+elseif ($data->action == 'logout') {
+    SessionHelper::destroy();
+    echo json_encode(array("status" => "success", "message" => "Logout efetuado com sucesso."));
 }
 ?>
