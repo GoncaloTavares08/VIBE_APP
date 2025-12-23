@@ -1,31 +1,48 @@
 import { useState, useEffect } from 'react';
-import { Users, Euro, Edit, Award, X, Check } from 'lucide-react';
+import { Edit, Award, X, Check, Search, UserPlus, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface RP {
   id: number;
   name: string;
-  role: 'rp' | 'team_leader';
-  team?: string;
-  guestsTonight: number;
-  totalRevenue: number;
+  email: string;
+  role: 'RP' | 'TEAM_LEADER';
+  team_leader_id?: number;
+  team_leader_name?: string;
+  guestsTonight: number; // TODO: Calcular com base em eventos reais
+  totalRevenue: number;  // TODO: Calcular com base em eventos reais
   avatar: string;
 }
 
-const mockRPs: RP[] = [
-  { id: 1, name: 'Joana Costa', role: 'team_leader', team: 'Golden Squad', guestsTonight: 45, totalRevenue: 890, avatar: 'JC' },
-  { id: 2, name: 'Miguel Torres', role: 'rp', team: 'Golden Squad', guestsTonight: 32, totalRevenue: 640, avatar: 'MT' },
-  { id: 3, name: 'Sofia Almeida', role: 'rp', team: 'Golden Squad', guestsTonight: 28, totalRevenue: 560, avatar: 'SA' },
-  { id: 4, name: 'Pedro Alves', role: 'team_leader', team: 'Vibe Hustlers', guestsTonight: 38, totalRevenue: 760, avatar: 'PA' },
-  { id: 5, name: 'Ana Silva', role: 'rp', team: 'Vibe Hustlers', guestsTonight: 25, totalRevenue: 500, avatar: 'AS' },
-  { id: 6, name: 'Carlos Mendes', role: 'rp', team: 'Vibe Hustlers', guestsTonight: 22, totalRevenue: 440, avatar: 'CM' },
-  { id: 7, name: 'Rita Santos', role: 'rp', guestsTonight: 18, totalRevenue: 360, avatar: 'RS' },
-];
+interface SearchedClient {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  avatar: string;
+}
 
 export function RPManagement() {
   const [activeTab, setActiveTab] = useState<'all' | 'leaders' | 'performance'>('all');
   const [editingRP, setEditingRP] = useState<RP | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
+
+  // Data states
+  const [rps, setRps] = useState<RP[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Search client states
+  const [searchEmail, setSearchEmail] = useState('');
+  const [searchedClient, setSearchedClient] = useState<SearchedClient | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  // Edit form states
+  const [selectedRole, setSelectedRole] = useState<'RP' | 'TEAM_LEADER' | 'CLIENT'>('RP');
+  const [selectedTeamLeader, setSelectedTeamLeader] = useState<number | null>(null);
+  const [saveLoading, setSaveLoading] = useState(false);
 
   // State for responsive view
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -36,17 +53,174 @@ export function RPManagement() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const teamLeaders = mockRPs.filter(rp => rp.role === 'team_leader');
-  const regularRPs = mockRPs.filter(rp => rp.role === 'rp');
+  // Fetch RPs and Team Leaders
+  useEffect(() => {
+    fetchRPs();
+  }, []);
+
+  const fetchRPs = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/controllers/admin_rp_management.php?action=list', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        setRps(data.data);
+      } else {
+        setError(data.message || 'Erro ao carregar dados');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Erro ao conectar ao servidor');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const teamLeaders = rps.filter(rp => rp.role === 'TEAM_LEADER');
 
   const handleEdit = (rp: RP) => {
     setEditingRP(rp);
+    setSelectedRole(rp.role);
+    setSelectedTeamLeader(rp.team_leader_id || null);
     setShowModal(true);
   };
 
   const handleCloseModal = () => {
     setShowModal(false);
     setEditingRP(null);
+    setSelectedRole('RP');
+    setSelectedTeamLeader(null);
+    setSaveLoading(false);
+  };
+
+  const handleSaveRole = async () => {
+    if (!editingRP) return;
+
+    // Validation: RP must have team leader
+    if (selectedRole === 'RP' && !selectedTeamLeader) {
+      alert('Um RP deve estar associado a um Team Leader');
+      return;
+    }
+
+    setSaveLoading(true);
+    try {
+      const response = await fetch('/api/controllers/admin_rp_management.php?action=update_role', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+        },
+        body: JSON.stringify({
+          user_id: editingRP.id,
+          new_role: selectedRole,
+          team_leader_id: selectedRole === 'RP' ? selectedTeamLeader : null
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        // Refresh list
+        await fetchRPs();
+        handleCloseModal();
+      } else {
+        alert(data.message || 'Erro ao atualizar role');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Erro ao atualizar role');
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  const handleSearchClient = async () => {
+    if (!searchEmail.trim()) {
+      setSearchError('Digite um email');
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearchError(null);
+    setSearchedClient(null);
+
+    try {
+      const response = await fetch('/api/controllers/admin_rp_management.php?action=search_client', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+        },
+        body: JSON.stringify({ email: searchEmail })
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        setSearchedClient(data.data);
+      } else {
+        setSearchError(data.message || 'Cliente não encontrado');
+      }
+    } catch (err: any) {
+      setSearchError(err.message || 'Erro ao pesquisar cliente');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handlePromoteClient = () => {
+    if (searchedClient) {
+      setShowPromoteModal(true);
+    }
+  };
+
+  const handleConfirmPromote = async () => {
+    if (!searchedClient || !selectedTeamLeader) {
+      alert('Selecione um Team Leader');
+      return;
+    }
+
+    setSaveLoading(true);
+    try {
+      const response = await fetch('/api/controllers/admin_rp_management.php?action=promote_to_rp', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+        },
+        body: JSON.stringify({
+          user_id: searchedClient.id,
+          team_leader_id: selectedTeamLeader
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        // Refresh list and clear search
+        await fetchRPs();
+        setSearchedClient(null);
+        setSearchEmail('');
+        setSelectedTeamLeader(null);
+        setShowPromoteModal(false);
+      } else {
+        alert(data.message || 'Erro ao promover cliente');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Erro ao promover cliente');
+    } finally {
+      setSaveLoading(false);
+    }
   };
 
   const getTabLabel = (tab: string) => {
@@ -58,8 +232,94 @@ export function RPManagement() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400">A carregar...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center p-6 rounded-2xl" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <p className="text-white font-semibold mb-2">Erro</p>
+          <p className="text-gray-400 text-sm">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
+      {/* Promote Client Section */}
+      <div className="p-6 rounded-3xl" style={{ background: 'rgba(212, 175, 55, 0.05)', border: '1px solid rgba(212, 175, 55, 0.2)' }}>
+        <h3 className="text-xl font-black text-white mb-4 flex items-center gap-2">
+          <UserPlus className="w-6 h-6 text-[#D4AF37]" />
+          Promover Cliente a RP
+        </h3>
+
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <input
+              type="email"
+              placeholder="Email do cliente"
+              value={searchEmail}
+              onChange={(e) => setSearchEmail(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearchClient()}
+              className="w-full px-4 py-3 rounded-xl outline-none"
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                color: '#ffffff'
+              }}
+            />
+          </div>
+          <button
+            onClick={handleSearchClient}
+            disabled={searchLoading}
+            className="px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 flex items-center gap-2 whitespace-nowrap"
+            style={{
+              background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+              color: '#000000'
+            }}
+          >
+            <Search className="w-5 h-5" />
+            {searchLoading ? 'A pesquisar...' : 'Pesquisar'}
+          </button>
+        </div>
+
+        {searchError && (
+          <p className="mt-3 text-sm text-red-400">{searchError}</p>
+        )}
+
+        {searchedClient && (
+          <div className="mt-4 p-4 rounded-2xl flex items-center justify-between" style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold" style={{ background: 'rgba(255, 255, 255, 0.1)', color: '#ffffff' }}>
+                {searchedClient.avatar}
+              </div>
+              <div>
+                <p className="font-bold text-white">{searchedClient.name}</p>
+                <p className="text-sm text-gray-400">{searchedClient.email}</p>
+              </div>
+            </div>
+            <button
+              onClick={handlePromoteClient}
+              className="px-4 py-2 rounded-xl font-semibold transition-all duration-300 hover:scale-105"
+              style={{ background: 'rgba(212, 175, 55, 0.2)', color: '#D4AF37', border: '1px solid rgba(212, 175, 55, 0.3)' }}
+            >
+              Promover a RP
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Header with Tabs */}
       <div className="flex items-center justify-between">
         <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
@@ -86,7 +346,7 @@ export function RPManagement() {
           <h2 className="text-2xl font-black text-white">Chefes de Equipa</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {teamLeaders.map((leader) => {
-              const teamMembers = mockRPs.filter(rp => rp.team === leader.team && rp.role === 'rp');
+              const teamMembers = rps.filter(rp => rp.team_leader_id === leader.id);
               const teamTotal = teamMembers.reduce((acc, rp) => acc + rp.totalRevenue, 0) + leader.totalRevenue;
               const teamGuests = teamMembers.reduce((acc, rp) => acc + rp.guestsTonight, 0) + leader.guestsTonight;
 
@@ -126,8 +386,6 @@ export function RPManagement() {
                       </div>
                     </div>
                   </div>
-
-                  <p className="text-sm text-gray-300 font-semibold mb-4">{leader.team}</p>
 
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
@@ -191,7 +449,7 @@ export function RPManagement() {
                   </tr>
                 </thead>
                 <tbody>
-                  {mockRPs.sort((a, b) => b.totalRevenue - a.totalRevenue).map((rp, index) => (
+                  {rps.sort((a, b) => b.totalRevenue - a.totalRevenue).map((rp, index) => (
                     <tr key={rp.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
                       <td className="p-4">
                         <div className="flex items-center gap-3">
@@ -199,19 +457,19 @@ export function RPManagement() {
                             <span className="text-2xl">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
                           )}
                           <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm"
-                            style={{ background: rp.role === 'team_leader' ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)' : 'rgba(255, 255, 255, 0.1)', color: rp.role === 'team_leader' ? '#000000' : '#ffffff' }}>
+                            style={{ background: rp.role === 'TEAM_LEADER' ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)' : 'rgba(255, 255, 255, 0.1)', color: rp.role === 'TEAM_LEADER' ? '#000000' : '#ffffff' }}>
                             {rp.avatar}
                           </div>
                           <div>
                             <p className="font-semibold text-white">{rp.name}</p>
-                            {rp.team && <p className="text-xs text-gray-400">{rp.team}</p>}
+                            {rp.team_leader_name && <p className="text-xs text-gray-400">Equipa: {rp.team_leader_name}</p>}
                           </div>
                         </div>
                       </td>
                       <td className="p-4">
                         <div className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold"
-                          style={{ background: rp.role === 'team_leader' ? 'rgba(212, 175, 55, 0.2)' : 'rgba(255, 255, 255, 0.1)', color: rp.role === 'team_leader' ? '#D4AF37' : '#ffffff' }}>
-                          {rp.role === 'team_leader' ? 'Chefe de Equipa' : 'RP'}
+                          style={{ background: rp.role === 'TEAM_LEADER' ? 'rgba(212, 175, 55, 0.2)' : 'rgba(255, 255, 255, 0.1)', color: rp.role === 'TEAM_LEADER' ? '#D4AF37' : '#ffffff' }}>
+                          {rp.role === 'TEAM_LEADER' ? 'Chefe de Equipa' : 'RP'}
                         </div>
                       </td>
                       <td className="p-4 text-center"><span className="font-black text-white text-lg">{rp.guestsTonight}</span></td>
@@ -232,7 +490,7 @@ export function RPManagement() {
           {/* Mobile Card View */}
           {isMobile && (
             <div className="space-y-4">
-              {mockRPs.sort((a, b) => b.totalRevenue - a.totalRevenue).map((rp, index) => (
+              {rps.sort((a, b) => b.totalRevenue - a.totalRevenue).map((rp, index) => (
                 <div key={rp.id} className="p-4 rounded-2xl"
                   style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(20px)' }}>
                   <div className="flex items-center justify-between mb-4">
@@ -241,16 +499,16 @@ export function RPManagement() {
                         <span className="text-2xl">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
                       )}
                       <div className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm"
-                        style={{ background: rp.role === 'team_leader' ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)' : 'rgba(255, 255, 255, 0.1)', color: rp.role === 'team_leader' ? '#000000' : '#ffffff' }}>
+                        style={{ background: rp.role === 'TEAM_LEADER' ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)' : 'rgba(255, 255, 255, 0.1)', color: rp.role === 'TEAM_LEADER' ? '#000000' : '#ffffff' }}>
                         {rp.avatar}
                       </div>
                       <div>
                         <p className="font-bold text-white text-lg">{rp.name}</p>
                         <div className="flex items-center gap-2">
-                          {rp.team && <p className="text-xs text-gray-400">{rp.team}</p>}
+                          {rp.team_leader_name && <p className="text-xs text-gray-400">Equipa: {rp.team_leader_name}</p>}
                           <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold"
-                            style={{ background: rp.role === 'team_leader' ? 'rgba(212, 175, 55, 0.2)' : 'rgba(255, 255, 255, 0.1)', color: rp.role === 'team_leader' ? '#D4AF37' : '#ffffff' }}>
-                            {rp.role === 'team_leader' ? 'Chefe' : 'RP'}
+                            style={{ background: rp.role === 'TEAM_LEADER' ? 'rgba(212, 175, 55, 0.2)' : 'rgba(255, 255, 255, 0.1)', color: rp.role === 'TEAM_LEADER' ? '#D4AF37' : '#ffffff' }}>
+                            {rp.role === 'TEAM_LEADER' ? 'Chefe' : 'RP'}
                           </div>
                         </div>
                       </div>
@@ -329,7 +587,7 @@ export function RPManagement() {
                   </div>
                   <div>
                     <p className="text-xl font-black text-white">{editingRP.name}</p>
-                    <p className="text-sm text-gray-400">{editingRP.team || 'Sem equipa'}</p>
+                    <p className="text-sm text-gray-400">{editingRP.email}</p>
                   </div>
                 </div>
 
@@ -342,33 +600,68 @@ export function RPManagement() {
                       border: '1px solid rgba(255, 255, 255, 0.1)',
                       color: '#ffffff',
                     }}
-                    defaultValue={editingRP.role}
+                    value={selectedRole}
+                    onChange={(e) => setSelectedRole(e.target.value as any)}
                   >
-                    <option value="rp">RP</option>
-                    <option value="team_leader">Chefe de Equipa</option>
+                    <option value="RP">RP</option>
+                    <option value="TEAM_LEADER">Chefe de Equipa</option>
+                    <option value="CLIENT">Cliente</option>
                   </select>
+
+                  {/* Warning if trying to convert Team Leader with RPs */}
+                  {editingRP.role === 'TEAM_LEADER' && selectedRole !== 'TEAM_LEADER' && (
+                    (() => {
+                      const associatedRPs = rps.filter(rp => rp.team_leader_id === editingRP.id);
+                      if (associatedRPs.length > 0) {
+                        return (
+                          <div className="mt-3 p-3 rounded-xl flex items-start gap-2" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                            <div className="text-sm">
+                              <p className="text-red-400 font-semibold">Atenção!</p>
+                              <p className="text-red-300">
+                                Este Team Leader tem {associatedRPs.length} RP(s) associado(s).
+                                Reassocie-os a outro Team Leader antes de fazer esta conversão.
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()
+                  )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-400 mb-2">Atribuir a Equipa</label>
-                  <select
-                    className="w-full p-3 rounded-xl outline-none"
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      color: '#ffffff',
-                    }}
-                    defaultValue={editingRP.team}
-                  >
-                    <option value="">Sem equipa</option>
-                    <option value="Golden Squad">Golden Squad</option>
-                    <option value="Vibe Hustlers">Vibe Hustlers</option>
-                  </select>
-                </div>
+                {selectedRole === 'RP' && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-400 mb-2">
+                      Atribuir a Team Leader <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      className="w-full p-3 rounded-xl outline-none"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: '#ffffff',
+                      }}
+                      value={selectedTeamLeader || ''}
+                      onChange={(e) => setSelectedTeamLeader(Number(e.target.value))}
+                    >
+                      <option value="">Selecione um Team Leader</option>
+                      {teamLeaders
+                        .filter(leader => leader.id !== editingRP.id)
+                        .map((leader) => (
+                          <option key={leader.id} value={leader.id}>
+                            {leader.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="flex gap-3">
                   <button
                     onClick={handleCloseModal}
+                    disabled={saveLoading}
                     className="flex-1 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105"
                     style={{
                       background: 'rgba(255, 255, 255, 0.05)',
@@ -379,7 +672,8 @@ export function RPManagement() {
                     Cancelar
                   </button>
                   <button
-                    onClick={handleCloseModal}
+                    onClick={handleSaveRole}
+                    disabled={saveLoading}
                     className="flex-1 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2"
                     style={{
                       background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
@@ -387,7 +681,119 @@ export function RPManagement() {
                     }}
                   >
                     <Check className="w-5 h-5" />
-                    Guardar
+                    {saveLoading ? 'A guardar...' : 'Guardar'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Promote Client Modal */}
+      <AnimatePresence>
+        {showPromoteModal && searchedClient && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{
+              background: 'rgba(0, 0, 0, 0.8)',
+              backdropFilter: 'blur(10px)',
+            }}
+            onClick={() => setShowPromoteModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md p-8 rounded-3xl"
+              style={{
+                background: 'rgba(10, 10, 10, 0.95)',
+                border: '1px solid rgba(212, 175, 55, 0.3)',
+                backdropFilter: 'blur(20px)',
+              }}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-black text-white">Promover a RP</h3>
+                <button
+                  onClick={() => setShowPromoteModal(false)}
+                  className="p-2 rounded-lg transition-all duration-300 hover:scale-110"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                  }}
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <div
+                    className="w-16 h-16 rounded-full flex items-center justify-center font-black text-xl"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      color: '#ffffff',
+                    }}
+                  >
+                    {searchedClient.avatar}
+                  </div>
+                  <div>
+                    <p className="text-xl font-black text-white">{searchedClient.name}</p>
+                    <p className="text-sm text-gray-400">{searchedClient.email}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-400 mb-2">
+                    Atribuir a Team Leader <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    className="w-full p-3 rounded-xl outline-none"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#ffffff',
+                    }}
+                    value={selectedTeamLeader || ''}
+                    onChange={(e) => setSelectedTeamLeader(Number(e.target.value))}
+                  >
+                    <option value="">Selecione um Team Leader</option>
+                    {teamLeaders.map((leader) => (
+                      <option key={leader.id} value={leader.id}>
+                        {leader.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowPromoteModal(false)}
+                    disabled={saveLoading}
+                    className="flex-1 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#ffffff',
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleConfirmPromote}
+                    disabled={saveLoading || !selectedTeamLeader}
+                    className="flex-1 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2"
+                    style={{
+                      background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                      color: '#000000',
+                      opacity: saveLoading || !selectedTeamLeader ? 0.5 : 1
+                    }}
+                  >
+                    <UserPlus className="w-5 h-5" />
+                    {saveLoading ? 'A promover...' : 'Confirmar'}
                   </button>
                 </div>
               </div>
