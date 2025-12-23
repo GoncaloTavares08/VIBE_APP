@@ -7,13 +7,21 @@ class JWTHelper
 
     private static function getSecret()
     {
-        
-        return $_ENV['JWT_SECRET'];
+        $secret = $_ENV['JWT_SECRET'] ?? getenv('JWT_SECRET');
+
+        return $secret;
     }
 
     private static function getExpiration()
     {
-        return (int) ($_ENV['JWT_EXPIRATION']);
+        $expiration = $_ENV['JWT_EXPIRATION'] ?? getenv('JWT_EXPIRATION');
+
+        // Default to 24 hours (86400 seconds) if not set or invalid
+        if (empty($expiration) || !is_numeric($expiration)) {
+            return 86400;
+        }
+
+        return (int) $expiration;
     }
 
     /**
@@ -55,7 +63,7 @@ class JWTHelper
     /**
      * Validate and decode JWT token
      * @param string $token
-     * @return array|false Decoded payload or false if invalid
+     * @return object|false Decoded payload as object or false if invalid
      */
     public static function validate($token)
     {
@@ -75,15 +83,25 @@ class JWTHelper
         $expectedSignature = hash_hmac('sha256', $base64UrlHeader . "." . $base64UrlPayload, self::getSecret(), true);
 
         if (!hash_equals($signature, $expectedSignature)) {
-            return false;
+            return false; // Invalid signature
         }
 
         // Decode payload
-        $payload = json_decode(self::base64UrlDecode($base64UrlPayload), true);
+        $payload = json_decode(self::base64UrlDecode($base64UrlPayload));
+
+        // Check if decoding failed
+        if (!$payload) {
+            return false;
+        }
 
         // Check expiration
-        if (isset($payload['exp']) && $payload['exp'] < time()) {
+        if (isset($payload->exp) && $payload->exp < time()) {
             return false; // Token expired
+        }
+
+        // Convert userId to user_id for consistency
+        if (isset($payload->userId) && !isset($payload->user_id)) {
+            $payload->user_id = $payload->userId;
         }
 
         return $payload;

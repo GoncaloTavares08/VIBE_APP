@@ -15,7 +15,7 @@ include_once '../utils/send_email.php';
 include_once '../utils/RateLimiter.php';
 include_once '../utils/PasswordValidator.php';
 include_once '../utils/ClubValidator.php';
-include_once '../utils/JWTHelper.php';
+include_once '../utils/SessionHelper.php';
 
 // Use GLOBAL database for authentication
 $database = new Database();
@@ -110,13 +110,18 @@ if ($data->action == 'register') {
                     }
                 }
 
-                // Generate JWT token
-                $token = JWTHelper::generate($newUserId, $user->email, $userRole, $clientSlug);
+                // Set session instead of JWT
+                SessionHelper::setUser(array(
+                    'id' => $newUserId,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $userRole,
+                    'club_slug' => $clientSlug
+                ));
 
                 echo json_encode(array(
                     "status" => "success",
                     "message" => "Conta criada com sucesso!",
-                    "token" => $token,
                     "user" => array(
                         "id" => $newUserId,
                         "name" => $user->name,
@@ -193,14 +198,21 @@ elseif ($data->action == 'login') {
                 }
             }
 
-            // Generate JWT token
-            $token = JWTHelper::generate($user->id, $user->email, $userRole, $clientSlug);
+            // Set session instead of JWT
+            $userData = array(
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $userRole,
+                'club_slug' => $clientSlug
+            );
+
+            SessionHelper::setUser($userData);
 
             // Build response - include role only if club specified
             $response = array(
                 "status" => "success",
                 "message" => "Login efetuado com sucesso.",
-                "token" => $token,
                 "user" => array(
                     "id" => $user->id,
                     "name" => $user->name,
@@ -326,5 +338,10 @@ elseif ($data->action == 'reset-password') {
     } else {
         echo json_encode(array("status" => "error", "message" => "Dados incompletos."));
     }
+}
+// LOGOUT
+elseif ($data->action == 'logout') {
+    SessionHelper::destroy();
+    echo json_encode(array("status" => "success", "message" => "Logout efetuado com sucesso."));
 }
 ?>

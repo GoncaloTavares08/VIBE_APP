@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS clubs (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    slug VARCHAR(100) UNIQUE NOT NULL, -- 'vr', 'eskada', 'lux'
+    slug VARCHAR(100) UNIQUE NOT NULL, -- 'vr', 'eskada'
     database_name VARCHAR(100) NOT NULL,
     location VARCHAR(255),
     is_active TINYINT(1) DEFAULT 1,

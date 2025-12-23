@@ -22,16 +22,10 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
     headers['X-Client-ID'] = clientId;
   }
 
-  // Add JWT token to Authorization header if exists
-  const token = localStorage.getItem('authToken');
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
   try {
     const response = await fetch(`${baseURL}${endpoint}`, {
       ...options,
-      headers,
+      headers
     });
 
     // Get response as text first

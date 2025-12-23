@@ -45,7 +45,7 @@ class Database
     public function getClientConnection()
     {
         // Get client ID from header - InfinityFree compatible way
-        $clientId = 'vr'; // default
+        $clientId = ''; // default
 
         // Try to get from $_SERVER (works on InfinityFree)
         if (isset($_SERVER['HTTP_X_CLIENT_ID'])) {
@@ -56,8 +56,6 @@ class Database
         $databaseMap = [
             'vr' => $_ENV['VR_DB_NAME'] ?? getenv('VR_DB_NAME'),
             'eskada' => $_ENV['ESKADA_DB_NAME'] ?? getenv('ESKADA_DB_NAME'),
-            'lux' => $_ENV['LUX_DB_NAME'] ?? getenv('LUX_DB_NAME'),
-            'default' => $_ENV['VR_DB_NAME'] ?? getenv('VR_DB_NAME'),
         ];
 
         $client_db = $databaseMap[$clientId] ?? $databaseMap['default'];

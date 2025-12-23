@@ -1,8 +1,30 @@
-import { useState } from 'react';
-import { ExternalLink, Edit, Share2, Instagram, Copy, CheckCircle2, Calendar, MapPin, Music } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ExternalLink, Edit, Share2, Instagram, Copy, CheckCircle2, Calendar, Music, Loader2, Clock, Users } from 'lucide-react';
+import { apiFetch } from '../../../services/api';
+
+interface Event {
+  id: number;
+  name: string;
+  description?: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  capacity: number;
+  organizer_name?: string;
+  image_url?: string;
+  status: 'upcoming' | 'completed';
+  is_selected?: boolean;
+}
 
 export function RPProfile() {
   const [copiedBio, setCopiedBio] = useState(false);
+  const [profileEvents, setProfileEvents] = useState<Event[]>([]);
+  const [showManageModal, setShowManageModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedEventDetail, setSelectedEventDetail] = useState<Event | null>(null);
+  const [allEvents, setAllEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const rpData = {
     name: 'João Silva',
@@ -15,24 +37,86 @@ export function RPProfile() {
     eventsHosted: 24,
   };
 
-  const upcomingEvents = [
-    {
-      id: '1',
-      name: 'Electric Fridays',
-      date: '2025-12-20',
-      time: '23:00',
-      venue: 'VIBE Club',
-      flyer: '🎉',
-    },
-    {
-      id: '2',
-      name: 'Neon Nights',
-      date: '2025-12-27',
-      time: '22:00',
-      venue: 'VIBE Club',
-      flyer: '✨',
-    },
-  ];
+  // Fetch profile events on mount
+  useEffect(() => {
+    fetchProfileEvents();
+  }, []);
+
+  const fetchProfileEvents = async () => {
+    try {
+      const response = await apiFetch('/controllers/rp_profile_events.php');
+      if (response.status === 'success') {
+        setProfileEvents(response.data);
+      }
+    } catch (err) {
+      console.error('Error fetching profile events:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAllEventsWithStatus = async () => {
+    try {
+      console.log('[RPProfile] Fetching all events...');
+      const response = await apiFetch('/controllers/rp_profile_events.php?all=true');
+      console.log('[RPProfile] Response:', response);
+      if (response.status === 'success') {
+        setAllEvents(response.data);
+      } else {
+        console.error('[RPProfile] API returned error:', response);
+      }
+    } catch (err) {
+      console.error('Error fetching all events:', err);
+    }
+  };
+
+  const handleManageEventsClick = async () => {
+    setShowManageModal(true);
+    await fetchAllEventsWithStatus();
+  };
+
+  const handleToggleEvent = (eventId: number) => {
+    setAllEvents(prev => prev.map(event =>
+      event.id === eventId ? { ...event, is_selected: !event.is_selected } : event
+    ));
+  };
+
+  const handleSaveSelection = async () => {
+    setSaving(true);
+    try {
+      // Get currently selected events from DB
+      const currentlySelected = allEvents.filter(e => profileEvents.some(pe => pe.id === e.id));
+      const newlySelected = allEvents.filter(e => e.is_selected);
+
+      // Calculate additions and removals
+      const toAdd = newlySelected.filter(e => !currentlySelected.some(ce => ce.id === e.id));
+      const toRemove = currentlySelected.filter(e => !newlySelected.some(ne => ne.id === e.id));
+
+      // Add new events
+      for (const event of toAdd) {
+        await apiFetch('/controllers/rp_profile_events.php', {
+          method: 'POST',
+          body: JSON.stringify({ event_id: event.id })
+        });
+      }
+
+      // Remove deselected events
+      for (const event of toRemove) {
+        await apiFetch('/controllers/rp_profile_events.php', {
+          method: 'DELETE',
+          body: JSON.stringify({ event_id: event.id })
+        });
+      }
+
+      // Refresh profile events
+      await fetchProfileEvents();
+      setShowManageModal(false);
+    } catch (err) {
+      console.error('Error saving selection:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(rpData.publicLink);
@@ -219,6 +303,7 @@ export function RPProfile() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl text-white">Your Upcoming Events</h2>
           <button
+            onClick={handleManageEventsClick}
             className="px-4 py-2 rounded-xl text-sm transition-all duration-300 hover:scale-105"
             style={{
               background: 'rgba(212, 175, 55, 0.2)',
@@ -230,47 +315,68 @@ export function RPProfile() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {upcomingEvents.map((event) => (
-            <div
-              key={event.id}
-              className="p-5 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
-              style={{
-                background: 'rgba(0, 0, 0, 0.3)',
-                border: '1px solid rgba(212, 175, 55, 0.2)',
-              }}
-            >
-              <div className="flex items-start gap-4">
-                <div
-                  className="w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0 text-3xl"
-                  style={{
-                    background: 'rgba(212, 175, 55, 0.2)',
-                    border: '1px solid rgba(212, 175, 55, 0.3)',
-                  }}
-                >
-                  {event.flyer}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-lg text-white font-semibold mb-3">{event.name}</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <Calendar className="w-4 h-4" />
-                      <span>{new Date(event.date).toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+        {loading ? (
+          <div className="text-center py-12 text-gray-400">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+            Carregando eventos...
+          </div>
+        ) : profileEvents.length > 0 ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {profileEvents.map((event) => (
+              <div
+                key={event.id}
+                onClick={() => {
+                  setSelectedEventDetail(event);
+                  setShowDetailModal(true);
+                }}
+                className="p-5 rounded-2xl transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+                style={{
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  border: '1px solid rgba(212, 175, 55, 0.2)',
+                }}
+              >
+                <div className="flex items-start gap-4">
+                  {event.image_url ? (
+                    <div className="w-16 h-16 rounded-xl flex-shrink-0 overflow-hidden">
+                      <img
+                        src={event.image_url}
+                        alt={event.name}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <Music className="w-4 h-4" />
-                      <span>{event.time}</span>
+                  ) : (
+                    <div
+                      className="w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{
+                        background: 'rgba(212, 175, 55, 0.2)',
+                        border: '1px solid rgba(212, 175, 55, 0.3)',
+                      }}
+                    >
+                      <Calendar className="w-8 h-8 text-[#D4AF37]" />
                     </div>
-                    <div className="flex items-center gap-2 text-gray-400">
-                      <MapPin className="w-4 h-4" />
-                      <span>{event.venue}</span>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg text-white font-semibold mb-3">{event.name}</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <Calendar className="w-4 h-4" />
+                        <span>{new Date(event.date).toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <Music className="w-4 h-4" />
+                        <span>{event.start_time} - {event.end_time}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 text-gray-400">
+            Sem eventos disponíveis
+          </div>
+        )}
       </div>
 
       {/* Profile Customization */}
@@ -346,6 +452,176 @@ export function RPProfile() {
           </div>
         </div>
       </div>
+
+      {/* Manage Events Modal */}
+      {showManageModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(10px)' }}
+          onClick={() => setShowManageModal(false)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl backdrop-blur-xl overflow-hidden"
+            style={{
+              background: 'rgba(10, 10, 10, 0.95)',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+              boxShadow: '0 0 60px rgba(212, 175, 55, 0.2)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-8">
+              <h2 className="text-3xl text-white font-bold mb-6">Gerir Eventos do Perfil</h2>
+              <p className="text-gray-400 mb-6">Selecione os eventos que quer mostrar no seu perfil público</p>
+
+              <div className="space-y-3 mb-8">
+                {allEvents.length > 0 ? allEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    onClick={() => handleToggleEvent(event.id)}
+                    className="p-4 rounded-xl cursor-pointer transition-all duration-200 hover:scale-[1.02]"
+                    style={{
+                      background: event.is_selected ? 'rgba(212, 175, 55, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                      border: event.is_selected ? '2px solid rgba(212, 175, 55, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                    }}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div
+                        className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
+                        style={{
+                          background: event.is_selected ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)' : 'rgba(255, 255, 255, 0.1)',
+                          border: event.is_selected ? 'none' : '2px solid rgba(255, 255, 255, 0.3)',
+                        }}
+                      >
+                        {event.is_selected && <CheckCircle2 className="w-4 h-4 text-black" />}
+                      </div>
+
+                      {event.image_url && (
+                        <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                          <img
+                            src={event.image_url}
+                            alt={event.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex-1">
+                        <div className="text-white font-semibold">{event.name}</div>
+                        <div className="text-sm text-gray-400">
+                          {new Date(event.date).toLocaleDateString('pt-PT')} • {event.start_time}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="text-center py-8 text-gray-400">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                    Carregando eventos...
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setShowManageModal(false)}
+                  className="flex-1 px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-colors"
+                  disabled={saving}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveSelection}
+                  className="flex-1 px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2"
+                  style={{
+                    background: saving ? 'rgba(212, 175, 55, 0.5)' : 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                    color: '#000000',
+                  }}
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Guardando...</span>
+                    </>
+                  ) : (
+                    'Guardar'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Event Detail Modal */}
+      {showDetailModal && selectedEventDetail && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(10px)' }}
+          onClick={() => setShowDetailModal(false)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl backdrop-blur-xl overflow-hidden"
+            style={{
+              background: 'rgba(10, 10, 10, 0.95)',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+              boxShadow: '0 0 60px rgba(212, 175, 55, 0.2)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {selectedEventDetail.image_url && (
+              <div style={{ height: '300px' }}>
+                <img src={selectedEventDetail.image_url} alt={selectedEventDetail.name} className="w-full h-full object-cover" />
+              </div>
+            )}
+
+            <div className="p-8">
+              <h2 className="text-3xl text-white font-bold mb-2">{selectedEventDetail.name}</h2>
+              {selectedEventDetail.description && <p className="text-gray-400 mb-6" style={{ whiteSpace: 'pre-wrap' }}>{selectedEventDetail.description}</p>}
+
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                  <div className="flex items-center gap-2 text-gray-400 mb-2">
+                    <Calendar className="w-5 h-5" /><span className="text-sm">Data</span>
+                  </div>
+                  <div className="text-white text-lg font-semibold">
+                    {new Date(selectedEventDetail.date).toLocaleDateString('pt-PT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  </div>
+                </div>
+                <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                  <div className="flex items-center gap-2 text-gray-400 mb-2">
+                    <Clock className="w-5 h-5" /><span className="text-sm">Horário</span>
+                  </div>
+                  <div className="text-white text-lg font-semibold">{selectedEventDetail.start_time} - {selectedEventDetail.end_time}</div>
+                </div>
+                <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                  <div className="flex items-center gap-2 text-gray-400 mb-2">
+                    <Users className="w-5 h-5" /><span className="text-sm">Capacidade</span>
+                  </div>
+                  <div className="text-white text-lg font-semibold">{selectedEventDetail.capacity} pessoas</div>
+                </div>
+                {selectedEventDetail.organizer_name && (
+                  <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+                    <div className="text-gray-400 mb-2 text-sm">Organizador</div>
+                    <div className="text-white text-lg font-semibold">{selectedEventDetail.organizer_name}</div>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="w-full px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
