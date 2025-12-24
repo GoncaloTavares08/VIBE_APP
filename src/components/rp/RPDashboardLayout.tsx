@@ -4,6 +4,7 @@ import {
   UsersRound,
   Award,
   User,
+  Wallet,
   LogOut,
   Menu,
   X,
@@ -26,6 +27,7 @@ const menuItems = [
   { id: 'overview', label: 'RP Center', icon: Home },
   { id: 'guestlist', label: 'Guestlist', icon: LinkIcon },
   { id: 'team', label: 'Team', icon: UsersRound },
+  { id: 'wallet', label: 'Wallet', icon: Wallet },
   { id: 'leaderboard', label: 'Leaderboard', icon: Award },
   { id: 'profile', label: 'Profile', icon: User },
 ];
@@ -326,9 +328,8 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
             <span className="text-[10px] font-medium">Menu</span>
           </button>
 
-          {/* Render Requested Order: Guestlist, Team, Leaderboard, Profile */}
-          {/* We iterate explicitly to ensure order match menuItems indices because filtering/sorting menuItems is easier */}
-          {menuItems.slice(1, 5).map((item) => {
+          {/* Render Requested Order: Guestlist, Wallet, Leaderboard, Profile (skipping Team) */}
+          {menuItems.filter(item => item.id !== 'overview' && item.id !== 'team').map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
             return (

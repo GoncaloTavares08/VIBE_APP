@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS user_club_access (
     user_id INT NOT NULL,
     club_id INT NOT NULL,
     role VARCHAR(50) DEFAULT 'CLIENT',
+    points INT DEFAULT 0 NOT NULL,
+    team_leader_id INT DEFAULT NULL,
     joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (club_id) REFERENCES clubs(id) ON DELETE CASCADE,

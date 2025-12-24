@@ -5,6 +5,7 @@ import { RPGuestlist } from './rp/pages/RPGuestlist';
 import { RPTeam } from './rp/pages/RPTeam';
 import { RPLeaderboard } from './rp/pages/RPLeaderboard';
 import { RPProfile } from './rp/pages/RPProfile';
+import { ClientWallet } from './client/pages/ClientWallet';
 
 interface RPDashboardProps {
     userRole: 'rp' | 'team_leader';
@@ -26,6 +27,8 @@ export function RPDashboard({ userRole, user, onLogout }: RPDashboardProps) {
                 return <RPTeam isTeamLeader={userRole === 'team_leader'} />;
             case 'leaderboard':
                 return <RPLeaderboard />;
+            case 'wallet':
+                return <ClientWallet />;
             case 'profile':
                 return <RPProfile />;
             default:

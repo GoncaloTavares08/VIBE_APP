@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { ImageWithFallback } from '../../figma/ImageWithFallback';
 import { Sparkles, Gift, TrendingUp, ArrowRight } from 'lucide-react';
 
@@ -47,9 +48,38 @@ const rewards = [
 ];
 
 export function ClientWallet() {
-  const userPoints = 5420;
-  const userName = 'André Silva';
+  const [userPoints, setUserPoints] = useState(0);
+  const [userName, setUserName] = useState('');
+  const [loading, setLoading] = useState(true);
   const memberLevel = 'Gold Member';
+
+  useEffect(() => {
+    // Load user data from localStorage (saved during login)
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setUserName(user.name || 'Guest');
+        setUserPoints(user.points || 0);
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        setUserName('Guest');
+        setUserPoints(0);
+      }
+    }
+    setLoading(false);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}>
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400">A carregar carteira...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-4 lg:p-8" style={{ background: '#0a0a0a' }}>

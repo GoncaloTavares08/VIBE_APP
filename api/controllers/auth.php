@@ -172,6 +172,7 @@ elseif ($data->action == 'login') {
                 : null;
 
             $userRole = null; // Default: no role if no club
+            $userPoints = 0; // Default: 0 points
 
             // Only fetch/create club access if there's a club specified
             if ($clientSlug) {
@@ -181,19 +182,21 @@ elseif ($data->action == 'login') {
                 $club = $stmt->fetch(PDO::FETCH_ASSOC);
 
                 if ($club) {
-                    // Check if user_club_access already exists and get role
-                    $stmt = $db->prepare("SELECT role FROM user_club_access WHERE user_id = ? AND club_id = ?");
+                    // Check if user_club_access already exists and get role and points
+                    $stmt = $db->prepare("SELECT role, points FROM user_club_access WHERE user_id = ? AND club_id = ?");
                     $stmt->execute([$user->id, $club['id']]);
                     $access = $stmt->fetch(PDO::FETCH_ASSOC);
 
                     if ($access) {
-                        // User already has access, use existing role
+                        // User already has access, use existing role and points
                         $userRole = $access['role'];
+                        $userPoints = $access['points'];
                     } else {
-                        // First time accessing this club, create with CLIENT role
+                        // First time accessing this club, create with CLIENT role and 0 points
                         $stmt = $db->prepare("INSERT INTO user_club_access (user_id, club_id, role) VALUES (?, ?, 'CLIENT')");
                         $stmt->execute([$user->id, $club['id']]);
                         $userRole = 'CLIENT';
+                        $userPoints = 0;
                     }
                 }
             }
@@ -220,10 +223,11 @@ elseif ($data->action == 'login') {
                 )
             );
 
-            // Add role and club_slug only if there's a club
+            // Add role, points and club_slug only if there's a club
             if ($clientSlug && $userRole) {
                 $response["user"]["role"] = $userRole;
                 $response["user"]["club_slug"] = $clientSlug;
+                $response["user"]["points"] = $userPoints;
             }
 
             echo json_encode($response);
