@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { User, Eye, EyeOff, Calendar, TrendingUp, Award, Edit, Instagram, Plus, X } from 'lucide-react';
-import { ImageWithFallback } from '../../figma/ImageWithFallback';
+import { useState, useEffect, useRef } from 'react';
+import { User, Eye, EyeOff, Calendar, TrendingUp, Award, Edit, Instagram, Plus, X, Loader2, Camera, AlertCircle, Check } from 'lucide-react';
 
 const partyHistory = [
   {
@@ -37,15 +36,277 @@ const partyHistory = [
   },
 ];
 
+interface GalleryPhoto {
+  id: number;
+  photo_path: string;
+  photo_order: number;
+}
+
+interface ProfileData {
+  id: number;
+  bio: string;
+  instagram: string;
+  profile_photo_path: string | null;
+  ghost_mode: number;
+  gallery_photos: GalleryPhoto[];
+}
+
 export function ClientProfile() {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const userId = user?.id;
+
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [ghostMode, setGhostMode] = useState(false);
   const [isEditingInstagram, setIsEditingInstagram] = useState(false);
-  const [instagramHandle, setInstagramHandle] = useState('@andresilva');
-  const [photos, setPhotos] = useState([
-    'https://images.unsplash.com/photo-1638863342226-7ef651886a62?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwZXJzb24lMjBwYXJ0eSUyMHNlbGZpZXxlbnwxfHx8fDE3NjYwNjg2OTF8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    'https://images.unsplash.com/photo-1763655395450-b070fc4f119b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxuaWdodGNsdWIlMjBmcmllbmRzfGVufDF8fHx8MTc2NjA2ODY5MXww&ixlib=rb-4.1.0&q=80&w=1080',
-    'https://images.unsplash.com/photo-1571513722275-4b41940f54b8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmYXNoaW9uJTIwcG9ydHJhaXR8ZW58MXx8fHwxNzY2MDIxODU1fDA&ixlib=rb-4.1.0&q=80&w=1080',
-  ]);
+  const [isEditingBio, setIsEditingBio] = useState(false);
+  const [instagramHandle, setInstagramHandle] = useState('');
+  const [bio, setBio] = useState('');
+  const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const profilePhotoInputRef = useRef<HTMLInputElement>(null);
+  const galleryPhotoInputRef = useRef<HTMLInputElement>(null);
+
+  // Load profile on mount
+  useEffect(() => {
+    loadProfile();
+  }, [userId]);
+
+  const loadProfile = async () => {
+    if (!userId) return;
+
+    try {
+      setLoading(true);
+      const response = await fetch('/api/controllers/client_profile_manage.php?action=get', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId })
+      });
+      const data = await response.json();
+
+      if (data.status === 'success' && data.data) {
+        setProfileData(data.data);
+        setBio(data.data.bio || '');
+        setInstagramHandle(data.data.instagram || '');
+        setGhostMode(data.data.ghost_mode === 1);
+        setPhotos(data.data.gallery_photos || []);
+        setProfilePhotoUrl(data.data.profile_photo_path || null);
+
+        // DEBUG: Log para verificar os dados
+        console.log('Profile loaded:', {
+          profile_photo_path: data.data.profile_photo_path,
+          gallery_photos: data.data.gallery_photos,
+          full_url: data.data.profile_photo_path ? `/api/controllers/serve_image.php?file=${data.data.profile_photo_path}` : 'none'
+        });
+      }
+    } catch (err) {
+      console.error('Error loading profile:', err);
+      showError('Erro ao carregar perfil');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showError = (msg: string) => {
+    setError(msg);
+    setTimeout(() => setError(null), 5000);
+  };
+
+  const showSuccess = (msg: string) => {
+    setSuccessMessage(msg);
+    setTimeout(() => setSuccessMessage(null), 3000);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!userId) return;
+
+    try {
+      setSavingProfile(true);
+      const response = await fetch('/api/controllers/client_profile_manage.php?action=save_profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          bio: bio,
+          instagram: instagramHandle,
+          ghost_mode: ghostMode ? 1 : 0
+        })
+      });
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        showSuccess(data.message);
+        setIsEditingBio(false);
+        setIsEditingInstagram(false);
+      } else {
+        showError(data.message);
+      }
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      showError('Erro ao guardar perfil');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleProfilePhotoClick = () => {
+    profilePhotoInputRef.current?.click();
+  };
+
+  const handleProfilePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showError('Ficheiro muito grande. Máximo: 5MB');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append('photo', file);
+      formData.append('user_id', userId.toString());
+
+      const response = await fetch('/api/controllers/client_profile_manage.php?action=upload_profile_photo', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        setProfilePhotoUrl(data.photo_path);
+        showSuccess(data.message);
+      } else {
+        showError(data.message);
+      }
+    } catch (err) {
+      console.error('Error uploading photo:', err);
+      showError('Erro ao enviar foto');
+    } finally {
+      setUploading(false);
+      if (profilePhotoInputRef.current) {
+        profilePhotoInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleGalleryPhotoClick = () => {
+    if (photos.length >= 6) {
+      showError('Máximo de 6 fotos atingido');
+      return;
+    }
+    galleryPhotoInputRef.current?.click();
+  };
+
+  const handleGalleryPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+
+    if (photos.length >= 6) {
+      showError('Máximo de 6 fotos atingido');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showError('Ficheiro muito grande. Máximo: 5MB');
+      return;
+    }
+
+    try {
+      setUploadingGallery(true);
+      const formData = new FormData();
+      formData.append('photo', file);
+      formData.append('user_id', userId.toString());
+
+      const response = await fetch('/api/controllers/client_profile_manage.php?action=upload_gallery_photo', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        setPhotos([...photos, data.photo]);
+        showSuccess(data.message);
+      } else {
+        showError(data.message);
+      }
+    } catch (err) {
+      console.error('Error uploading photo:', err);
+      showError('Erro ao enviar foto');
+    } finally {
+      setUploadingGallery(false);
+      if (galleryPhotoInputRef.current) {
+        galleryPhotoInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDeleteGalleryPhoto = async (photoId: number) => {
+    if (!userId) return;
+
+    try {
+      const response = await fetch('/api/controllers/client_profile_manage.php?action=delete_gallery_photo', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photo_id: photoId,
+          user_id: userId
+        })
+      });
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        setPhotos(photos.filter(p => p.id !== photoId));
+        showSuccess(data.message);
+      } else {
+        showError(data.message);
+      }
+    } catch (err) {
+      console.error('Error deleting photo:', err);
+      showError('Erro ao remover foto');
+    }
+  };
+
+  const handleToggleGhostMode = async () => {
+    const newGhostMode = !ghostMode;
+    setGhostMode(newGhostMode);
+
+    // Auto-save ghost mode
+    if (!userId) return;
+
+    try {
+      await fetch('/api/controllers/client_profile_manage.php?action=save_profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          bio: bio,
+          instagram: instagramHandle,
+          ghost_mode: newGhostMode ? 1 : 0
+        })
+      });
+    } catch (err) {
+      console.error('Error saving ghost mode:', err);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}>
+        <Loader2 className="w-8 h-8 text-[#D4AF37] animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-4 lg:p-8" style={{ background: '#0a0a0a' }}>
@@ -56,6 +317,50 @@ export function ClientProfile() {
           background: 'radial-gradient(circle at 20% 20%, rgba(212, 175, 55, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(147, 51, 234, 0.2) 0%, transparent 50%)',
         }}
       />
+
+      {/* Hidden file inputs */}
+      <input
+        ref={profilePhotoInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleProfilePhotoChange}
+      />
+      <input
+        ref={galleryPhotoInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleGalleryPhotoChange}
+      />
+
+      {/* Error/Success Messages */}
+      {error && (
+        <div
+          className="fixed top-4 right-4 z-50 p-4 rounded-xl flex items-center gap-3 animate-in slide-in-from-top"
+          style={{
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
+          <AlertCircle className="w-5 h-5 text-red-500" />
+          <p className="text-red-400">{error}</p>
+        </div>
+      )}
+      {successMessage && (
+        <div
+          className="fixed top-4 right-4 z-50 p-4 rounded-xl flex items-center gap-3 animate-in slide-in-from-top"
+          style={{
+            background: 'rgba(34, 197, 94, 0.1)',
+            border: '1px solid rgba(34, 197, 94, 0.3)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
+          <Check className="w-5 h-5 text-green-500" />
+          <p className="text-green-400">{successMessage}</p>
+        </div>
+      )}
 
       <div className="relative z-10 max-w-4xl mx-auto space-y-6">
         {/* Profile Header */}
@@ -71,23 +376,33 @@ export function ClientProfile() {
             {/* Avatar */}
             <div className="relative">
               <div
-                className="w-32 h-32 rounded-full flex items-center justify-center"
+                className="w-32 h-32 rounded-full flex items-center justify-center overflow-hidden"
                 style={{
-                  background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                  background: profilePhotoUrl ? 'transparent' : 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
                   boxShadow: '0 0 40px rgba(212, 175, 55, 0.5)',
                 }}
               >
-                <User className="w-16 h-16 text-black" />
+                {profilePhotoUrl ? (
+                  <img src={`/api/controllers/serve_image.php?file=${profilePhotoUrl}`} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-16 h-16 text-black" />
+                )}
               </div>
               {/* Edit Button */}
               <button
-                className="absolute bottom-0 right-0 w-10 h-10 rounded-full flex items-center justify-center"
+                onClick={handleProfilePhotoClick}
+                disabled={uploading}
+                className="absolute bottom-0 right-0 w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-110"
                 style={{
                   background: '#0a0a0a',
                   border: '2px solid #D4AF37',
                 }}
               >
-                <Edit className="w-5 h-5 text-[#D4AF37]" />
+                {uploading ? (
+                  <Loader2 className="w-5 h-5 text-[#D4AF37] animate-spin" />
+                ) : (
+                  <Camera className="w-5 h-5 text-[#D4AF37]" />
+                )}
               </button>
             </div>
 
@@ -101,12 +416,66 @@ export function ClientProfile() {
                   WebkitTextFillColor: 'transparent',
                 }}
               >
-                André Silva
+                {user.name || 'Seu Nome'}
               </h1>
-              <p className="text-gray-400">@andresilva · Gold Member</p>
-              <p className="text-sm text-gray-500 max-w-md">
-                Night enthusiast 🌙 | Techno lover 🎧 | Always on the guestlist ✨
-              </p>
+              <p className="text-gray-400">Gold Member</p>
+
+              {/* Bio */}
+              {isEditingBio ? (
+                <div className="space-y-2 max-w-md">
+                  <textarea
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    className="w-full px-4 py-3 rounded-xl text-white resize-none"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid rgba(212, 175, 55, 0.3)',
+                      outline: 'none',
+                    }}
+                    placeholder="Fala sobre ti..."
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSaveProfile}
+                      disabled={savingProfile}
+                      className="flex-1 py-2 rounded-xl transition-all"
+                      style={{
+                        background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                        color: '#000',
+                      }}
+                    >
+                      {savingProfile ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Guardar'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditingBio(false);
+                        setBio(profileData?.bio || '');
+                      }}
+                      className="px-6 py-2 rounded-xl"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        color: '#888',
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2 max-w-md">
+                  <p className="text-sm text-gray-500 flex-1">
+                    {bio || 'Adiciona uma bio sobre ti...'}
+                  </p>
+                  <button
+                    onClick={() => setIsEditingBio(true)}
+                    className="text-[#D4AF37] hover:scale-110 transition-transform"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
 
               {/* Stats */}
               <div className="flex gap-6 pt-4 justify-center md:justify-start">
@@ -152,33 +521,38 @@ export function ClientProfile() {
 
           {isEditingInstagram ? (
             <div className="space-y-3">
-              <input
-                type="text"
-                value={instagramHandle}
-                onChange={(e) => setInstagramHandle(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl text-white"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(212, 175, 55, 0.3)',
-                  outline: 'none',
-                }}
-                placeholder="@username"
-              />
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">@</span>
+                <input
+                  type="text"
+                  value={instagramHandle}
+                  onChange={(e) => setInstagramHandle(e.target.value.replace('@', ''))}
+                  className="flex-1 px-4 py-3 rounded-xl text-white"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(212, 175, 55, 0.3)',
+                    outline: 'none',
+                  }}
+                  placeholder="username"
+                  maxLength={30}
+                />
+              </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setIsEditingInstagram(false)}
+                  onClick={handleSaveProfile}
+                  disabled={savingProfile}
                   className="flex-1 py-3 rounded-xl transition-all"
                   style={{
                     background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
                     color: '#000',
                   }}
                 >
-                  Save
+                  {savingProfile ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Guardar'}
                 </button>
                 <button
                   onClick={() => {
                     setIsEditingInstagram(false);
-                    setInstagramHandle('@andresilva');
+                    setInstagramHandle(profileData?.instagram || '');
                   }}
                   className="px-6 py-3 rounded-xl transition-all"
                   style={{
@@ -187,7 +561,7 @@ export function ClientProfile() {
                     color: '#888',
                   }}
                 >
-                  Cancel
+                  Cancelar
                 </button>
               </div>
             </div>
@@ -200,7 +574,7 @@ export function ClientProfile() {
               }}
             >
               <Instagram className="w-6 h-6 text-[#D4AF37]" />
-              <span className="text-[#D4AF37] text-lg">{instagramHandle}</span>
+              <span className="text-[#D4AF37] text-lg">@{instagramHandle || 'adicionar'}</span>
             </div>
           )}
 
@@ -221,37 +595,44 @@ export function ClientProfile() {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-black text-white">My Photos</h2>
             <button
+              onClick={handleGalleryPhotoClick}
+              disabled={uploadingGallery || photos.length >= 6}
               className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all"
               style={{
-                background: 'rgba(212, 175, 55, 0.2)',
-                border: '1px solid rgba(212, 175, 55, 0.4)',
-                color: '#D4AF37',
+                background: photos.length >= 6 ? 'rgba(128, 128, 128, 0.2)' : 'rgba(212, 175, 55, 0.2)',
+                border: `1px solid ${photos.length >= 6 ? 'rgba(128, 128, 128, 0.3)' : 'rgba(212, 175, 55, 0.4)'}`,
+                color: photos.length >= 6 ? '#666' : '#D4AF37',
+                opacity: photos.length >= 6 ? 0.5 : 1,
               }}
             >
-              <Plus className="w-4 h-4" />
+              {uploadingGallery ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}
               Add Photo
             </button>
           </div>
 
           {/* Photo Grid */}
           <div className="grid grid-cols-3 gap-3">
-            {photos.map((photo, i) => (
+            {photos.map((photo) => (
               <div
-                key={i}
+                key={photo.id}
                 className="group relative aspect-square rounded-xl overflow-hidden"
                 style={{
                   border: '1px solid rgba(255, 255, 255, 0.1)',
                 }}
               >
-                <ImageWithFallback
-                  src={photo}
-                  alt={`Photo ${i + 1}`}
+                <img
+                  src={`/api/controllers/serve_image.php?file=${photo.photo_path}`}
+                  alt={`Gallery ${photo.photo_order + 1}`}
                   className="w-full h-full object-cover"
                 />
                 {/* Hover Overlay */}
                 <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <button
-                    onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}
+                    onClick={() => handleDeleteGalleryPhoto(photo.id)}
                     className="w-10 h-10 rounded-full flex items-center justify-center"
                     style={{
                       background: 'rgba(239, 68, 68, 0.9)',
@@ -266,13 +647,19 @@ export function ClientProfile() {
             {/* Add Photo Placeholder */}
             {photos.length < 6 && (
               <button
+                onClick={handleGalleryPhotoClick}
+                disabled={uploadingGallery}
                 className="aspect-square rounded-xl flex items-center justify-center transition-all hover:scale-105"
                 style={{
                   background: 'rgba(255, 255, 255, 0.03)',
                   border: '2px dashed rgba(212, 175, 55, 0.3)',
                 }}
               >
-                <Plus className="w-8 h-8 text-[#D4AF37]" />
+                {uploadingGallery ? (
+                  <Loader2 className="w-8 h-8 text-[#D4AF37] animate-spin" />
+                ) : (
+                  <Plus className="w-8 h-8 text-[#D4AF37]" />
+                )}
               </button>
             )}
           </div>
@@ -317,7 +704,7 @@ export function ClientProfile() {
               </p>
             </div>
             <button
-              onClick={() => setGhostMode(!ghostMode)}
+              onClick={handleToggleGhostMode}
               className="relative w-16 h-8 rounded-full p-1 transition-all duration-300"
               style={{
                 background: ghostMode

@@ -20,6 +20,7 @@ interface RPDashboardLayoutProps {
   currentPage: string;
   onPageChange: (page: string) => void;
   rpName?: string;
+  user?: any; // Added user prop for ID
   onLogout?: () => void;
 }
 
@@ -32,11 +33,14 @@ const menuItems = [
   { id: 'profile', label: 'Profile', icon: User },
 ];
 
-export function RPDashboardLayout({ children, currentPage, onPageChange, rpName = "João Silva", onLogout }: RPDashboardLayoutProps) {
+export function RPDashboardLayout({ children, currentPage, onPageChange, rpName = "João Silva", user, onLogout }: RPDashboardLayoutProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+
+  const userId = user?.id;
 
   const currentDate = new Date().toLocaleDateString('pt-PT', {
     weekday: 'long',
@@ -76,6 +80,30 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
       mainContentRef.current.scrollTop = 0;
     }
   }, [currentPage]);
+
+  // Load RP profile photo
+  useEffect(() => {
+    if (!userId) return;
+
+    const loadProfilePhoto = async () => {
+      try {
+        const response = await fetch('/api/controllers/rp_profile_manage.php?action=get', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId })
+        });
+        const data = await response.json();
+
+        if (data.status === 'success' && data.data?.profile_image_url) {
+          setProfilePhotoUrl(data.data.profile_image_url);
+        }
+      } catch (err) {
+        console.error('Error loading RP profile photo:', err);
+      }
+    };
+
+    loadProfilePhoto();
+  }, [userId]);
 
   // Determine Sidebar Classes
   const getSidebarClasses = () => {
@@ -216,13 +244,21 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
           }}
         >
           <div
-            className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold shrink-0 text-sm md:text-base"
+            className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold shrink-0 text-sm md:text-base overflow-hidden"
             style={{
-              background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+              background: profilePhotoUrl ? 'transparent' : 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
               color: '#000000',
             }}
           >
-            {rpName.charAt(0)}
+            {profilePhotoUrl ? (
+              <img
+                src={`/api/controllers/serve_image.php?file=${profilePhotoUrl}`}
+                alt={rpName}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              rpName.charAt(0)
+            )}
           </div>
 
           {!isCollapsed || isMobileMenuOpen ? (

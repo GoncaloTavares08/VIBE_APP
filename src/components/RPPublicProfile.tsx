@@ -139,6 +139,8 @@ export function RPPublicProfile({ data }: RPPublicProfileProps) {
                         >
                             {profileImage.startsWith('http') ? (
                                 <img src={profileImage} alt={data.name} className="w-full h-full rounded-full object-cover" />
+                            ) : profileImage.includes('/') ? (
+                                <img src={`/api/controllers/serve_image.php?file=${profileImage}`} alt={data.name} className="w-full h-full rounded-full object-cover" />
                             ) : (
                                 <span>{profileImage}</span>
                             )}

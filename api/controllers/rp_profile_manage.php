@@ -23,8 +23,52 @@ if (!$db) {
 $data = json_decode(file_get_contents("php://input"));
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
+// Helper function to ensure upload directory exists
+function ensureRPUploadDirectory($userId)
+{
+    $baseDir = '../uploads/profiles/rps/' . $userId;
+    if (!file_exists($baseDir)) {
+        mkdir($baseDir, 0755, true);
+    }
+    return $baseDir;
+}
+
+// Helper function to get web-accessible path
+function getWebPath($filepath)
+{
+    return str_replace('../', '', $filepath);
+}
+
+// Helper function to validate image file
+function validateImageFile($file, &$error)
+{
+    $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    $maxSize = 5 * 1024 * 1024; // 5MB
+
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        $error = "Erro no upload do ficheiro.";
+        return false;
+    }
+
+    if ($file['size'] > $maxSize) {
+        $error = "Ficheiro muito grande. Máximo: 5MB";
+        return false;
+    }
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+
+    if (!in_array($mimeType, $allowedTypes)) {
+        $error = "Formato inválido. Use: JPG, PNG ou WebP";
+        return false;
+    }
+
+    return true;
+}
+
 // Get user ID from request or session
-$userId = isset($data->user_id) ? (int) $data->user_id : null;
+$userId = isset($data->user_id) ? (int) $data->user_id : (isset($_POST['user_id']) ? (int) $_POST['user_id'] : null);
 
 if (!$userId && $action !== 'check_username') {
     echo json_encode(array("status" => "error", "message" => "User ID não fornecido."));
@@ -164,6 +208,79 @@ try {
                     "username" => $username,
                     "public_url" => "/guest/" . $username
                 )
+            ));
+            break;
+
+        case 'upload_profile_photo':
+            // Upload RP profile photo
+            $userId = isset($_POST['user_id']) ? (int) $_POST['user_id'] : null;
+
+            if (!$userId) {
+                echo json_encode(array("status" => "error", "message" => "User ID não fornecido."));
+                exit();
+            }
+
+            if (!isset($_FILES['photo']) || $_FILES['photo']['error'] === UPLOAD_ERR_NO_FILE) {
+                echo json_encode(array("status" => "error", "message" => "Nenhum ficheiro enviado."));
+                exit();
+            }
+
+            $error = '';
+            if (!validateImageFile($_FILES['photo'], $error)) {
+                echo json_encode(array("status" => "error", "message" => $error));
+                exit();
+            }
+
+            // Create directory
+            $uploadDir = ensureRPUploadDirectory($userId);
+
+            // Get existing profile to delete old photo
+            $stmt = $db->prepare("SELECT id, profile_image_url FROM rp_profiles WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $profile = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($profile && $profile['profile_image_url']) {
+                $oldPath = '../' . $profile['profile_image_url'];
+                if (file_exists($oldPath)) {
+                    unlink($oldPath);
+                }
+            }
+
+            // Generate unique filename
+            $extension = pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION);
+            $filename = 'profile_' . time() . '_' . uniqid() . '.' . $extension;
+            $filepath = $uploadDir . '/' . $filename;
+
+            if (!move_uploaded_file($_FILES['photo']['tmp_name'], $filepath)) {
+                echo json_encode(array("status" => "error", "message" => "Erro ao guardar ficheiro."));
+                exit();
+            }
+
+            // Store web path
+            $webPath = getWebPath($filepath);
+
+            // Update or create profile
+            if ($profile) {
+                $stmt = $db->prepare("
+                    UPDATE rp_profiles 
+                    SET profile_image_url = ?, updated_at = NOW()
+                    WHERE user_id = ?
+                ");
+                $stmt->execute([$webPath, $userId]);
+            } else {
+                // Create minimal profile if doesn't exist
+                $stmt = $db->prepare("
+                    INSERT INTO rp_profiles (user_id, username, profile_image_url, is_public) 
+                    VALUES (?, ?, ?, 0)
+                ");
+                $tempUsername = 'rp_' . $userId; // Temporary username
+                $stmt->execute([$userId, $tempUsername, $webPath]);
+            }
+
+            echo json_encode(array(
+                "status" => "success",
+                "message" => "Foto de perfil atualizada!",
+                "photo_path" => $webPath
             ));
             break;
 

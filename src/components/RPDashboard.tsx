@@ -41,6 +41,7 @@ export function RPDashboard({ userRole, user, onLogout }: RPDashboardProps) {
             currentPage={currentPage}
             onPageChange={setCurrentPage}
             rpName={user?.name || "João Silva"}
+            user={user}
             onLogout={onLogout}
         >
             {renderPage()}

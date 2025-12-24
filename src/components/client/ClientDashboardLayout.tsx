@@ -35,9 +35,11 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
 
   // Default Name if user is missing
   const userName = user?.name || "Cliente VIBE";
+  const userId = user?.id;
 
   const currentDate = new Date().toLocaleDateString('pt-PT', {
     weekday: 'long',
@@ -68,6 +70,30 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Load profile photo
+  useEffect(() => {
+    if (!userId) return;
+
+    const loadProfilePhoto = async () => {
+      try {
+        const response = await fetch('/api/controllers/client_profile_manage.php?action=get', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId })
+        });
+        const data = await response.json();
+
+        if (data.status === 'success' && data.data?.profile_photo_path) {
+          setProfilePhotoUrl(data.data.profile_photo_path);
+        }
+      } catch (err) {
+        console.error('Error loading profile photo:', err);
+      }
+    };
+
+    loadProfilePhoto();
+  }, [userId]);
 
   const mainContentRef = useRef<HTMLElement>(null);
 
@@ -217,13 +243,21 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
           }}
         >
           <div
-            className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold shrink-0 text-sm md:text-base"
+            className="w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold shrink-0 text-sm md:text-base overflow-hidden"
             style={{
-              background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+              background: profilePhotoUrl ? 'transparent' : 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
               color: '#000000',
             }}
           >
-            {userName.charAt(0)}
+            {profilePhotoUrl ? (
+              <img
+                src={`/api/controllers/serve_image.php?file=${profilePhotoUrl}`}
+                alt={userName}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              userName.charAt(0)
+            )}
           </div>
 
           {!isCollapsed || isMobileMenuOpen ? (

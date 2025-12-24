@@ -289,6 +289,67 @@ ALTER TABLE `rp_reviews`
   ADD CONSTRAINT `rp_reviews_ibfk_2` FOREIGN KEY (`reviewer_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `rp_reviews_ibfk_3` FOREIGN KEY (`club_id`) REFERENCES `clubs` (`id`) ON DELETE CASCADE;
 
+-- --------------------------------------------------------
+
+--
+-- Estrutura da tabela `client_profiles`
+--
+
+CREATE TABLE IF NOT EXISTS `client_profiles` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `bio` text DEFAULT NULL,
+  `instagram` varchar(50) DEFAULT NULL,
+  `profile_photo_path` varchar(500) DEFAULT NULL,
+  `ghost_mode` tinyint(1) DEFAULT 0,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_id` (`user_id`),
+  KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estrutura da tabela `client_profile_photos`
+--
+
+CREATE TABLE IF NOT EXISTS `client_profile_photos` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `client_profile_id` int(11) NOT NULL,
+  `photo_path` varchar(500) NOT NULL,
+  `photo_order` tinyint NOT NULL DEFAULT 0,
+  `uploaded_at` datetime DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_profile` (`client_profile_id`),
+  KEY `idx_order` (`client_profile_id`, `photo_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- AUTO_INCREMENT de tabela `client_profiles`
+--
+ALTER TABLE `client_profiles`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de tabela `client_profile_photos`
+--
+ALTER TABLE `client_profile_photos`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- Limitadores para a tabela `client_profiles`
+--
+ALTER TABLE `client_profiles`
+  ADD CONSTRAINT `client_profiles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+--
+-- Limitadores para a tabela `client_profile_photos`
+--
+ALTER TABLE `client_profile_photos`
+  ADD CONSTRAINT `client_profile_photos_ibfk_1` FOREIGN KEY (`client_profile_id`) REFERENCES `client_profiles` (`id`) ON DELETE CASCADE;
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

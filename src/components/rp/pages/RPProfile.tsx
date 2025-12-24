@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ExternalLink, Edit, Share2, Instagram, Copy, CheckCircle2, Calendar, Music, Loader2, Clock, Users, Check, X, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { ExternalLink, Edit, Share2, Instagram, Copy, CheckCircle2, Calendar, Music, Loader2, Clock, Users, Check, X, AlertCircle, Camera } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
 
 interface Event {
@@ -38,6 +38,8 @@ export function RPProfile() {
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
   const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userId = user?.id;
 
@@ -153,6 +155,47 @@ export function RPProfile() {
       setSaving(false);
     }
   };
+
+  // Handle photo upload
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+
+    // Validate file size
+    if (file.size > 5 * 1024 * 1024) {
+      setSaveMessage({ type: 'error', text: 'Ficheiro muito grande. Máximo: 5MB' });
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+      const formDataUpload = new FormData();
+      formDataUpload.append('photo', file);
+      formDataUpload.append('user_id', userId.toString());
+
+      const response = await fetch('/api/controllers/rp_profile_manage.php?action=upload_profile_photo', {
+        method: 'POST',
+        body: formDataUpload
+      });
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        // Update form data with new photo path
+        setFormData({ ...formData, profile_image_url: data.photo_path });
+        setSaveMessage({ type: 'success', text: data.message });
+      } else {
+        setSaveMessage({ type: 'error', text: data.message });
+      }
+    } catch (err: any) {
+      setSaveMessage({ type: 'error', text: 'Erro ao enviar foto' });
+    } finally {
+      setUploadingPhoto(false);
+      if (photoInputRef.current) {
+        photoInputRef.current.value = '';
+      }
+    }
+  };
+
 
   const fetchProfileEvents = async () => {
     try {
@@ -317,19 +360,25 @@ export function RPProfile() {
           }}
         >
           <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
-            {/* Avatar */}
-            <div
-              className="w-24 h-24 lg:w-32 lg:h-32 rounded-3xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-              style={{
-                background: formData.profile_image_url ? 'transparent' : 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-                boxShadow: '0 0 40px rgba(212, 175, 55, 0.4)',
-              }}
-            >
-              {formData.profile_image_url ? (
-                <img src={formData.profile_image_url} alt={user.name} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-5xl lg:text-6xl text-black font-black">{user.name?.charAt(0) || '?'}</span>
-              )}
+            {/* Avatar with upload button */}
+            <div className="relative">
+              <div
+                className="w-24 h-24 lg:w-32 lg:h-32 rounded-3xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+                style={{
+                  background: formData.profile_image_url ? 'transparent' : 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                  boxShadow: '0 0 40px rgba(212, 175, 55, 0.4)',
+                }}
+              >
+                {formData.profile_image_url ? (
+                  <img
+                    src={`/api/controllers/serve_image.php?file=${formData.profile_image_url}`}
+                    alt={user.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-5xl lg:text-6xl text-black font-black">{user.name?.charAt(0) || '?'}</span>
+                )}
+              </div>
             </div>
 
             {/* Profile Info */}
@@ -543,16 +592,54 @@ export function RPProfile() {
               )}
 
               <div className="space-y-4">
-                {/* Profile Image URL */}
+                {/* Profile Photo Upload */}
                 <div>
-                  <label className="block text-sm text-gray-400 mb-2">URL da Foto de Perfil</label>
+                  <label className="block text-sm text-gray-400 mb-2">Foto de Perfil</label>
                   <input
-                    type="text"
-                    value={formData.profile_image_url}
-                    onChange={(e) => setFormData({ ...formData, profile_image_url: e.target.value })}
-                    placeholder="https://..."
-                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-[#D4AF37] focus:outline-none transition-colors"
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
                   />
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="w-20 h-20 rounded-2xl flex items-center justify-center overflow-hidden"
+                      style={{
+                        background: formData.profile_image_url ? 'transparent' : 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)'
+                      }}
+                    >
+                      {formData.profile_image_url ? (
+                        <img
+                          src={`/api/controllers/serve_image.php?file=${formData.profile_image_url}`}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Camera className="w-8 h-8 text-black" />
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => photoInputRef.current?.click()}
+                      disabled={uploadingPhoto}
+                      className="px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                      style={{
+                        background: 'rgba(212, 175, 55, 0.2)',
+                        border: '1px solid rgba(212, 175, 55, 0.3)',
+                        color: '#D4AF37'
+                      }}
+                    >
+                      {uploadingPhoto ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Camera className="w-4 h-4" />
+                      )}
+                      {uploadingPhoto ? 'A enviar...' : 'Carregar Foto'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">Máximo 5MB - JPG, PNG ou WebP</p>
                 </div>
 
                 {/* Username with validation */}
