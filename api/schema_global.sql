@@ -28,23 +28,29 @@ SET time_zone = "+00:00";
 -- Estrutura da tabela `clubs`
 --
 
-CREATE TABLE `clubs` (
+CREATE TABLE IF NOT EXISTS `clubs` (
   `id` int(11) NOT NULL,
   `name` varchar(255) NOT NULL,
   `slug` varchar(100) NOT NULL,
   `database_name` varchar(100) NOT NULL,
   `location` varchar(255) DEFAULT NULL,
+  `address` varchar(500) DEFAULT NULL,
+  `max_capacity` int(11) DEFAULT 800,
+  `opening_time` time DEFAULT '23:00:00',
+  `closing_time` time DEFAULT '06:00:00',
+  `contact_phone` varchar(50) DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT 1,
-  `created_at` datetime DEFAULT current_timestamp()
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Extraindo dados da tabela `clubs`
 --
 
-INSERT INTO `clubs` (`id`, `name`, `slug`, `database_name`, `location`, `is_active`, `created_at`) VALUES
-(1, 'Via Rapida', 'vr', 'if0_40705886_vr_vibe_db', 'Porto, Portugal', 1, '2025-12-19 20:18:43'),
-(2, 'Eskada Club', 'eskada', 'if0_40705886_eskada_vibe_db', 'Lisboa, Portugal', 1, '2025-12-19 20:18:43');
+INSERT INTO `clubs` (`id`, `name`, `slug`, `database_name`, `location`, `address`, `city`, `max_capacity`, `opening_time`, `closing_time`, `contact_phone`, `language`, `timezone`, `dark_mode`, `notifications`, `is_active`, `created_at`) VALUES
+(1, 'Via Rapida', 'vr', 'if0_40705886_vr_vibe_db', 'Porto, Portugal', 'Rua da Noite, 123', 'Porto', 800, '23:00:00', '06:00:00', '+351 912 345 678', 'pt', 'lisbon', 1, '{"eventSoldOut":true,"capacityWarning":true,"revenueGoals":true,"securityAlerts":true,"rpPerformance":false,"systemIssues":true}', 1, '2025-12-19 20:18:43'),
+(2, 'Eskada Club', 'eskada', 'if0_40705886_eskada_vibe_db', 'Lisboa, Portugal', 'Avenida da Liberdade, 456', 'Lisboa', 600, '23:30:00', '06:00:00', '+351 913 456 789', 'pt', 'lisbon', 1, '{"eventSoldOut":true,"capacityWarning":true,"revenueGoals":true,"securityAlerts":true,"rpPerformance":false,"systemIssues":true}', 1, '2025-12-19 20:18:43');
 
 -- --------------------------------------------------------
 

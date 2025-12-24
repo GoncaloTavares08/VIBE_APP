@@ -226,7 +226,7 @@ export function ClientWallet() {
         }}
       />
 
-      <div className="relative z-10 max-w-6xl mx-auto space-y-8">
+      <div className="relative max-w-6xl mx-auto space-y-8">
         {/* Premium Balance Card */}
         <div
           className="relative overflow-hidden rounded-3xl p-8"
