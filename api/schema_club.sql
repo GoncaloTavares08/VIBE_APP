@@ -86,7 +86,57 @@ INSERT INTO `rp_profile_events` (`id`, `rp_user_id`, `event_id`, `created_at`) V
 (4, 15, 2, '2025-12-23 02:55:35'),
 (5, 15, 1, '2025-12-23 02:55:37');
 
+-- --------------------------------------------------------
+
 --
+-- Estrutura da tabela `rewards`
+--
+
+CREATE TABLE IF NOT EXISTS `rewards` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `description` text,
+  `points` int(11) NOT NULL,
+  `stock` int(11) NOT NULL DEFAULT 0,
+  `available` tinyint(1) DEFAULT 1,
+  `image_path` varchar(500),
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_available` (`available`),
+  KEY `idx_points` (`points`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Estrutura da tabela `reward_redemptions`
+--
+
+CREATE TABLE IF NOT EXISTS `reward_redemptions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL COMMENT 'From global database',
+  `reward_id` int(11) NOT NULL,
+  `reward_name` varchar(255) NOT NULL COMMENT 'Snapshot of reward name at redemption',
+  `points_spent` int(11) NOT NULL COMMENT 'Points deducted',
+  `status` enum('pending','used','expired') DEFAULT 'pending',
+  `qr_code` varchar(500) NOT NULL COMMENT 'Unique QR code for verification',
+  `event_id` int(11) DEFAULT NULL COMMENT 'Event where reward was activated',
+  `activated_by` int(11) DEFAULT NULL COMMENT 'Staff/RP user_id who activated',
+  `redeemed_at` datetime DEFAULT current_timestamp(),
+  `used_at` datetime DEFAULT NULL,
+  `expires_at` datetime NOT NULL COMMENT 'Expiration date (30 days from redemption)',
+  PRIMARY KEY (`id`),
+  KEY `idx_user` (`user_id`),
+  KEY `idx_reward` (`reward_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_qr_code` (`qr_code`),
+  KEY `idx_event` (`event_id`),
+  CONSTRAINT `fk_redemption_reward` FOREIGN KEY (`reward_id`) REFERENCES `rewards` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_redemption_event` FOREIGN KEY (`event_id`) REFERENCES `events` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 -- Índices para tabelas despejadas
 --
 
