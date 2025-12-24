@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ExternalLink, Edit, Share2, Instagram, Copy, CheckCircle2, Calendar, Music, Loader2, Clock, Users } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ExternalLink, Edit, Share2, Instagram, Copy, CheckCircle2, Calendar, Music, Loader2, Clock, Users, Check, X, AlertCircle } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
 
 interface Event {
@@ -17,6 +17,7 @@ interface Event {
 }
 
 export function RPProfile() {
+  // Existing states
   const [copiedBio, setCopiedBio] = useState(false);
   const [profileEvents, setProfileEvents] = useState<Event[]>([]);
   const [showManageModal, setShowManageModal] = useState(false);
@@ -26,21 +27,132 @@ export function RPProfile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const rpData = {
-    name: 'João Silva',
-    username: 'joaosilva',
-    bio: 'VIP Promoter @ VIBE • Lisboa Nightlife 🌃 • DM for guestlist access ✨',
-    profileImage: 'J',
-    instagram: '@joaosilva_vibe',
-    publicLink: 'vibe.app/rp/joaosilva',
-    totalEntries: 2847,
-    eventsHosted: 24,
-  };
+  // NEW: Profile editing states
+  const [profileData, setProfileData] = useState<any>(null);
+  const [formData, setFormData] = useState({
+    username: '',
+    bio: '',
+    instagram: '',
+    profile_image_url: ''
+  });
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle');
+  const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const userId = user?.id;
+
 
   // Fetch profile events on mount
   useEffect(() => {
     fetchProfileEvents();
+    loadProfile(); // NEW: Load profile data
   }, []);
+
+  // NEW: Load RP profile
+  const loadProfile = async () => {
+    if (!userId) return;
+
+    try {
+      const response = await fetch('/api/controllers/rp_profile_manage.php?action=get', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId })
+      });
+      const data = await response.json();
+
+      if (data.status === 'success' && data.data) {
+        setProfileData(data.data);
+        setFormData({
+          username: data.data.username || '',
+          bio: data.data.bio || '',
+          instagram: data.data.instagram || '',
+          profile_image_url: data.data.profile_image_url || '',
+        });
+      }
+    } catch (err) {
+      console.error('Error loading profile:', err);
+    }
+  };
+
+  // NEW: Check username availability (debounced)
+  const checkUsername = useCallback(async (username: string) => {
+    if (!username || username.length < 3) {
+      setUsernameStatus('idle');
+      return;
+    }
+
+    // Validate format
+    if (!/^[a-zA-Z0-9_]{3,50}$/.test(username)) {
+      setUsernameStatus('invalid');
+      return;
+    }
+
+    setUsernameStatus('checking');
+
+    try {
+      const response = await fetch('/api/controllers/rp_profile_manage.php?action=check_username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, user_id: userId })
+      });
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        setUsernameStatus(data.available ? 'available' : 'taken');
+      }
+    } catch (err) {
+      console.error('Error checking username:', err);
+      setUsernameStatus('idle');
+    }
+  }, [userId]);
+
+  // NEW: Debounce username check
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.username && formData.username !== profileData?.username) {
+        checkUsername(formData.username);
+      } else if (formData.username) {
+        setUsernameStatus('available'); // Own username is "available"
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [formData.username, profileData?.username, checkUsername]);
+
+  // NEW: Save profile
+  const handleSaveProfile = async () => {
+    if (usernameStatus === 'taken' || usernameStatus === 'invalid') {
+      setSaveMessage({ type: 'error', text: 'Username inválido ou já em uso' });
+      return;
+    }
+
+    setSaving(true);
+    setSaveMessage(null);
+
+    try {
+      const response = await fetch('/api/controllers/rp_profile_manage.php?action=save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          ...formData
+        })
+      });
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        setSaveMessage({ type: 'success', text: data.message });
+        setProfileData(formData);
+        setTimeout(() => setSaveMessage(null), 5000);
+      } else {
+        setSaveMessage({ type: 'error', text: data.message });
+      }
+    } catch (err) {
+      console.error('Error saving profile:', err);
+      setSaveMessage({ type: 'error', text: 'Erro ao guardar perfil' });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const fetchProfileEvents = async () => {
     try {
@@ -119,9 +231,34 @@ export function RPProfile() {
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(rpData.publicLink);
-    setCopiedBio(true);
-    setTimeout(() => setCopiedBio(false), 2000);
+    const publicUrl = formData.username ? `https://vibe.infinityfree.me/guest/${formData.username}` : '';
+    if (publicUrl) {
+      navigator.clipboard.writeText(publicUrl);
+      setCopiedBio(true);
+      setTimeout(() => setCopiedBio(false), 2000);
+    }
+  };
+
+  const handleShareLink = () => {
+    const publicUrl = formData.username ? `https://vibe.infinityfree.me/guest/${formData.username}` : '';
+    if (publicUrl && navigator.share) {
+      navigator.share({
+        title: `Perfil de ${user.name}`,
+        text: `Vê o meu perfil!`,
+        url: publicUrl
+      }).catch(() => {
+        // Fallback: just copy
+        handleCopyLink();
+      });
+    } else {
+      handleCopyLink();
+    }
+  };
+
+  const handleViewLive = () => {
+    if (formData.username) {
+      window.open(`/guest/${formData.username}`, '_blank');
+    }
   };
 
   return (
@@ -144,6 +281,7 @@ export function RPProfile() {
           <h2 className="text-xl text-white">Public Landing Page</h2>
           <div className="flex gap-2">
             <button
+              onClick={() => setShowEditModal(true)}
               className="px-4 py-2 rounded-xl text-sm transition-all duration-300 hover:scale-105 flex items-center gap-2"
               style={{
                 background: 'rgba(212, 175, 55, 0.2)',
@@ -155,10 +293,13 @@ export function RPProfile() {
               <span className="hidden sm:inline">Edit</span>
             </button>
             <button
+              onClick={handleViewLive}
+              disabled={!formData.username}
               className="px-4 py-2 rounded-xl text-sm transition-all duration-300 hover:scale-105 flex items-center gap-2"
               style={{
-                background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-                color: '#000000',
+                background: formData.username ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)' : 'rgba(128, 128, 128, 0.3)',
+                color: formData.username ? '#000000' : '#666666',
+                opacity: formData.username ? 1 : 0.5,
               }}
             >
               <ExternalLink className="w-4 h-4" />
@@ -178,65 +319,45 @@ export function RPProfile() {
           <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
             {/* Avatar */}
             <div
-              className="w-24 h-24 lg:w-32 lg:h-32 rounded-3xl flex items-center justify-center flex-shrink-0"
+              className="w-24 h-24 lg:w-32 lg:h-32 rounded-3xl flex items-center justify-center flex-shrink-0 overflow-hidden"
               style={{
-                background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                background: formData.profile_image_url ? 'transparent' : 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
                 boxShadow: '0 0 40px rgba(212, 175, 55, 0.4)',
               }}
             >
-              <span className="text-5xl lg:text-6xl text-black font-black">{rpData.profileImage}</span>
+              {formData.profile_image_url ? (
+                <img src={formData.profile_image_url} alt={user.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-5xl lg:text-6xl text-black font-black">{user.name?.charAt(0) || '?'}</span>
+              )}
             </div>
 
             {/* Profile Info */}
             <div className="flex-1 text-center lg:text-left">
-              <h1 className="text-3xl lg:text-4xl text-white mb-2">{rpData.name}</h1>
-              <p className="text-[#D4AF37] mb-4">@{rpData.username}</p>
-              <p className="text-gray-300 mb-6 max-w-2xl">{rpData.bio}</p>
-
-              {/* Stats */}
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-6 mb-6">
-                <div>
-                  <div className="text-2xl text-white font-bold">{rpData.totalEntries.toLocaleString()}</div>
-                  <div className="text-sm text-gray-400">Total Entries</div>
-                </div>
-                <div>
-                  <div className="text-2xl text-white font-bold">{rpData.eventsHosted}</div>
-                  <div className="text-sm text-gray-400">Events Hosted</div>
-                </div>
-              </div>
+              <h1 className="text-3xl lg:text-4xl text-white mb-2">{user.name || 'Seu Nome'}</h1>
+              <p className="text-[#D4AF37] mb-4">@{formData.username || 'username'}</p>
+              <p className="text-gray-300 mb-6 max-w-2xl">{formData.bio || 'Adicione uma biografia...'}</p>
 
               {/* Social Links */}
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3">
-                <a
-                  href={`https://instagram.com/${rpData.instagram.replace('@', '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    color: '#ffffff',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                  }}
-                >
-                  <Instagram className="w-4 h-4" />
-                  <span>{rpData.instagram}</span>
-                </a>
+                {formData.instagram && (
+                  <a
+                    href={`https://instagram.com/${formData.instagram.replace('@', '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      color: '#ffffff',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                    }}
+                  >
+                    <Instagram className="w-4 h-4" />
+                    <span>@{formData.instagram}</span>
+                  </a>
+                )}
               </div>
             </div>
-          </div>
-
-          {/* CTA Button */}
-          <div className="mt-8 text-center">
-            <button
-              className="px-8 py-4 rounded-2xl transition-all duration-300 hover:scale-105 inline-flex items-center gap-3"
-              style={{
-                background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-                color: '#000000',
-                boxShadow: '0 0 40px rgba(212, 175, 55, 0.4)',
-              }}
-            >
-              <span className="text-lg font-bold">Join My Guestlist</span>
-            </button>
           </div>
         </div>
 
@@ -253,7 +374,7 @@ export function RPProfile() {
             <ExternalLink className="w-5 h-5 text-[#D4AF37] flex-shrink-0" />
             <input
               type="text"
-              value={rpData.publicLink}
+              value={formData.username ? `https://vibe.infinityfree.me/guest/${formData.username}` : 'Defina um username primeiro'}
               readOnly
               className="flex-1 bg-transparent text-white outline-none min-w-0"
             />
@@ -279,6 +400,7 @@ export function RPProfile() {
               )}
             </button>
             <button
+              onClick={handleShareLink}
               className="px-3 sm:px-4 py-2 rounded-lg transition-all duration-300 hover:scale-105 flex items-center gap-2"
               style={{
                 background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
@@ -379,79 +501,162 @@ export function RPProfile() {
         )}
       </div>
 
-      {/* Profile Customization */}
-      <div
-        className="p-6 rounded-3xl backdrop-blur-xl"
-        style={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-        }}
-      >
-        <h2 className="text-xl text-white mb-6">Customize Your Profile</h2>
+      {/* Edit Profile Modal */}
+      {showEditModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(10px)' }}
+          onClick={() => setShowEditModal(false)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl backdrop-blur-xl overflow-hidden"
+            style={{
+              background: 'rgba(10, 10, 10, 0.95)',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+              boxShadow: '0 0 60px rgba(212, 175, 55, 0.2)',
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-8">
+              <h2 className="text-3xl text-white font-bold mb-6">Edit Your Profile</h2>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">Display Name</label>
-            <input
-              type="text"
-              defaultValue={rpData.name}
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-[#D4AF37] focus:outline-none transition-colors"
-            />
-          </div>
+              {/* Success/Error Message */}
+              {saveMessage && (
+                <div
+                  className="mb-6 p-4 rounded-xl flex items-center gap-3"
+                  style={{
+                    background: saveMessage.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    border: saveMessage.type === 'success' ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                  }}
+                >
+                  {saveMessage.type === 'success' ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  ) : (
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                  )}
+                  <p className={saveMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}>
+                    {saveMessage.text}
+                  </p>
+                </div>
+              )}
 
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">Username</label>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">vibe.app/rp/</span>
-              <input
-                type="text"
-                defaultValue={rpData.username}
-                className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-[#D4AF37] focus:outline-none transition-colors"
-              />
+              <div className="space-y-4">
+                {/* Profile Image URL */}
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">URL da Foto de Perfil</label>
+                  <input
+                    type="text"
+                    value={formData.profile_image_url}
+                    onChange={(e) => setFormData({ ...formData, profile_image_url: e.target.value })}
+                    placeholder="https://..."
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-[#D4AF37] focus:outline-none transition-colors"
+                  />
+                </div>
+
+                {/* Username with validation */}
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">Username (para link público)</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500">/guest/</span>
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        value={formData.username}
+                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-[#D4AF37] focus:outline-none transition-colors"
+                        placeholder="seuusername"
+                      />
+                      {/* Validation Icon */}
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                        {usernameStatus === 'checking' && <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />}
+                        {usernameStatus === 'available' && <Check className="w-5 h-5 text-green-500" />}
+                        {(usernameStatus === 'taken' || usernameStatus === 'invalid') && <X className="w-5 h-5 text-red-500" />}
+                      </div>
+                    </div>
+                  </div>
+                  {usernameStatus === 'invalid' && (
+                    <p className="text-xs text-red-400 mt-1">3-50 caracteres (letras, números, _)</p>
+                  )}
+                  {usernameStatus === 'taken' && (
+                    <p className="text-xs text-red-400 mt-1">Username já em uso</p>
+                  )}
+                  {formData.username && usernameStatus === 'available' && (
+                    <p className="text-xs text-gray-500 mt-1">Link: /guest/{formData.username}</p>
+                  )}
+                </div>
+
+                {/* Bio */}
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">Bio</label>
+                  <textarea
+                    value={formData.bio}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                    rows={3}
+                    maxLength={500}
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-[#D4AF37] focus:outline-none transition-colors resize-none"
+                    placeholder="Fala sobre ti..."
+                  />
+                  <p className="text-xs text-gray-500 mt-1">{formData.bio.length}/500 caracteres</p>
+                </div>
+
+                {/* Instagram */}
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">Instagram Handle</label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500">@</span>
+                    <input
+                      type="text"
+                      value={formData.instagram}
+                      onChange={(e) => setFormData({ ...formData, instagram: e.target.value.replace('@', '') })}
+                      maxLength={30}
+                      className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-[#D4AF37] focus:outline-none transition-colors"
+                      placeholder="seuinstagram"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setSaveMessage(null);
+                    }}
+                    className="flex-1 px-6 py-3 rounded-xl transition-colors"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      color: '#888888',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                    }}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      await handleSaveProfile();
+                      if (usernameStatus !== 'taken' && usernameStatus !== 'invalid' && formData.username) {
+                        setTimeout(() => setShowEditModal(false), 2000);
+                      }
+                    }}
+                    disabled={saving || usernameStatus === 'taken' || usernameStatus === 'invalid' || !formData.username}
+                    className="flex-1 px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2"
+                    style={{
+                      background: saving ? 'rgba(212, 175, 55, 0.5)' : 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                      color: '#000000',
+                      opacity: (usernameStatus === 'taken' || usernameStatus === 'invalid' || !formData.username) ? 0.5 : 1,
+                    }}
+                  >
+                    {saving && <Loader2 className="w-5 h-5 animate-spin" />}
+                    <span className="font-semibold">{saving ? 'Guardando...' : 'Save Changes'}</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">Bio</label>
-            <textarea
-              defaultValue={rpData.bio}
-              rows={3}
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-[#D4AF37] focus:outline-none transition-colors resize-none"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-400 mb-2">Instagram Handle</label>
-            <input
-              type="text"
-              defaultValue={rpData.instagram}
-              className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white focus:border-[#D4AF37] focus:outline-none transition-colors"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              className="px-6 py-3 rounded-xl transition-colors"
-              style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                color: '#888888',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              className="px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105"
-              style={{
-                background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-                color: '#000000',
-              }}
-            >
-              <span className="font-semibold">Save Changes</span>
-            </button>
-          </div>
         </div>
-      </div>
+      )}
 
       {/* Manage Events Modal */}
       {showManageModal && (

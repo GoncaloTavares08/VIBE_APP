@@ -8,6 +8,7 @@ import { RPDashboard } from './components/RPDashboard';
 import { ClientDashboard } from './components/ClientDashboard';
 import { DoorOpsApp } from './components/staff/StaffApp';
 import { AccessDenied } from './components/AccessDenied';
+import { RPPublicProfilePage } from './pages/RPPublicProfilePage';
 import { useClubAccess } from './hooks/useClubAccess';
 import { clearAllAccessCache } from './utils/clearAccessCache';
 import { useState, useEffect } from 'react';
@@ -72,6 +73,15 @@ export default function App() {
   // Detect if we have a club in the URL
   const pathSegments = window.location.pathname.split('/').filter(Boolean);
   const hasClubInUrl = pathSegments.length > 0 && pathSegments[0] !== '';
+
+  // Check if accessing guest profile (/guest/rpname)
+  const isGuestProfile = pathSegments.length >= 2 && pathSegments[0] === 'guest';
+  const rpUsername = isGuestProfile ? pathSegments[1] : null;
+
+  // Show guest profile (public access, no authentication needed)
+  if (isGuestProfile && rpUsername) {
+    return <RPPublicProfilePage rpname={rpUsername} />;
+  }
 
   // Show loading while verifying access
   if (user && isLoading && hasClubInUrl) {

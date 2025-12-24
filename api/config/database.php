@@ -80,6 +80,40 @@ class Database
     }
 
     /**
+     * Get connection to CLIENT-SPECIFIC database by club slug
+     * @param string $slug Club slug (e.g., 'vr', 'eskada')
+     */
+    public function getClientConnectionBySlug($slug)
+    {
+        // Map client IDs to database names from .env
+        $databaseMap = [
+            'vr' => $_ENV['VR_DB_NAME'] ?? getenv('VR_DB_NAME'),
+            'eskada' => $_ENV['ESKADA_DB_NAME'] ?? getenv('ESKADA_DB_NAME'),
+        ];
+
+        $client_db = $databaseMap[strtolower($slug)] ?? null;
+        
+        if (!$client_db) {
+            error_log("Invalid club slug: " . $slug);
+            return null;
+        }
+
+        try {
+            $conn = new PDO(
+                "mysql:host=" . $this->host . ";dbname=" . $client_db,
+                $this->username,
+                $this->password
+            );
+            $conn->exec("set names utf8mb4");
+            $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            return $conn;
+        } catch (PDOException $exception) {
+            error_log("Client DB Connection error for slug '$slug': " . $exception->getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Legacy method for backward compatibility
      * Defaults to global connection
      */
