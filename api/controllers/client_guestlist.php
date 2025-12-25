@@ -142,8 +142,8 @@ try {
                 $addAccessStmt->execute([$userId, $clubId]);
             }
 
-            // Generate unique QR code
-            $qrCode = 'GUEST-' . $eventId . '-' . $userId . '-' . substr(md5(uniqid(rand(), true)), 0, 8);
+            // Generate unique QR code (Temporary, will be updated with ID)
+            $tempQrCode = 'TEMP-' . uniqid();
 
             // Set timezone and get current time
             date_default_timezone_set('Europe/Lisbon');
@@ -154,14 +154,24 @@ try {
                 INSERT INTO guestlist (event_id, client_id, rp_id, status, qr_code, created_at)
                 VALUES (?, ?, ?, 'confirmed', ?, ?)
             ");
-            $insertStmt->execute([$eventId, $userId, $rpId, $qrCode, $createdAt]);
+            $insertStmt->execute([$eventId, $userId, $rpId, $tempQrCode, $createdAt]);
+
+            $guestlistId = $db->lastInsertId();
+
+            // Generate FINAL QR code with Guestlist ID
+            // Format: GUEST-{GuestlistID}-{EventID}-{ClientID}-{RPID}-{Hash}
+            $finalQrCode = 'GUEST-' . $guestlistId . '-' . $eventId . '-' . $userId . '-' . $rpId . '-' . substr(md5(uniqid(rand(), true)), 0, 8);
+
+            // Update with final QR
+            $updateStmt = $db->prepare("UPDATE guestlist SET qr_code = ? WHERE id = ?");
+            $updateStmt->execute([$finalQrCode, $guestlistId]);
 
             echo json_encode(array(
                 "status" => "success",
                 "message" => "Adicionado à guestlist com sucesso!",
                 "data" => array(
-                    "guestlist_id" => $db->lastInsertId(),
-                    "qr_code" => $qrCode
+                    "guestlist_id" => $guestlistId,
+                    "qr_code" => $finalQrCode
                 )
             ));
             break;

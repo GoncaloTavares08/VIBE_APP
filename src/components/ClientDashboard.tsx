@@ -209,9 +209,12 @@ function ClientQRCode() {
             </div>
 
             {/* QR Code Area - Clean & Simple */}
-            <div className="bg-white p-4 md:p-6 rounded-2xl mx-auto w-48 h-48 md:w-60 md:h-60 flex flex-col items-center justify-center shadow-lg relative z-10">
-              <QrCode className="w-20 h-20 md:w-24 md:h-24 text-black mb-2" strokeWidth={1.5} />
-              <p className="text-black font-mono text-lg md:text-xl font-bold tracking-wider">{currentGuest.qr_code}</p>
+            <div className="bg-white p-4 md:p-6 rounded-2xl mx-auto w-48 h-48 md:w-60 md:h-60 flex flex-col items-center justify-center shadow-lg relative z-10 overflow-hidden">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${btoa('VIBE_SECURE:' + currentGuest.qr_code)}`}
+                alt="QR Code"
+                className="w-full h-full object-contain"
+              />
             </div>
 
             {/* Status Badge */}
