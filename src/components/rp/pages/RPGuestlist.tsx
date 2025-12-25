@@ -25,12 +25,17 @@ export function RPGuestlist() {
   const username = user?.username || 'user'; // Fallback
   const rpLink = `${window.location.origin}/guest/${username}`;
 
+  const getClubSlug = () => {
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    return pathSegments[0] || localStorage.getItem('clubSlug') || '';
+  };
+
   useEffect(() => {
     const fetchGuestlist = async () => {
       if (!user?.id) return;
 
       try {
-        const clubSlug = localStorage.getItem('clubSlug') || 'vr'; // Default fallback
+        const clubSlug = getClubSlug();
         console.log("Fetching guestlist for:", { userId: user.id, clubSlug });
 
         const response = await fetch('/api/controllers/rp_guestlist_manage.php', {

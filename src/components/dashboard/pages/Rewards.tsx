@@ -32,6 +32,11 @@ export function Rewards() {
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
+  const getClubSlug = () => {
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    return pathSegments[0] || localStorage.getItem('clubSlug') || '';
+  };
+
   useEffect(() => {
     fetchRewards();
   }, []);
@@ -42,7 +47,7 @@ export function Rewards() {
     try {
       const response = await fetch('/api/controllers/admin_rewards_manage.php?action=list', {
         headers: {
-          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+          'X-Client-ID': getClubSlug()
         }
       });
       const data = await response.json();
@@ -65,7 +70,7 @@ export function Rewards() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+          'X-Client-ID': getClubSlug()
         },
         body: JSON.stringify({ id })
       });
@@ -143,7 +148,7 @@ export function Rewards() {
       const response = await fetch(`/api/controllers/admin_rewards_manage.php?action=${action}`, {
         method: 'POST',
         headers: {
-          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+          'X-Client-ID': getClubSlug()
         },
         body: formData
       });
@@ -168,7 +173,7 @@ export function Rewards() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+          'X-Client-ID': getClubSlug()
         },
         body: JSON.stringify({ id })
       });
@@ -223,126 +228,147 @@ export function Rewards() {
       )}
 
       {/* Rewards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {rewards.map((reward) => (
-          <motion.div
-            key={reward.id}
-            whileHover={{ scale: 1.03, y: -5 }}
-            className="rounded-3xl overflow-hidden"
+      {rewards.length === 0 ? (
+        <div className="flex flex-col items-center justify-center p-12 rounded-3xl border border-dashed border-white/10 bg-white/5">
+          <Gift className="w-16 h-16 text-gray-600 mb-4" />
+          <h3 className="text-xl font-bold text-white mb-2">Sem Prémios</h3>
+          <p className="text-gray-400 text-center max-w-sm mb-6">
+            Ainda não existem prémios criados. Começa por adicionar o primeiro prémio para os teus clientes.
+          </p>
+          <button
+            onClick={openAddModal}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-300 hover:scale-105"
             style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              backdropFilter: 'blur(20px)',
+              background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+              color: '#000000',
             }}
           >
-            {/* Image */}
-            <div className="relative h-48 overflow-hidden">
-              {reward.image_path ? (
-                <img
-                  src={`/api/controllers/serve_image.php?file=${reward.image_path}`}
-                  alt={reward.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#D4AF37]/20 to-[#FFD700]/20">
-                  <Gift className="w-16 h-16 text-[#D4AF37]" />
-                </div>
-              )}
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: 'linear-gradient(to top, rgba(10, 10, 10, 0.9) 0%, transparent 60%)',
-                }}
-              ></div>
-
-              {/* Points Badge */}
-              <div
-                className="absolute top-4 right-4 px-3 py-2 rounded-xl font-black text-sm"
-                style={{
-                  background: 'rgba(212, 175, 55, 0.9)',
-                  color: '#000000',
-                  backdropFilter: 'blur(10px)',
-                }}
-              >
-                {reward.points} pts
-              </div>
-
-              {/* Stock Badge */}
-              <div
-                className="absolute top-4 left-4 px-3 py-2 rounded-xl font-semibold text-xs"
-                style={{
-                  background: reward.stock > 0 ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)',
-                  color: '#ffffff',
-                  backdropFilter: 'blur(10px)',
-                }}
-              >
-                {reward.stock > 0 ? `${reward.stock} em stock` : 'Esgotado'}
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-5 space-y-4">
-              <div>
-                <h3 className="text-xl font-black text-white mb-2">{reward.name}</h3>
-                <p className="text-sm text-gray-400">{reward.description}</p>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => openEditModal(reward)}
-                  className="flex-1 py-2 rounded-xl font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2"
-                  style={{
-                    background: 'rgba(212, 175, 55, 0.2)',
-                    border: '1px solid rgba(212, 175, 55, 0.3)',
-                    color: '#D4AF37'
-                  }}
-                >
-                  <Edit className="w-4 h-4" />
-                  Editar
-                </button>
-                <button
-                  onClick={() => setDeleteConfirm(reward.id)}
-                  className="flex-1 py-2 rounded-xl font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2"
-                  style={{
-                    background: 'rgba(239, 68, 68, 0.2)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    color: '#ef4444'
-                  }}
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Remover
-                </button>
-              </div>
-
-              {/* Availability Toggle */}
-              <div className="flex items-center justify-between pt-2 border-t border-white/10">
-                <span className="text-sm font-semibold text-gray-400">Disponível</span>
-                <button
-                  onClick={() => toggleAvailability(reward.id)}
-                  className="relative w-14 h-7 rounded-full transition-all duration-300"
-                  style={{
-                    background: reward.available
-                      ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)'
-                      : 'rgba(255, 255, 255, 0.1)',
-                  }}
-                >
-                  <motion.div
-                    className="absolute top-1 w-5 h-5 rounded-full"
-                    style={{
-                      background: '#ffffff',
-                    }}
-                    animate={{
-                      left: reward.available ? '32px' : '4px',
-                    }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            <Plus className="w-5 h-5" />
+            Adicionar Prémio
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {rewards.map((reward) => (
+            <motion.div
+              key={reward.id}
+              whileHover={{ scale: 1.03, y: -5 }}
+              className="rounded-3xl overflow-hidden"
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(20px)',
+              }}
+            >
+              {/* Image */}
+              <div className="relative h-48 overflow-hidden">
+                {reward.image_path ? (
+                  <img
+                    src={`/api/controllers/serve_image.php?file=${reward.image_path}`}
+                    alt={reward.name}
+                    className="w-full h-full object-cover"
                   />
-                </button>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#D4AF37]/20 to-[#FFD700]/20">
+                    <Gift className="w-16 h-16 text-[#D4AF37]" />
+                  </div>
+                )}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: 'linear-gradient(to top, rgba(10, 10, 10, 0.9) 0%, transparent 60%)',
+                  }}
+                ></div>
+
+                {/* Points Badge */}
+                <div
+                  className="absolute top-4 right-4 px-3 py-2 rounded-xl font-black text-sm"
+                  style={{
+                    background: 'rgba(212, 175, 55, 0.9)',
+                    color: '#000000',
+                    backdropFilter: 'blur(10px)',
+                  }}
+                >
+                  {reward.points} pts
+                </div>
+
+                {/* Stock Badge */}
+                <div
+                  className="absolute top-4 left-4 px-3 py-2 rounded-xl font-semibold text-xs"
+                  style={{
+                    background: reward.stock > 0 ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)',
+                    color: '#ffffff',
+                    backdropFilter: 'blur(10px)',
+                  }}
+                >
+                  {reward.stock > 0 ? `${reward.stock} em stock` : 'Esgotado'}
+                </div>
               </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+
+              {/* Content */}
+              <div className="p-5 space-y-4">
+                <div>
+                  <h3 className="text-xl font-black text-white mb-2">{reward.name}</h3>
+                  <p className="text-sm text-gray-400">{reward.description}</p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => openEditModal(reward)}
+                    className="flex-1 py-2 rounded-xl font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2"
+                    style={{
+                      background: 'rgba(212, 175, 55, 0.2)',
+                      border: '1px solid rgba(212, 175, 55, 0.3)',
+                      color: '#D4AF37'
+                    }}
+                  >
+                    <Edit className="w-4 h-4" />
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirm(reward.id)}
+                    className="flex-1 py-2 rounded-xl font-semibold transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2"
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.2)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: '#ef4444'
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Remover
+                  </button>
+                </div>
+
+                {/* Availability Toggle */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                  <span className="text-sm font-semibold text-gray-400">Disponível</span>
+                  <button
+                    onClick={() => toggleAvailability(reward.id)}
+                    className="relative w-14 h-7 rounded-full transition-all duration-300"
+                    style={{
+                      background: reward.available
+                        ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)'
+                        : 'rgba(255, 255, 255, 0.1)',
+                    }}
+                  >
+                    <motion.div
+                      className="absolute top-1 w-5 h-5 rounded-full"
+                      style={{
+                        background: '#ffffff',
+                      }}
+                      animate={{
+                        left: reward.available ? '32px' : '4px',
+                      }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       {/* Add/Edit Modal */}
       <AnimatePresence>

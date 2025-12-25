@@ -53,6 +53,11 @@ export function RPManagement() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const getClubSlug = () => {
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    return pathSegments[0] || localStorage.getItem('clubSlug') || '';
+  };
+
   // Fetch RPs and Team Leaders
   useEffect(() => {
     fetchRPs();
@@ -66,7 +71,7 @@ export function RPManagement() {
         method: 'GET',
         credentials: 'include',
         headers: {
-          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+          'X-Client-ID': getClubSlug()
         }
       });
 
@@ -117,7 +122,7 @@ export function RPManagement() {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+          'X-Client-ID': getClubSlug()
         },
         body: JSON.stringify({
           user_id: editingRP.id,
@@ -158,7 +163,7 @@ export function RPManagement() {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+          'X-Client-ID': getClubSlug()
         },
         body: JSON.stringify({ email: searchEmail })
       });
@@ -196,7 +201,7 @@ export function RPManagement() {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+          'X-Client-ID': getClubSlug()
         },
         body: JSON.stringify({
           user_id: searchedClient.id,

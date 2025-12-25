@@ -33,6 +33,8 @@ export function ClientWallet() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'rewards' | 'myrewards'>('rewards');
 
+  const [memberSince, setMemberSince] = useState<string | null>(null);
+
   // Rewards tab state
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [rewardsLoading, setRewardsLoading] = useState(true);
@@ -49,6 +51,16 @@ export function ClientWallet() {
   const [redeeming, setRedeeming] = useState(false);
 
   const memberLevel = 'Gold Member';
+
+  const formatMemberSince = (dateString: string | null) => {
+    if (!dateString) return 'Jan 2024'; // Fallback
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    } catch (e) {
+      return 'Jan 2024';
+    }
+  };
 
   const toggleQRCode = (redemptionId: number) => {
     setVisibleQRCodes(prev => ({
@@ -71,6 +83,8 @@ export function ClientWallet() {
         setUserName(user.name || 'Guest');
         setUserPoints(user.points || 0);
         setUserId(user.id || 0);
+        // Prioritize member_since (club join date), fallback to created_at (global join date)
+        setMemberSince(user.member_since || user.created_at || null);
       } catch (error) {
         console.error('Error parsing user data:', error);
         setUserName('Guest');
@@ -288,7 +302,7 @@ export function ClientWallet() {
               </div>
               <div className="text-right">
                 <p className="text-xs text-gray-400">Member Since</p>
-                <p className="text-sm text-white">Jan 2024</p>
+                <p className="text-sm text-white">{formatMemberSince(memberSince)}</p>
               </div>
             </div>
           </div>
