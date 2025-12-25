@@ -128,8 +128,8 @@ try {
                 $stmt = $db->prepare("UPDATE rewards SET stock = stock - 1 WHERE id = ?");
                 $stmt->execute([$rewardId]);
 
-                // Generate unique QR code
-                $qrCode = 'REWARD-' . $rewardId . '-' . $userId . '-' . time() . '-' . bin2hex(random_bytes(8));
+                // Generate unique QR code (Temporary, will be updated with ID)
+                $tempQrCode = 'TEMP-' . uniqid();
 
                 // Calculate expiration (30 days from now)
                 $expiresAt = date('Y-m-d H:i:s', strtotime('+30 days'));
@@ -145,11 +145,19 @@ try {
                     $rewardId,
                     $reward['name'],
                     $reward['points'],
-                    $qrCode,
+                    $tempQrCode,
                     $expiresAt
                 ]);
 
                 $redemptionId = $db->lastInsertId();
+
+                // Generate FINAL unique QR code
+                // Format: REWARD-{RedemptionID}-{RewardID}-{ClientID}-{Hash}
+                $finalQrCode = 'REWARD-' . $redemptionId . '-' . $rewardId . '-' . $userId . '-' . substr(md5(uniqid(rand(), true)), 0, 8);
+
+                // Update with final QR
+                $updateStmt = $db->prepare("UPDATE reward_redemptions SET qr_code = ? WHERE id = ?");
+                $updateStmt->execute([$finalQrCode, $redemptionId]);
 
                 // Commit both transactions
                 $db->commit();
@@ -160,7 +168,7 @@ try {
                     "message" => "Prémio resgatado com sucesso!",
                     "data" => array(
                         "redemption_id" => $redemptionId,
-                        "qr_code" => $qrCode,
+                        "qr_code" => $finalQrCode,
                         "expires_at" => $expiresAt,
                         "new_points" => $newPoints
                     )
@@ -227,6 +235,7 @@ try {
             echo json_encode(array("status" => "error", "message" => "Ação inválida."));
     }
 } catch (Exception $e) {
+    error_log("Redemption Error: " . $e->getMessage());
     echo json_encode(array(
         "status" => "error",
         "message" => "Erro: " . $e->getMessage()

@@ -58,7 +58,9 @@ function ClientQRCode() {
         }
 
         const user = JSON.parse(userStr);
-        const clubSlug = localStorage.getItem('clubSlug') || 'vr';
+        // Get club slug from URL first, then localStorage, then default
+        const pathSegments = window.location.pathname.split('/').filter(Boolean);
+        const clubSlug = pathSegments[0] || localStorage.getItem('clubSlug') || '';
 
         const response = await fetch('/api/controllers/client_guestlist.php?action=list', {
           method: 'POST',

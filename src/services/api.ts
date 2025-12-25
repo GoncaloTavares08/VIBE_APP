@@ -8,18 +8,22 @@ const getClientId = () => {
 // 2. Função personalizada de fetch com error handling
 export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
   const baseURL = 'https://vibe.infinityfree.me/api';
-  
+
   const clientId = getClientId();
-  
+
   // Prepara os headers
   const headers: any = {
     'Content-Type': 'application/json',
     ...(options.headers || {}),
   };
 
-  // ONLY add X-Client-ID if there's actually a club in the URL
   if (clientId) {
     headers['X-Client-ID'] = clientId;
+
+    // Append client ID to URL to prevent browser caching of different club data for the same endpoint
+    // This ensures /vr/events and /eskada/events are treated as different resources
+    const separator = endpoint.includes('?') ? '&' : '?';
+    endpoint = `${endpoint}${separator}__cid=${clientId}`;
   }
 
   try {
@@ -30,7 +34,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
 
     // Get response as text first
     const text = await response.text();
-    
+
     // Check if response is empty
     if (!text) {
       throw new Error('Empty response from server');

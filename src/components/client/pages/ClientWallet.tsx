@@ -57,6 +57,11 @@ export function ClientWallet() {
     }));
   };
 
+  const getClubSlug = () => {
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    return pathSegments[0] || localStorage.getItem('clubSlug') || '';
+  };
+
   useEffect(() => {
     // Load user data from localStorage (saved during login)
     const userStr = localStorage.getItem('user');
@@ -83,7 +88,7 @@ export function ClientWallet() {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+            'X-Client-ID': getClubSlug()
           },
         });
 
@@ -115,7 +120,7 @@ export function ClientWallet() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+          'X-Client-ID': getClubSlug()
         },
         body: JSON.stringify({ user_id: userId })
       });
@@ -152,7 +157,7 @@ export function ClientWallet() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+          'X-Client-ID': getClubSlug()
         },
         body: JSON.stringify({
           user_id: userId,
@@ -180,7 +185,7 @@ export function ClientWallet() {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+            'X-Client-ID': getClubSlug()
           },
         });
         const rewardsData = await rewardsResponse.json();
@@ -564,13 +569,16 @@ export function ClientWallet() {
                         ) : (
                           <div className="space-y-3">
                             <div
-                              className="p-4 rounded-xl text-center"
+                              className="p-4 rounded-xl text-center flex flex-col items-center justify-center overflow-hidden"
                               style={{
                                 background: '#FFF',
                               }}
                             >
-                              <QrCode className="w-32 h-32 mx-auto text-black" />
-                              <p className="text-xs text-gray-600 mt-2 font-mono break-all">{redemption.qr_code}</p>
+                              <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${btoa('VIBE_SECURE:' + redemption.qr_code)}`}
+                                alt="Reward QR Code"
+                                className="w-full max-w-[200px] h-auto object-contain"
+                              />
                             </div>
                             <button
                               onClick={() => toggleQRCode(redemption.id)}
