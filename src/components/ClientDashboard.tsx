@@ -18,7 +18,7 @@ export function ClientDashboard({ user, onLogout }: ClientDashboardProps) {
       case 'home':
         return <ClientHome />;
       case 'wallet':
-        return <ClientWallet />;
+        return <ClientWallet user={user} />;
       case 'qr':
         return <ClientQRCode />;
       case 'history':

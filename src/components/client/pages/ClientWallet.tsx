@@ -26,7 +26,11 @@ interface Redemption {
   description: string | null;
 }
 
-export function ClientWallet() {
+interface ClientWalletProps {
+  user?: any;
+}
+
+export function ClientWallet({ user }: ClientWalletProps) {
   const [userPoints, setUserPoints] = useState(0);
   const [userId, setUserId] = useState(0);
   const [userName, setUserName] = useState('');
@@ -70,29 +74,27 @@ export function ClientWallet() {
   };
 
   const getClubSlug = () => {
+    // If user has club_slug, use it, otherwise check URL
+    if (user?.club_slug) return user.club_slug;
+
     const pathSegments = window.location.pathname.split('/').filter(Boolean);
     return pathSegments[0] || localStorage.getItem('clubSlug') || '';
   };
 
   useEffect(() => {
-    // Load user data from localStorage (saved during login)
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        setUserName(user.name || 'Guest');
-        setUserPoints(user.points || 0);
-        setUserId(user.id || 0);
-        // Prioritize member_since (club join date), fallback to created_at (global join date)
-        setMemberSince(user.member_since || user.created_at || null);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-        setUserName('Guest');
-        setUserPoints(0);
-      }
+    // Priority: Prop > LocalStorage
+    // We check every time 'user' prop changes
+    const userData = user || JSON.parse(localStorage.getItem('user') || '{}');
+
+    if (userData && userData.id) {
+      setUserName(userData.name || 'Guest');
+      setUserPoints(userData.points || 0);
+      setUserId(userData.id || 0);
+      // Prioritize member_since (club join date), fallback to created_at (global join date)
+      setMemberSince(userData.member_since || userData.created_at || null);
     }
     setLoading(false);
-  }, []);
+  }, [user]); // React to user prop changes!
 
   useEffect(() => {
     // Fetch rewards from API

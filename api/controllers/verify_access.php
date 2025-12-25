@@ -75,6 +75,7 @@ try {
                 "slug" => $clientSlug
             ],
             "role" => $access['role'],
+            "points" => $access['points'],
             "joined_at" => $access['joined_at']
         ]);
     } else {

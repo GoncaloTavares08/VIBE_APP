@@ -368,17 +368,16 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
             <span className="text-[10px] font-medium">Menu</span>
           </button>
 
-          {/* Render All Menu Items except Profile (or last one) to fit? 
-              User wants "sidebar bottom bar... corresponda com as restantes paginas".
-              RP Layout shows slice(1, 5).
-              Here we have 5 items: Home, Wallet, QR, History, Profile.
-              Let's show Home, Wallet, QR, History. Menu opens sidebar for Profile?
-              Or maybe replace Menu with Home if Menu is separate...
-              RP Layout: Menu Button + 4 items.
-              Here we have 5 items. 
-              Let's put Home, Wallet, QR, History in the bar. Profile in Menu.
-          */}
-          {menuItems.slice(0, 4).map((item) => {
+          {/* Custom Mobile Nav Items */}
+
+          {/* Custom Mobile Nav Items */}
+          {[
+            menuItems.find(i => i.id === 'home'),
+            menuItems.find(i => i.id === 'wallet'),
+            menuItems.find(i => i.id === 'qr'),
+            menuItems.find(i => i.id === 'profile'),
+          ].filter(Boolean).map((item) => {
+            if (!item) return null;
             const Icon = item.icon;
             const isActive = currentPage === item.id;
             return (
