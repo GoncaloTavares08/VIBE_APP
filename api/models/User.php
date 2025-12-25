@@ -8,6 +8,7 @@ class User
     public $name;
     public $email;
     public $password;
+    public $created_at;
 
     public function __construct($db)
     {
@@ -47,7 +48,7 @@ class User
     // Check if email exists
     public function emailExists()
     {
-        $query = "SELECT id, name, password_hash
+        $query = "SELECT id, name, password_hash, created_at
                 FROM " . $this->table_name . "
                 WHERE email = ?
                 LIMIT 0,1";
@@ -64,6 +65,7 @@ class User
             $this->id = $row['id'];
             $this->name = $row['name'];
             $this->password = $row['password_hash']; // Store hash for verification
+            $this->created_at = $row['created_at'];
             return true;
         }
 
@@ -120,7 +122,7 @@ class User
 
         return false;
     }
-    
+
     // Update Password
     public function updatePassword($new_password)
     {
@@ -133,9 +135,9 @@ class User
         $stmt = $this->conn->prepare($query);
 
         $this->email = htmlspecialchars(strip_tags($this->email));
-        
+
         $password_hash = password_hash($new_password, PASSWORD_ARGON2ID);
-        
+
         $stmt->bindParam(":password", $password_hash);
         $stmt->bindParam(":email", $this->email);
 

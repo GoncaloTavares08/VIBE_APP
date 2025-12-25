@@ -56,12 +56,17 @@ export function Settings() {
     fetchClubSettings();
   }, []);
 
+  const getClubSlug = () => {
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    return pathSegments[0] || localStorage.getItem('clubSlug') || '';
+  };
+
   const fetchClubSettings = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const clubSlug = localStorage.getItem('clubSlug') || 'vr';
+      const clubSlug = getClubSlug();
 
       const response = await fetch(
         '/api/controllers/admin_club_settings.php?action=get',
@@ -127,7 +132,7 @@ export function Settings() {
       setError(null);
       setSuccessMessage(null);
 
-      const clubSlug = localStorage.getItem('clubSlug') || 'vr';
+      const clubSlug = getClubSlug();
 
       // Validation
       if (!name.trim()) {

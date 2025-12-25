@@ -6,9 +6,11 @@ import {
     Clock,
     MapPin,
     Instagram,
-    Sparkles
+    Sparkles,
+    LogOut,
+    User as UserIcon // Alias for user icon
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Event {
     id: number;
@@ -26,6 +28,7 @@ interface Event {
 }
 
 interface RPProfileData {
+    id: number;
     name: string;
     username: string;
     bio: string;
@@ -56,10 +59,58 @@ export function RPPublicProfile({ data }: RPPublicProfileProps) {
     const [hoveredEvent, setHoveredEvent] = useState<number | null>(null);
     const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
     const [showEventModal, setShowEventModal] = useState(false);
+    const [currentUser, setCurrentUser] = useState<any>(null);
+    const [userGuestlists, setUserGuestlists] = useState<number[]>([]); // Array of event IDs
 
     // Get profile image (use URL or fallback to emoji)
     const profileImage = data.profile_image_url || '👨‍💼';
     const instagramHandle = data.instagram?.startsWith('@') ? data.instagram : `@${data.instagram}`;
+
+    // Check login status and fetch guestlists
+    useEffect(() => {
+        const checkLogin = async () => {
+            const userStr = localStorage.getItem('user');
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                setCurrentUser(user);
+
+                // Fetch user's guestlists to know join status
+                if (user.id && data.events.length > 0) {
+                    try {
+                        const clubSlug = data.events[0].club_slug; // Assuming all events are from same club context or taking first one
+                        const response = await fetch('/api/controllers/client_guestlist.php?action=list', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Client-ID': clubSlug,
+                            },
+                            body: JSON.stringify({ user_id: user.id })
+                        });
+                        const result = await response.json();
+                        if (result.status === 'success' && Array.isArray(result.data)) {
+                            // Store IDs of events user is already in
+                            const joinedEventIds = result.data.map((g: any) => g.event_id);
+                            setUserGuestlists(joinedEventIds);
+                        }
+                    } catch (error) {
+                        console.error("Error fetching user guestlists", error);
+                    }
+                }
+            }
+        };
+        checkLogin();
+    }, [data.events]);
+
+    const handleLogout = () => {
+        if (window.confirm('Tem a certeza que deseja sair?')) {
+            localStorage.removeItem('user');
+            setCurrentUser(null);
+            setUserGuestlists([]);
+            window.location.reload();
+        }
+    };
+
+    const isJoined = (eventId: number) => userGuestlists.includes(eventId);
 
     return (
         <div
@@ -68,6 +119,46 @@ export function RPPublicProfile({ data }: RPPublicProfileProps) {
                 background: 'linear-gradient(180deg, #0a0a0a 0%, #121212 100%)',
             }}
         >
+            {/* User Login Feedback Header */}
+            <div className="absolute top-0 right-0 p-4 z-50">
+                {currentUser ? (
+                    <motion.div
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="flex items-center gap-3 p-2 pr-4 rounded-full bg-black/40 backdrop-blur-md border border-white/10"
+                    >
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#D4AF37] to-[#FFD700] flex items-center justify-center text-black font-bold text-sm">
+                            {currentUser.photo ? (
+                                <img src={`/api/controllers/serve_image.php?file=${currentUser.photo}`} className="w-full h-full rounded-full object-cover" alt="" />
+                            ) : (
+                                currentUser.name.charAt(0).toUpperCase()
+                            )}
+                        </div>
+                        <div className="flex flex-col items-start">
+                            <span className="text-xs text-[#D4AF37] font-medium leading-none mb-0.5">Logado como</span>
+                            <span className="text-sm text-white font-bold leading-none">{currentUser.name.split(' ')[0]}</span>
+                        </div>
+                        <button
+                            onClick={handleLogout}
+                            className="ml-2 p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-red-400 transition-colors"
+                            title="Sair"
+                        >
+                            <LogOut className="w-4 h-4" />
+                        </button>
+                    </motion.div>
+                ) : (
+                    <motion.button
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        onClick={() => window.location.href = '/'}
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/50 text-[#D4AF37] hover:bg-[#D4AF37]/20 transition-all font-semibold text-sm backdrop-blur-md"
+                    >
+                        <UserIcon className="w-4 h-4" />
+                        Fazer Login
+                    </motion.button>
+                )}
+            </div>
+
             {/* Animated Background Particles */}
             <div className="fixed inset-0 pointer-events-none overflow-hidden">
                 {[...Array(20)].map((_, i) => (
@@ -330,95 +421,169 @@ export function RPPublicProfile({ data }: RPPublicProfileProps) {
                                 <p className="text-gray-400 text-lg">Sem eventos disponíveis no momento.</p>
                             </div>
                         ) : (
-                            data.events.map((event, index) => (
-                                <motion.div
-                                    key={event.id}
-                                    initial={{ opacity: 0, y: 30 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ duration: 0.5, delay: 0.8 + index * 0.1 }}
-                                    onHoverStart={() => setHoveredEvent(event.id)}
-                                    onHoverEnd={() => setHoveredEvent(null)}
-                                    onClick={() => {
-                                        setSelectedEvent(event);
-                                        setShowEventModal(true);
-                                    }}
-                                    className="rounded-2xl overflow-hidden cursor-pointer"
-                                    style={{
-                                        background: 'rgba(26, 26, 46, 0.6)',
-                                        backdropFilter: 'blur(20px)',
-                                        border: hoveredEvent === event.id
-                                            ? '1px solid rgba(212, 175, 55, 0.6)'
-                                            : '1px solid rgba(212, 175, 55, 0.2)',
-                                        boxShadow: hoveredEvent === event.id
-                                            ? '0 20px 60px rgba(212, 175, 55, 0.3)'
-                                            : '0 8px 32px rgba(0, 0, 0, 0.4)',
-                                        transform: hoveredEvent === event.id ? 'translateY(-8px)' : 'translateY(0)',
-                                        transition: 'all 0.3s ease',
-                                    }}
-                                >
-                                    {/* Event Image with Gradient Overlay */}
-                                    <div
-                                        className="relative h-48 flex items-end p-4"
+                            data.events.map((event, index) => {
+                                const userIsJoined = isJoined(event.id);
+
+                                return (
+                                    <motion.div
+                                        key={event.id}
+                                        initial={{ opacity: 0, y: 30 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.5, delay: 0.8 + index * 0.1 }}
+                                        onHoverStart={() => setHoveredEvent(event.id)}
+                                        onHoverEnd={() => setHoveredEvent(null)}
+                                        onClick={() => {
+                                            setSelectedEvent(event);
+                                            setShowEventModal(true);
+                                        }}
+                                        className="rounded-2xl overflow-hidden cursor-pointer"
                                         style={{
-                                            backgroundImage: event.image_url
-                                                ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.8)), url(${event.image_url})`
-                                                : 'linear-gradient(135deg, #D4AF37 0%, #1a1a2e 100%)',
-                                            backgroundSize: 'cover',
-                                            backgroundPosition: 'center',
+                                            background: 'rgba(26, 26, 46, 0.6)',
+                                            backdropFilter: 'blur(20px)',
+                                            border: hoveredEvent === event.id
+                                                ? '1px solid rgba(212, 175, 55, 0.6)'
+                                                : '1px solid rgba(212, 175, 55, 0.2)',
+                                            boxShadow: hoveredEvent === event.id
+                                                ? '0 20px 60px rgba(212, 175, 55, 0.3)'
+                                                : '0 8px 32px rgba(0, 0, 0, 0.4)',
+                                            transform: hoveredEvent === event.id ? 'translateY(-8px)' : 'translateY(0)',
+                                            transition: 'all 0.3s ease',
                                         }}
                                     >
-                                        {/* Club Badge */}
+                                        {/* Event Image with Gradient Overlay */}
                                         <div
-                                            className="absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-black"
+                                            className="relative h-48 flex items-end p-4"
                                             style={{
-                                                background: 'rgba(0, 0, 0, 0.7)',
-                                                backdropFilter: 'blur(10px)',
-                                                border: '1px solid rgba(212, 175, 55, 0.5)',
-                                                color: '#D4AF37',
+                                                backgroundImage: event.image_url
+                                                    ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.8)), url(${event.image_url})`
+                                                    : 'linear-gradient(135deg, #D4AF37 0%, #1a1a2e 100%)',
+                                                backgroundSize: 'cover',
+                                                backgroundPosition: 'center',
                                             }}
                                         >
-                                            {event.club}
+                                            {/* Club Badge */}
+                                            <div
+                                                className="absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-black"
+                                                style={{
+                                                    background: 'rgba(0, 0, 0, 0.7)',
+                                                    backdropFilter: 'blur(10px)',
+                                                    border: '1px solid rgba(212, 175, 55, 0.5)',
+                                                    color: '#D4AF37',
+                                                }}
+                                            >
+                                                {event.club}
+                                            </div>
+
+                                            {/* Event Name */}
+                                            <h3 className="text-xl font-black text-white">{event.name}</h3>
                                         </div>
 
-                                        {/* Event Name */}
-                                        <h3 className="text-xl font-black text-white">{event.name}</h3>
-                                    </div>
+                                        {/* Event Details */}
+                                        <div className="p-5 space-y-3">
+                                            {/* Date & Time */}
+                                            <div className="flex items-center gap-2 text-gray-400">
+                                                <Clock className="w-4 h-4" style={{ color: '#D4AF37' }} />
+                                                <span className="text-sm">{formatEventDate(event.date)} • {event.start_time.substring(0, 5)}</span>
+                                            </div>
 
-                                    {/* Event Details */}
-                                    <div className="p-5 space-y-3">
-                                        {/* Date & Time */}
-                                        <div className="flex items-center gap-2 text-gray-400">
-                                            <Clock className="w-4 h-4" style={{ color: '#D4AF37' }} />
-                                            <span className="text-sm">{formatEventDate(event.date)} • {event.start_time.substring(0, 5)}</span>
+                                            {/* Location */}
+                                            <div className="flex items-center gap-2 text-gray-400">
+                                                <MapPin className="w-4 h-4" style={{ color: '#D4AF37' }} />
+                                                <span className="text-sm">{event.location}</span>
+                                            </div>
+
+                                            {/* Join Button */}
+                                            <motion.button
+                                                className="w-full py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2"
+                                                style={{
+                                                    background: userIsJoined
+                                                        ? 'rgba(34, 197, 94, 0.2)'
+                                                        : (hoveredEvent === event.id
+                                                            ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)'
+                                                            : 'rgba(212, 175, 55, 0.2)'),
+                                                    color: userIsJoined
+                                                        ? '#4ade80'
+                                                        : (hoveredEvent === event.id ? '#000000' : '#D4AF37'),
+                                                    border: userIsJoined
+                                                        ? '1px solid rgba(34, 197, 94, 0.4)'
+                                                        : '1px solid rgba(212, 175, 55, 0.4)',
+                                                    cursor: userIsJoined ? 'default' : 'pointer',
+                                                }}
+                                                whileHover={!userIsJoined ? {
+                                                    scale: 1.02,
+                                                    boxShadow: '0 0 30px rgba(212, 175, 55, 0.4)',
+                                                } : {}}
+                                                whileTap={!userIsJoined ? { scale: 0.98 } : {}}
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+
+                                                    if (userIsJoined) return;
+
+                                                    try {
+                                                        // Check if user is logged in
+                                                        const userStr = localStorage.getItem('user');
+                                                        if (!userStr) {
+                                                            alert('Por favor, faça login primeiro para entrar na guestlist');
+                                                            // Redirect to login page
+                                                            window.location.href = '/';
+                                                            return;
+                                                        }
+
+                                                        const user = JSON.parse(userStr);
+
+                                                        // Check if user is guest (not authenticated)
+                                                        if (!user.id || user.id === 0) {
+                                                            alert('Por favor, crie uma conta para entrar na guestlist');
+                                                            window.location.href = '/';
+                                                            return;
+                                                        }
+
+                                                        // Get RP ID from profile data
+                                                        const rpId = data.id;
+
+                                                        const response = await fetch('/api/controllers/client_guestlist.php?action=join', {
+                                                            method: 'POST',
+                                                            headers: {
+                                                                'Content-Type': 'application/json',
+                                                                'X-Client-ID': event.club_slug,
+                                                            },
+                                                            body: JSON.stringify({
+                                                                user_id: user.id,
+                                                                event_id: event.id,
+                                                                rp_id: rpId
+                                                            })
+                                                        });
+
+                                                        const result = await response.json();
+
+                                                        if (result.status === 'success') {
+                                                            // Update joined status locally
+                                                            setUserGuestlists(prev => [...prev, event.id]);
+
+                                                            // Check-in logic handled by backend message, but we can't easily know here without extra check
+                                                            // Simplified success message for better UX
+                                                            alert('✅ Adicionado à guestlist com sucesso!');
+                                                        } else {
+                                                            alert(result.message || 'Erro ao entrar na guestlist');
+                                                        }
+                                                    } catch (error) {
+                                                        console.error('Error joining guestlist:', error);
+                                                        alert('Erro ao entrar na guestlist. Tenta novamente.');
+                                                    }
+                                                }}
+                                            >
+                                                {userIsJoined ? (
+                                                    <>
+                                                        <span className="text-lg">✓</span> Já na Guestlist
+                                                    </>
+                                                ) : (
+                                                    'Join Guestlist'
+                                                )}
+                                            </motion.button>
                                         </div>
-
-                                        {/* Location */}
-                                        <div className="flex items-center gap-2 text-gray-400">
-                                            <MapPin className="w-4 h-4" style={{ color: '#D4AF37' }} />
-                                            <span className="text-sm">{event.location}</span>
-                                        </div>
-
-                                        {/* Join Button */}
-                                        <motion.button
-                                            className="w-full py-3 rounded-xl font-semibold transition-all duration-300"
-                                            style={{
-                                                background: hoveredEvent === event.id
-                                                    ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)'
-                                                    : 'rgba(212, 175, 55, 0.2)',
-                                                color: hoveredEvent === event.id ? '#000000' : '#D4AF37',
-                                                border: '1px solid rgba(212, 175, 55, 0.4)',
-                                            }}
-                                            whileHover={{
-                                                scale: 1.02,
-                                                boxShadow: '0 0 30px rgba(212, 175, 55, 0.4)',
-                                            }}
-                                            whileTap={{ scale: 0.98 }}
-                                        >
-                                            Join Guestlist
-                                        </motion.button>
-                                    </div>
-                                </motion.div>
-                            ))
+                                    </motion.div>
+                                )
+                            })
                         )}
                     </div>
                 </motion.div>

@@ -6,6 +6,9 @@ interface ClubAccessResult {
   hasAccess: boolean;
   isLoading: boolean;
   clubName: string | null;
+  role: string | null; // Add role to interface
+  points: number | null; // Add points
+  memberSince: string | null; // Add memberSince
   error: string | null;
 }
 
@@ -13,6 +16,9 @@ export function useClubAccess(userId: number | undefined): ClubAccessResult {
   const [hasAccess, setHasAccess] = useState(true); // Start optimistic
   const [isLoading, setIsLoading] = useState(true);
   const [clubName, setClubName] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null); // State for role
+  const [points, setPoints] = useState<number | null>(null); // State for points
+  const [memberSince, setMemberSince] = useState<string | null>(null); // State for memberSince
   const [error, setError] = useState<string | null>(null);
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
@@ -30,11 +36,14 @@ export function useClubAccess(userId: number | undefined): ClubAccessResult {
       // Check cache first (valid for this session)
       const cacheKey = `club_access_${clubSlug}_${userId}`;
       const cached = sessionStorage.getItem(cacheKey);
-      
+
       if (cached) {
         const cachedData = JSON.parse(cached);
         setHasAccess(cachedData.hasAccess);
         setClubName(cachedData.clubName);
+        setRole(cachedData.role); // Restore role
+        setPoints(cachedData.points); // Restore points
+        setMemberSince(cachedData.memberSince); // Restore memberSince
         setError(cachedData.error);
         setIsLoading(false);
         return;
@@ -49,6 +58,9 @@ export function useClubAccess(userId: number | undefined): ClubAccessResult {
         const result = {
           hasAccess: response.has_access || false,
           clubName: response.club?.name || null,
+          role: response.role || null, // Capture role
+          points: response.points !== undefined ? response.points : null, // Capture points
+          memberSince: response.joined_at || null, // Capture joined_at
           error: response.has_access ? null : (response.message || 'Sem acesso a este clube')
         };
 
@@ -57,6 +69,9 @@ export function useClubAccess(userId: number | undefined): ClubAccessResult {
 
         setHasAccess(result.hasAccess);
         setClubName(result.clubName);
+        setRole(result.role); // Set role
+        setPoints(result.points);
+        setMemberSince(result.memberSince);
         setError(result.error);
       } catch (err: any) {
         console.error('Access verification error:', err);
@@ -81,5 +96,5 @@ export function useClubAccess(userId: number | undefined): ClubAccessResult {
     return () => clearInterval(intervalId);
   }, [userId, currentPath]);
 
-  return { hasAccess, isLoading, clubName, error };
+  return { hasAccess, isLoading, clubName, role, points, memberSince, error };
 }

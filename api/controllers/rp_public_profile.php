@@ -150,6 +150,7 @@ try {
     $response = array(
         "status" => "success",
         "data" => array(
+            "id" => (int) $rpUserId,
             "name" => $profile['name'],
             "username" => $profile['username'],
             "bio" => $profile['bio'],

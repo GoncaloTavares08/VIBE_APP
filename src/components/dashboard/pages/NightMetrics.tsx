@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Calendar, TrendingUp, Users, Euro, Award, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { Calendar, TrendingUp, Users, Euro, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
+import { motion } from 'motion/react';
 
 interface NightEvent {
   id: number;
@@ -32,6 +32,11 @@ export function NightMetrics() {
   const [currentPage, setCurrentPage] = useState(1);
   const eventsPerPage = 6;
 
+  const getClubSlug = () => {
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    return pathSegments[0] || localStorage.getItem('clubSlug') || '';
+  };
+
   // Fetch past events from database
   useEffect(() => {
     fetchPastEvents();
@@ -45,7 +50,7 @@ export function NightMetrics() {
         method: 'GET',
         credentials: 'include',
         headers: {
-          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+          'X-Client-ID': getClubSlug()
         }
       });
 

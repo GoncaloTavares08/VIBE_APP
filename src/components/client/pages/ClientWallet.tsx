@@ -26,12 +26,18 @@ interface Redemption {
   description: string | null;
 }
 
-export function ClientWallet() {
+interface ClientWalletProps {
+  user?: any;
+}
+
+export function ClientWallet({ user }: ClientWalletProps) {
   const [userPoints, setUserPoints] = useState(0);
   const [userId, setUserId] = useState(0);
   const [userName, setUserName] = useState('');
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'rewards' | 'myrewards'>('rewards');
+
+  const [memberSince, setMemberSince] = useState<string | null>(null);
 
   // Rewards tab state
   const [rewards, setRewards] = useState<Reward[]>([]);
@@ -50,6 +56,16 @@ export function ClientWallet() {
 
   const memberLevel = 'Gold Member';
 
+  const formatMemberSince = (dateString: string | null) => {
+    if (!dateString) return 'Jan 2024'; // Fallback
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    } catch (e) {
+      return 'Jan 2024';
+    }
+  };
+
   const toggleQRCode = (redemptionId: number) => {
     setVisibleQRCodes(prev => ({
       ...prev,
@@ -57,23 +73,28 @@ export function ClientWallet() {
     }));
   };
 
+  const getClubSlug = () => {
+    // If user has club_slug, use it, otherwise check URL
+    if (user?.club_slug) return user.club_slug;
+
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    return pathSegments[0] || localStorage.getItem('clubSlug') || '';
+  };
+
   useEffect(() => {
-    // Load user data from localStorage (saved during login)
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        setUserName(user.name || 'Guest');
-        setUserPoints(user.points || 0);
-        setUserId(user.id || 0);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-        setUserName('Guest');
-        setUserPoints(0);
-      }
+    // Priority: Prop > LocalStorage
+    // We check every time 'user' prop changes
+    const userData = user || JSON.parse(localStorage.getItem('user') || '{}');
+
+    if (userData && userData.id) {
+      setUserName(userData.name || 'Guest');
+      setUserPoints(userData.points || 0);
+      setUserId(userData.id || 0);
+      // Prioritize member_since (club join date), fallback to created_at (global join date)
+      setMemberSince(userData.member_since || userData.created_at || null);
     }
     setLoading(false);
-  }, []);
+  }, [user]); // React to user prop changes!
 
   useEffect(() => {
     // Fetch rewards from API
@@ -83,7 +104,7 @@ export function ClientWallet() {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+            'X-Client-ID': getClubSlug()
           },
         });
 
@@ -115,7 +136,7 @@ export function ClientWallet() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+          'X-Client-ID': getClubSlug()
         },
         body: JSON.stringify({ user_id: userId })
       });
@@ -152,7 +173,7 @@ export function ClientWallet() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+          'X-Client-ID': getClubSlug()
         },
         body: JSON.stringify({
           user_id: userId,
@@ -180,7 +201,7 @@ export function ClientWallet() {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'X-Client-ID': localStorage.getItem('clubSlug') || 'vr'
+            'X-Client-ID': getClubSlug()
           },
         });
         const rewardsData = await rewardsResponse.json();
@@ -283,7 +304,7 @@ export function ClientWallet() {
               </div>
               <div className="text-right">
                 <p className="text-xs text-gray-400">Member Since</p>
-                <p className="text-sm text-white">Jan 2024</p>
+                <p className="text-sm text-white">{formatMemberSince(memberSince)}</p>
               </div>
             </div>
           </div>
@@ -564,13 +585,16 @@ export function ClientWallet() {
                         ) : (
                           <div className="space-y-3">
                             <div
-                              className="p-4 rounded-xl text-center"
+                              className="p-4 rounded-xl text-center flex flex-col items-center justify-center overflow-hidden"
                               style={{
                                 background: '#FFF',
                               }}
                             >
-                              <QrCode className="w-32 h-32 mx-auto text-black" />
-                              <p className="text-xs text-gray-600 mt-2 font-mono break-all">{redemption.qr_code}</p>
+                              <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${btoa('VIBE_SECURE:' + redemption.qr_code)}`}
+                                alt="Reward QR Code"
+                                className="w-full max-w-[200px] h-auto object-contain"
+                              />
                             </div>
                             <button
                               onClick={() => toggleQRCode(redemption.id)}

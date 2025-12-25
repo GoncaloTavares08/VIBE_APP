@@ -48,8 +48,11 @@ class Database
         $clientId = ''; // default
 
         // Try to get from $_SERVER (works on InfinityFree)
-        if (isset($_SERVER['HTTP_X_CLIENT_ID'])) {
+        if (isset($_SERVER['HTTP_X_CLIENT_ID']) && !empty($_SERVER['HTTP_X_CLIENT_ID'])) {
             $clientId = strtolower($_SERVER['HTTP_X_CLIENT_ID']);
+        } elseif (isset($_GET['__cid']) && !empty($_GET['__cid'])) {
+            // Fallback: Check URL parameter (added by frontend)
+            $clientId = strtolower($_GET['__cid']);
         }
 
         // Map client IDs to database names from .env
@@ -92,7 +95,7 @@ class Database
         ];
 
         $client_db = $databaseMap[strtolower($slug)] ?? null;
-        
+
         if (!$client_db) {
             error_log("Invalid club slug: " . $slug);
             return null;

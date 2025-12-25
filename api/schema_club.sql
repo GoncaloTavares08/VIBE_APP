@@ -1,9 +1,5 @@
 -- phpMyAdmin SQL Dump
--- version 4.9.0.1
--- https://www.phpmyadmin.net/
---
 -- Host: sql103.infinityfree.com
--- Tempo de geração: 24-Dez-2025 às 11:33
 -- Versão do servidor: 11.4.7-MariaDB
 -- versão do PHP: 7.2.22
 
@@ -25,11 +21,11 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- Estrutura da tabela `events`
+-- 1. Estrutura da tabela `events`
 --
 
 CREATE TABLE `events` (
-  `id` int(11) NOT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   `description` text DEFAULT NULL,
   `date` date NOT NULL,
@@ -41,7 +37,10 @@ CREATE TABLE `events` (
   `image_url` varchar(500) DEFAULT NULL,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `created_by` int(11) DEFAULT NULL
+  `created_by` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_date` (`date`),
+  KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -55,41 +54,7 @@ INSERT INTO `events` (`id`, `name`, `description`, `date`, `start_time`, `end_ti
 -- --------------------------------------------------------
 
 --
--- Estrutura da tabela `event_feedback`
---
-
-CREATE TABLE `event_feedback` (
-  `id` int(11) NOT NULL,
-  `event_id` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `rating` int(11) DEFAULT NULL
-) ;
-
--- --------------------------------------------------------
-
---
--- Estrutura da tabela `rp_profile_events`
---
-
-CREATE TABLE `rp_profile_events` (
-  `id` int(11) NOT NULL,
-  `rp_user_id` int(11) NOT NULL COMMENT 'DB Global',
-  `event_id` int(11) NOT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Extraindo dados da tabela `rp_profile_events`
---
-
-INSERT INTO `rp_profile_events` (`id`, `rp_user_id`, `event_id`, `created_at`) VALUES
-(4, 15, 2, '2025-12-23 02:55:35'),
-(5, 15, 1, '2025-12-23 02:55:37');
-
--- --------------------------------------------------------
-
---
--- Estrutura da tabela `rewards`
+-- 2. Estrutura da tabela `rewards`
 --
 
 CREATE TABLE IF NOT EXISTS `rewards` (
@@ -110,7 +75,75 @@ CREATE TABLE IF NOT EXISTS `rewards` (
 -- --------------------------------------------------------
 
 --
--- Estrutura da tabela `reward_redemptions`
+-- 3. Estrutura da tabela `event_feedback`
+--
+
+CREATE TABLE `event_feedback` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `event_id` int(11) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `rating` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- 4. Estrutura da tabela `rp_profile_events`
+--
+
+CREATE TABLE `rp_profile_events` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `rp_user_id` int(11) NOT NULL COMMENT 'DB Global',
+  `event_id` int(11) NOT NULL,
+  `created_at` timestamp NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_rp_event` (`rp_user_id`,`event_id`),
+  KEY `idx_rp_user` (`rp_user_id`),
+  KEY `idx_event` (`event_id`),
+  CONSTRAINT `rp_profile_events_ibfk_1` FOREIGN KEY (`event_id`) REFERENCES `events` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Extraindo dados da tabela `rp_profile_events`
+--
+
+INSERT INTO `rp_profile_events` (`id`, `rp_user_id`, `event_id`, `created_at`) VALUES
+(4, 15, 2, '2025-12-23 02:55:35'),
+(5, 15, 1, '2025-12-23 02:55:37');
+
+-- --------------------------------------------------------
+
+--
+-- 5. Estrutura da tabela `guestlist`
+--
+
+CREATE TABLE IF NOT EXISTS `guestlist` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `event_id` int(11) NOT NULL,
+  `client_id` int(11) NOT NULL COMMENT 'User ID from users table',
+  `rp_id` int(11) NOT NULL COMMENT 'RP who added this guest',
+  `status` enum('confirmed','checked_in','expired') NOT NULL DEFAULT 'confirmed',
+  `qr_code` varchar(100) NOT NULL COMMENT 'Unique QR code for entry',
+  `checked_in_at` datetime DEFAULT NULL COMMENT 'When guest entered',
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_event_client` (`event_id`, `client_id`),
+  UNIQUE KEY `unique_qr_code` (`qr_code`),
+  KEY `idx_event_id` (`event_id`),
+  KEY `idx_client_id` (`client_id`),
+  KEY `idx_rp_id` (`rp_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_qr_code` (`qr_code`),
+  KEY `idx_client_status` (`client_id`, `status`),
+  CONSTRAINT `fk_guestlist_event` FOREIGN KEY (`event_id`) REFERENCES `events` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Guestlist entries for events';
+
+-- --------------------------------------------------------
+
+--
+-- 6. Estrutura da tabela `reward_redemptions`
 --
 
 CREATE TABLE IF NOT EXISTS `reward_redemptions` (
@@ -136,58 +169,6 @@ CREATE TABLE IF NOT EXISTS `reward_redemptions` (
   CONSTRAINT `fk_redemption_event` FOREIGN KEY (`event_id`) REFERENCES `events` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
--- Índices para tabelas despejadas
---
-
---
--- Índices para tabela `events`
---
-ALTER TABLE `events`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_date` (`date`),
-  ADD KEY `idx_status` (`status`);
-
---
--- Índices para tabela `rp_profile_events`
---
-ALTER TABLE `rp_profile_events`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_rp_event` (`rp_user_id`,`event_id`),
-  ADD KEY `idx_rp_user` (`rp_user_id`),
-  ADD KEY `idx_event` (`event_id`);
-
---
--- AUTO_INCREMENT de tabelas despejadas
---
-
---
--- AUTO_INCREMENT de tabela `events`
---
-ALTER TABLE `events`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
-
---
--- AUTO_INCREMENT de tabela `event_feedback`
---
-ALTER TABLE `event_feedback`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT de tabela `rp_profile_events`
---
-ALTER TABLE `rp_profile_events`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
-
---
--- Restrições para despejos de tabelas
---
-
---
--- Limitadores para a tabela `rp_profile_events`
---
-ALTER TABLE `rp_profile_events`
-  ADD CONSTRAINT `rp_profile_events_ibfk_1` FOREIGN KEY (`event_id`) REFERENCES `events` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

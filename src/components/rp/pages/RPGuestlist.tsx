@@ -1,68 +1,77 @@
-import { useState } from 'react';
-import { QrCode, Link as LinkIcon, Copy, Share2, Search, Filter, CheckCircle2, Clock, Star, Download } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { QrCode, Link as LinkIcon, Copy, Share2, Search, Filter, CheckCircle2, Clock, Star, Download, Calendar } from 'lucide-react';
 
-interface Guest {
-  id: string;
+interface GuestEntry {
+  guestlist_id: string;
+  guest_user_id: number;
   name: string;
-  phone: string;
-  status: 'entered' | 'guestlist' | 'vip';
-  addedDate: string;
-  entryTime?: string;
+  status: 'checked_in' | 'confirmed' | 'expired';
+  added_date: string; // From DB created_at
+  checkin_time?: string;
+  event_name: string;
+  event_date: string;
 }
 
-const mockGuests: Guest[] = [
-  {
-    id: '1',
-    name: 'Maria Silva',
-    phone: '+351 912 345 678',
-    status: 'entered',
-    addedDate: '2025-12-18',
-    entryTime: '23:45',
-  },
-  {
-    id: '2',
-    name: 'Pedro Costa',
-    phone: '+351 913 456 789',
-    status: 'vip',
-    addedDate: '2025-12-18',
-    entryTime: '23:30',
-  },
-  {
-    id: '3',
-    name: 'Ana Santos',
-    phone: '+351 914 567 890',
-    status: 'guestlist',
-    addedDate: '2025-12-18',
-  },
-  {
-    id: '4',
-    name: 'João Oliveira',
-    phone: '+351 915 678 901',
-    status: 'entered',
-    addedDate: '2025-12-17',
-    entryTime: '00:15',
-  },
-  {
-    id: '5',
-    name: 'Sofia Pereira',
-    phone: '+351 916 789 012',
-    status: 'guestlist',
-    addedDate: '2025-12-17',
-  },
-];
-
 export function RPGuestlist() {
-  const [guests] = useState<Guest[]>(mockGuests);
+  const [guests, setGuests] = useState<GuestEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const rpLink = 'vibe.app/rp/joaosilva';
+  // Get user info
+  const userStr = localStorage.getItem('user');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const username = user?.username || 'user'; // Fallback
+  const rpLink = `${window.location.origin}/guest/${username}`;
+
+  const getClubSlug = () => {
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    return pathSegments[0] || localStorage.getItem('clubSlug') || '';
+  };
+
+  useEffect(() => {
+    const fetchGuestlist = async () => {
+      if (!user?.id) return;
+
+      try {
+        const clubSlug = getClubSlug();
+        console.log("Fetching guestlist for:", { userId: user.id, clubSlug });
+
+        const response = await fetch('/api/controllers/rp_guestlist_manage.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client-ID': clubSlug,
+          },
+          body: JSON.stringify({ user_id: user.id }),
+        });
+
+        const result = await response.json();
+        console.log("API Result:", result);
+
+        if (result.status === 'success') {
+          setGuests(result.data);
+        } else {
+          console.error("API returned error:", result.message);
+        }
+      } catch (error) {
+        console.error("Error fetching RP guestlist", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGuestlist();
+  }, [user?.id]);
+
 
   const filteredGuests = guests.filter(guest => {
-    const matchesSearch = guest.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         guest.phone.includes(searchTerm);
-    const matchesFilter = filterStatus === 'all' || guest.status === filterStatus;
+    const matchesSearch = (guest.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterStatus === 'all' ||
+      (filterStatus === 'entered' && guest.status === 'checked_in') ||
+      (filterStatus === 'confirmed' && guest.status === 'confirmed') ||
+      (filterStatus === 'expired' && guest.status === 'expired');
     return matchesSearch && matchesFilter;
   });
 
@@ -74,7 +83,7 @@ export function RPGuestlist() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'entered':
+      case 'checked_in':
         return {
           bg: 'rgba(34, 197, 94, 0.2)',
           border: 'rgba(34, 197, 94, 0.3)',
@@ -82,7 +91,7 @@ export function RPGuestlist() {
           label: 'Entered',
           icon: CheckCircle2,
         };
-      case 'vip':
+      case 'vip': // If added in future
         return {
           bg: 'rgba(212, 175, 55, 0.2)',
           border: 'rgba(212, 175, 55, 0.3)',
@@ -90,20 +99,21 @@ export function RPGuestlist() {
           label: 'VIP',
           icon: Star,
         };
-      case 'guestlist':
+      case 'expired':
+        return {
+          bg: 'rgba(239, 68, 68, 0.2)',
+          border: 'rgba(239, 68, 68, 0.3)',
+          color: '#ef4444',
+          label: 'Expired',
+          icon: Clock,
+        };
+      case 'confirmed':
+      default:
         return {
           bg: 'rgba(59, 130, 246, 0.2)',
           border: 'rgba(59, 130, 246, 0.3)',
           color: '#3b82f6',
           label: 'Guestlist',
-          icon: Clock,
-        };
-      default:
-        return {
-          bg: 'rgba(255, 255, 255, 0.1)',
-          border: 'rgba(255, 255, 255, 0.2)',
-          color: '#888888',
-          label: 'Unknown',
           icon: Clock,
         };
     }
@@ -246,15 +256,19 @@ export function RPGuestlist() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mt-6">
             <div className="text-center">
-              <div className="text-2xl text-white mb-1">2,847</div>
-              <div className="text-xs text-gray-400">Clicks</div>
+              <div className="text-2xl text-white mb-1">{guests.length}</div>
+              <div className="text-xs text-gray-400">Total</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl text-[#D4AF37] mb-1">156</div>
-              <div className="text-xs text-gray-400">Sign-ups</div>
+              <div className="text-2xl text-[#D4AF37] mb-1">
+                {guests.filter(g => g.status === 'checked_in').length}
+              </div>
+              <div className="text-xs text-gray-400">Entered</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl text-white mb-1">5.48%</div>
+              <div className="text-2xl text-white mb-1">
+                {guests.length > 0 ? Math.round((guests.filter(g => g.status === 'checked_in').length / guests.length) * 100) : 0}%
+              </div>
               <div className="text-xs text-gray-400">Conversion</div>
             </div>
           </div>
@@ -269,7 +283,10 @@ export function RPGuestlist() {
           border: '1px solid rgba(255, 255, 255, 0.1)',
         }}
       >
-        <h2 className="text-xl text-white mb-6">Guest List ({filteredGuests.length})</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl text-white">Guest List ({filteredGuests.length})</h2>
+          {loading && <div className="text-sm text-[#D4AF37]">Updating...</div>}
+        </div>
 
         {/* Search & Filter */}
         <div className="flex flex-col lg:flex-row gap-4 mb-6">
@@ -314,15 +331,15 @@ export function RPGuestlist() {
               Entered
             </button>
             <button
-              onClick={() => setFilterStatus('vip')}
+              onClick={() => setFilterStatus('expired')}
               className="px-4 py-3 rounded-xl text-sm transition-colors whitespace-nowrap"
               style={{
-                background: filterStatus === 'vip' ? 'rgba(212, 175, 55, 0.2)' : 'rgba(0, 0, 0, 0.3)',
-                color: filterStatus === 'vip' ? '#D4AF37' : '#888888',
-                border: filterStatus === 'vip' ? '1px solid rgba(212, 175, 55, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)',
+                background: filterStatus === 'expired' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(0, 0, 0, 0.3)',
+                color: filterStatus === 'expired' ? '#ef4444' : '#888888',
+                border: filterStatus === 'expired' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)',
               }}
             >
-              VIP
+              Expired
             </button>
           </div>
         </div>
@@ -333,20 +350,28 @@ export function RPGuestlist() {
             <thead>
               <tr className="border-b border-white/5">
                 <th className="text-left text-sm text-gray-400 pb-4">Name</th>
-                <th className="text-left text-sm text-gray-400 pb-4">Phone</th>
+                <th className="text-left text-sm text-gray-400 pb-4">Event</th>
                 <th className="text-left text-sm text-gray-400 pb-4">Status</th>
-                <th className="text-left text-sm text-gray-400 pb-4">Added</th>
+                <th className="text-left text-sm text-gray-400 pb-4">Date Added</th>
+                <th className="text-left text-sm text-gray-400 pb-4">Time Added</th>
                 <th className="text-left text-sm text-gray-400 pb-4">Entry Time</th>
               </tr>
             </thead>
             <tbody>
-              {filteredGuests.map((guest) => {
+              {filteredGuests.length === 0 ? (
+                <tr><td colSpan={6} className="py-8 text-center text-gray-500">Nenhum convidado encontrado.</td></tr>
+              ) : filteredGuests.map((guest) => {
                 const status = getStatusBadge(guest.status);
                 const StatusIcon = status.icon;
                 return (
-                  <tr key={guest.id} className="border-b border-white/5">
-                    <td className="py-4 text-white">{guest.name}</td>
-                    <td className="py-4 text-gray-400">{guest.phone}</td>
+                  <tr key={guest.guestlist_id} className="border-b border-white/5">
+                    <td className="py-4 text-white font-medium">{guest.name}</td>
+                    <td className="py-4 text-gray-300">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-3 h-3 text-[#D4AF37]" />
+                        <span className="text-sm">{guest.event_name}</span>
+                      </div>
+                    </td>
                     <td className="py-4">
                       <span
                         className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
@@ -360,11 +385,14 @@ export function RPGuestlist() {
                         {status.label}
                       </span>
                     </td>
-                    <td className="py-4 text-gray-400">
-                      {new Date(guest.addedDate).toLocaleDateString('pt-PT')}
+                    <td className="py-4 text-gray-400 text-xs">
+                      {new Date(guest.added_date).toLocaleDateString('pt-PT')}
                     </td>
-                    <td className="py-4 text-gray-400">
-                      {guest.entryTime || '-'}
+                    <td className="py-4 text-gray-400 text-xs">
+                      {new Date(guest.added_date).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                    <td className="py-4 text-gray-400 text-xs">
+                      {guest.checkin_time ? new Date(guest.checkin_time).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : '-'}
                     </td>
                   </tr>
                 );
@@ -375,22 +403,27 @@ export function RPGuestlist() {
 
         {/* Mobile Card View */}
         <div className="lg:hidden space-y-3">
-          {filteredGuests.map((guest) => {
+          {filteredGuests.length === 0 ? (
+            <div className="py-8 text-center text-gray-500">Nenhum convidado encontrado.</div>
+          ) : filteredGuests.map((guest) => {
             const status = getStatusBadge(guest.status);
             const StatusIcon = status.icon;
             return (
               <div
-                key={guest.id}
+                key={guest.guestlist_id}
                 className="p-4 rounded-2xl"
                 style={{
                   background: 'rgba(0, 0, 0, 0.3)',
                   border: '1px solid rgba(255, 255, 255, 0.05)',
                 }}
               >
-                <div className="flex items-start justify-between mb-3">
+                <div className="flex items-start justify-between mb-2">
                   <div>
                     <h3 className="text-white font-semibold mb-1">{guest.name}</h3>
-                    <p className="text-sm text-gray-400">{guest.phone}</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Calendar className="w-3 h-3 text-[#D4AF37]" />
+                      <p className="text-xs text-[#D4AF37] font-medium">{guest.event_name}</p>
+                    </div>
                   </div>
                   <span
                     className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs"
@@ -404,9 +437,9 @@ export function RPGuestlist() {
                     {status.label}
                   </span>
                 </div>
-                <div className="flex items-center gap-4 text-xs text-gray-500">
-                  <span>Added: {new Date(guest.addedDate).toLocaleDateString('pt-PT')}</span>
-                  {guest.entryTime && <span>Entry: {guest.entryTime}</span>}
+                <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5 text-xs text-gray-500">
+                  <span>Added: {new Date(guest.added_date).toLocaleDateString('pt-PT')}</span>
+                  {guest.checkin_time && <span>Entry: {new Date(guest.checkin_time).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</span>}
                 </div>
               </div>
             );

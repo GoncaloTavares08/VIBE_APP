@@ -34,18 +34,46 @@ interface Person {
 }
 
 export function ClientHome() {
-  // Change this to toggle between states
   const [partyState, setPartyState] = useState<PartyState>('no-guestlist');
-  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
-  const [matches, setMatches] = useState<number[]>([]);
+  const [activeEvent, setActiveEvent] = useState<Event | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleMatch = (person: Person) => {
-    setMatches([...matches, person.id]);
+  // Helper to fetch status from backend
+  const fetchStatus = async () => {
+    try {
+      // Get user ID from localStorage
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return;
+      const user = JSON.parse(userStr);
+
+      const response = await apiFetch('/controllers/client_guestlist.php?action=next_event_status', {
+        method: 'POST',
+        body: JSON.stringify({ user_id: user.id })
+      });
+
+      if (response.status === 'success') {
+        const backendStatus = response.computed_status as PartyState; // 'no-guestlist' | 'has-guestlist' | 'live-party'
+        setPartyState(backendStatus || 'no-guestlist');
+        setActiveEvent(response.event || null);
+      }
+    } catch (error) {
+      console.error('Error fetching home status:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handlePersonClick = (person: Person) => {
-    setSelectedPerson(person);
-  };
+  useEffect(() => {
+    fetchStatus();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="w-8 h-8 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen" style={{ background: '#0a0a0a' }}>
@@ -58,83 +86,32 @@ export function ClientHome() {
       />
 
       <div className="relative z-10 p-4 lg:p-8 space-y-6">
-        {/* State Switcher (for demo purposes) */}
-        <div className="flex gap-2 justify-center mb-4">
-          <button
-            onClick={() => setPartyState('no-guestlist')}
-            className="px-4 py-2 rounded-lg text-sm"
-            style={{
-              background: partyState === 'no-guestlist' ? 'rgba(212, 175, 55, 0.3)' : 'rgba(255, 255, 255, 0.05)',
-              color: partyState === 'no-guestlist' ? '#D4AF37' : '#888',
-            }}
-          >
-            No Guestlist
-          </button>
-          <button
-            onClick={() => setPartyState('has-guestlist')}
-            className="px-4 py-2 rounded-lg text-sm"
-            style={{
-              background: partyState === 'has-guestlist' ? 'rgba(212, 175, 55, 0.3)' : 'rgba(255, 255, 255, 0.05)',
-              color: partyState === 'has-guestlist' ? '#D4AF37' : '#888',
-            }}
-          >
-            Has Guestlist
-          </button>
-          <button
-            onClick={() => setPartyState('live-party')}
-            className="px-4 py-2 rounded-lg text-sm"
-            style={{
-              background: partyState === 'live-party' ? 'rgba(212, 175, 55, 0.3)' : 'rgba(255, 255, 255, 0.05)',
-              color: partyState === 'live-party' ? '#D4AF37' : '#888',
-            }}
-          >
-            Live Party
-          </button>
-        </div>
 
         {/* Variation A: No Guestlist */}
-        {partyState === 'no-guestlist' && <NoGuestlistView />}
+        {partyState === 'no-guestlist' && <NoGuestlistView initialEvent={activeEvent} onRefresh={fetchStatus} />}
 
         {/* Variation B: Has Guestlist */}
-        {partyState === 'has-guestlist' && <HasGuestlistView />}
+        {partyState === 'has-guestlist' && <HasGuestlistView event={activeEvent} />}
 
         {/* Variation C: Live Party */}
-        {partyState === 'live-party' && <LivePartyView />}
+        {partyState === 'live-party' && <LivePartyView event={activeEvent} />}
       </div>
     </div>
   );
 }
 
 // Variation A: No Guestlist
-function NoGuestlistView() {
-  const [nextEvent, setNextEvent] = useState<Event | null>(null);
+function NoGuestlistView({ initialEvent, onRefresh }: { initialEvent: Event | null, onRefresh: () => void }) {
+  const [nextEvent, setNextEvent] = useState<Event | null>(initialEvent);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [loading, setLoading] = useState(true);
 
+  // Sync if prop changes (e.g. after refresh)
   useEffect(() => {
-    const fetchNextEvent = async () => {
-      try {
-        const response = await apiFetch('/controllers/events.php');
-        if (response.status === 'success' && response.data) {
-          const upcomingEvents = response.data.filter((e: Event) => e.status === 'upcoming');
-          if (upcomingEvents.length > 0) {
-            // Ordenar por data para pegar o mais próximo
-            const sortedEvents = upcomingEvents.sort((a: Event, b: Event) => {
-              const dateA = new Date(a.date + ' ' + a.start_time);
-              const dateB = new Date(b.date + ' ' + b.start_time);
-              return dateA.getTime() - dateB.getTime();
-            });
-            setNextEvent(sortedEvents[0]);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching events:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchNextEvent();
-  }, []);
+    if (initialEvent) {
+      setNextEvent(initialEvent);
+    }
+  }, [initialEvent]);
+
 
   return (
     <>
@@ -164,9 +141,9 @@ function NoGuestlistView() {
 
         {/* Content */}
         <div className="relative z-10 p-8 space-y-6">
-          {loading ? (
-            <div className="text-center text-gray-400">Carregando...</div>
-          ) : nextEvent ? (
+          {!nextEvent ? (
+            <div className="text-center text-gray-400 py-10">Nenhum evento próximo</div>
+          ) : (
             <>
               <div>
                 <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Próximo Evento</p>
@@ -192,21 +169,17 @@ function NoGuestlistView() {
 
               {/* CTA */}
               <button
-                className="w-full py-4 rounded-xl transition-all duration-300 hover:scale-105"
+                className="w-full py-4 rounded-xl transition-all duration-300 opacity-50 cursor-not-allowed"
                 style={{
                   background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-                  boxShadow: '0 8px 30px rgba(212, 175, 55, 0.4)',
+                  boxShadow: 'none',
                 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // Add guestlist logic here
-                }}
+                disabled={true}
+                onClick={(e) => e.stopPropagation()}
               >
-                <span className="text-black font-black">Entrar na Lista</span>
+                <span className="text-black font-black">Entrar na Lista (Em Breve)</span>
               </button>
             </>
-          ) : (
-            <div className="text-center text-gray-400">Nenhum evento próximo</div>
           )}
         </div>
       </div>
@@ -336,7 +309,7 @@ function NoGuestlistView() {
 }
 
 // Variation B: Has Guestlist (Locked)
-function HasGuestlistView() {
+function HasGuestlistView({ event }: { event?: Event | null }) {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div
@@ -371,14 +344,14 @@ function HasGuestlistView() {
               WebkitTextFillColor: 'transparent',
             }}
           >
-            You are on the list for
+            Estás na guestlist para
             <br />
-            Friday Madness
+            {event?.name || 'Próximo Evento'}
           </h3>
           <p className="text-gray-400">
-            This area unlocks when you arrive at the party.
+            Esta área desbloqueia quando entrares na festa.
             <br />
-            Until then, boost your VIBE score.
+            Até lá, prepara o teu VIBE.
           </p>
         </div>
 
@@ -391,7 +364,7 @@ function HasGuestlistView() {
           }}
         >
           <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          <span className="text-green-400 text-sm">Guestlist Confirmed</span>
+          <span className="text-green-400 text-sm">Guestlist Confirmada</span>
         </div>
       </div>
     </div>
@@ -399,7 +372,7 @@ function HasGuestlistView() {
 }
 
 // Variation C: Live Party (WOW FACTOR!)
-function LivePartyView() {
+function LivePartyView({ event }: { event?: Event | null }) {
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [matches, setMatches] = useState<number[]>([]);
 
@@ -419,7 +392,7 @@ function LivePartyView() {
           <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
           <span className="text-red-500 font-black uppercase tracking-wider">Live</span>
         </div>
-        <span className="text-white">at Main Club</span>
+        <span className="text-white">at {event?.name || 'Main Club'}</span>
         <MapPin className="w-4 h-4 text-gray-400" />
       </div>
 

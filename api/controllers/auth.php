@@ -116,7 +116,8 @@ if ($data->action == 'register') {
                     'name' => $user->name,
                     'email' => $user->email,
                     'role' => $userRole,
-                    'club_slug' => $clientSlug
+                    'club_slug' => $clientSlug,
+                    'created_at' => null // New users don't have created_at immediately available without re-fetch (or assume NOW)
                 ));
 
                 echo json_encode(array(
@@ -127,7 +128,8 @@ if ($data->action == 'register') {
                         "name" => $user->name,
                         "email" => $user->email,
                         "role" => $userRole,
-                        "club_slug" => $clientSlug
+                        "club_slug" => $clientSlug,
+                        "created_at" => date("Y-m-d H:i:s") // Assume current time
                     )
                 ));
             } else {
@@ -183,7 +185,7 @@ elseif ($data->action == 'login') {
 
                 if ($club) {
                     // Check if user_club_access already exists and get role and points
-                    $stmt = $db->prepare("SELECT role, points FROM user_club_access WHERE user_id = ? AND club_id = ?");
+                    $stmt = $db->prepare("SELECT role, points, joined_at FROM user_club_access WHERE user_id = ? AND club_id = ?");
                     $stmt->execute([$user->id, $club['id']]);
                     $access = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -191,12 +193,14 @@ elseif ($data->action == 'login') {
                         // User already has access, use existing role and points
                         $userRole = $access['role'];
                         $userPoints = $access['points'];
+                        $joinedAt = $access['joined_at'];
                     } else {
                         // First time accessing this club, create with CLIENT role and 0 points
                         $stmt = $db->prepare("INSERT INTO user_club_access (user_id, club_id, role) VALUES (?, ?, 'CLIENT')");
                         $stmt->execute([$user->id, $club['id']]);
                         $userRole = 'CLIENT';
                         $userPoints = 0;
+                        $joinedAt = date("Y-m-d H:i:s"); // Just joined
                     }
                 }
             }
@@ -207,7 +211,8 @@ elseif ($data->action == 'login') {
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $userRole,
-                'club_slug' => $clientSlug
+                'club_slug' => $clientSlug,
+                'created_at' => $user->created_at
             );
 
             SessionHelper::setUser($userData);
@@ -219,7 +224,8 @@ elseif ($data->action == 'login') {
                 "user" => array(
                     "id" => $user->id,
                     "name" => $user->name,
-                    "email" => $user->email
+                    "email" => $user->email,
+                    "created_at" => $user->created_at
                 )
             );
 
@@ -228,6 +234,7 @@ elseif ($data->action == 'login') {
                 $response["user"]["role"] = $userRole;
                 $response["user"]["club_slug"] = $clientSlug;
                 $response["user"]["points"] = $userPoints;
+                $response["user"]["member_since"] = $joinedAt;
             }
 
             echo json_encode($response);
