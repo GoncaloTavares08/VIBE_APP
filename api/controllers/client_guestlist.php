@@ -176,6 +176,194 @@ try {
             ));
             break;
 
+        case 'next_event_status':
+            // Determine the user's status for the most relevant event
+            $input = json_decode(file_get_contents('php://input'), true);
+            $userId = isset($input['user_id']) ? (int) $input['user_id'] : null;
+
+            if (!$userId) {
+                echo json_encode(array("status" => "error", "message" => "User ID não fornecido."));
+                exit();
+            }
+
+            // Set timezone
+            date_default_timezone_set('Europe/Lisbon');
+            $now = date('Y-m-d H:i:s');
+            $curDate = date('Y-m-d');
+
+            // 1. PRIORITY: Check if user is checked in to an ONGOING event (Live Party)
+            // Even if the event date was yesterday (e.g. started at 23:00), we care about end_time.
+            // We look for events where the user is 'checked_in' and the event hasn't finished yet.
+            // Since events often cross midnight, logic is tricky.
+            // Simplified: Look for guestlist entry 'checked_in' where event end_time > NOW
+            // For now, we'll join events. We assume 'active' means: 
+            // - Date is today OR yesterday
+            // - NOW is between start_time (on date) and end_time (possibly next day)
+
+            // To handle cross-midnight correctly in SQL is complex without full timestamps in DB.
+            // But we can check: Is there a guestlist entry with status='checked_in' linked to an event that hasn't "expired" (e.g. 24h window)?
+            // Let's rely on the user's specific requirement: "so pode sair desse ecra quando terminar a festa mesmo"
+
+            // Query for ANY checked_in active event.
+            // Optimization: Just get the latest checked_in event and see if it's still running.
+            $liveStmt = $db->prepare("
+                SELECT 
+                    e.*, 
+                    g.status as guest_status
+                FROM guestlist g
+                JOIN events e ON g.event_id = e.id
+                WHERE g.client_id = ? 
+                AND g.status = 'checked_in'
+                ORDER BY e.date DESC, e.start_time DESC
+                LIMIT 1
+            ");
+            $liveStmt->execute([$userId]);
+            $liveEvent = $liveStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($liveEvent) {
+                // Check if event is still "live"
+                // Construct Date objects
+                $startDateStr = $liveEvent['date'] . ' ' . $liveEvent['start_time'];
+                $endDateStr = $liveEvent['date'] . ' ' . $liveEvent['end_time'];
+
+                // If end_time < start_time, it ends the next day
+                if ($liveEvent['end_time'] < $liveEvent['start_time']) {
+                    $endDateObj = new DateTime($endDateStr);
+                    $endDateObj->modify('+1 day');
+                    $endDateStr = $endDateObj->format('Y-m-d H:i:s');
+                }
+
+                $nowObj = new DateTime($now);
+                $endObj = new DateTime($endDateStr);
+
+                // If check-in is valid and event hasn't ended: LIVE PARTY
+                if ($nowObj < $endObj) {
+                    echo json_encode(array(
+                        "status" => "success",
+                        "computed_status" => "live-party",
+                        "event" => $liveEvent
+                    ));
+                    exit();
+                }
+                // If it ended, we fall through to finding the NEXT event.
+            }
+
+            // 2. Determine CURRENT or NEXT event
+            $foundEvent = null;
+
+            // A. Check for "Ongoing" event from YESTERDAY (Cross-midnight)
+            // e.g. Started 23:00 yesterday, Ends 06:00 today. Current time 02:00.
+            // Condition: date = Yesterday AND end_time > CurTime (assuming end_time belongs to today)
+            // Note: This relies on the convention that events ending in early morning have 'end_time' < 'start_time' usually, 
+            // but here we just check if it ends after right now.
+            // If end_time < start_time (e.g. 06:00 < 23:00), it definitely crosses midnight.
+            // Only strictly valid if we interpret end_time as "time on the day it ends".
+            $yesterdayStmt = $db->prepare("
+                SELECT * FROM events 
+                WHERE date = DATE_SUB(?, INTERVAL 1 DAY) 
+                AND end_time > ?
+                AND status != 'cancelled'
+                LIMIT 1
+            ");
+            $currentTime = date('H:i:s');
+            $yesterdayStmt->execute([$curDate, $currentTime]);
+            $ongoingYesterday = $yesterdayStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($ongoingYesterday) {
+                // Determine if it really is a cross-midnight event
+                if ($ongoingYesterday['end_time'] < $ongoingYesterday['start_time']) {
+                    // Yes, it ends next day (today). And end_time > currentTime. 
+                    // So it is Active.
+                    $foundEvent = $ongoingYesterday;
+                }
+            }
+
+            // B. Check for "Ongoing" event from TODAY
+            // Case 1: Started active today (Start < Now) and Ends Today (End > Now) and End > Start.
+            // Case 2: Started active today (Start < Now) and Ends Tomorrow (End < Start).
+            if (!$foundEvent) {
+                $todayStmt = $db->prepare("
+                    SELECT * FROM events 
+                    WHERE date = ? 
+                    AND start_time <= ?
+                    AND status != 'cancelled'
+                    ORDER BY start_time DESC
+                    LIMIT 1
+                ");
+                $todayStmt->execute([$curDate, $currentTime]);
+                $ongoingToday = $todayStmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($ongoingToday) {
+                    // Check if it has ended
+                    $isOngoing = false;
+                    if ($ongoingToday['end_time'] > $ongoingToday['start_time']) {
+                        // Ends same day. Check if end_time > now
+                        if ($ongoingToday['end_time'] > $currentTime) {
+                            $isOngoing = true;
+                        }
+                    } else {
+                        // Ends tomorrow. Since it started already (start <= now), it's definitely ongoing.
+                        $isOngoing = true;
+                    }
+
+                    if ($isOngoing) {
+                        $foundEvent = $ongoingToday;
+                    }
+                }
+            }
+
+            // C. If no ongoing event, find NEXT UPCOMING event
+            if (!$foundEvent) {
+                $nextStmt = $db->prepare("
+                    SELECT * FROM events 
+                    WHERE (date > ? OR (date = ? AND start_time > ?))
+                    AND status != 'cancelled'
+                    ORDER BY date ASC, start_time ASC
+                    LIMIT 1
+                ");
+                $nextStmt->execute([$curDate, $curDate, $currentTime]);
+                $foundEvent = $nextStmt->fetch(PDO::FETCH_ASSOC);
+            }
+
+            if (!$foundEvent) {
+                // No future events found
+                echo json_encode(array(
+                    "status" => "success",
+                    "computed_status" => "no-guestlist",
+                    "event" => null
+                ));
+                exit();
+            }
+
+            $nextEvent = $foundEvent; // Use the found event (Active or Next)
+
+            // 3. Check if user has guestlist for this event
+            $glStmt = $db->prepare("
+                SELECT status FROM guestlist 
+                WHERE event_id = ? AND client_id = ?
+            ");
+            $glStmt->execute([$nextEvent['id'], $userId]);
+            $guestlistEntry = $glStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($guestlistEntry) {
+                // User has an entry. Check status.
+                // If 'confirmed' -> has-guestlist
+                // If 'checked_in' (but event not started yet?) -> live-party (rare, but possible if early entry) -> handled by step 1 usually.
+                echo json_encode(array(
+                    "status" => "success",
+                    "computed_status" => "has-guestlist",
+                    "event" => $nextEvent
+                ));
+            } else {
+                // No entry
+                echo json_encode(array(
+                    "status" => "success",
+                    "computed_status" => "no-guestlist",
+                    "event" => $nextEvent
+                ));
+            }
+            break;
+
         default:
             echo json_encode(array("status" => "error", "message" => "Ação inválida."));
     }
