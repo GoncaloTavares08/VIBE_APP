@@ -102,7 +102,7 @@ try {
             FROM events e
             INNER JOIN rp_profile_events rpe ON e.id = rpe.event_id
             WHERE rpe.rp_user_id = ?
-            AND e.status = 'upcoming'
+            AND e.status IN ('upcoming', 'ongoing')
             AND e.date >= CURDATE()
             ORDER BY e.date ASC, e.start_time ASC
             LIMIT 10

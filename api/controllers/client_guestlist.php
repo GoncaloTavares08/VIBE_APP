@@ -127,10 +127,10 @@ try {
                 exit();
             }
 
-            // Check if event exists and is future
+            // Check if event exists and is upcoming or ongoing
             $eventStmt = $db->prepare("
                 SELECT id, date FROM events 
-                WHERE id = ? AND date >= CURDATE() AND status = 'upcoming'
+                WHERE id = ? AND date >= CURDATE() AND status IN ('upcoming', 'ongoing')
             ");
             $eventStmt->execute([$eventId]);
             $event = $eventStmt->fetch(PDO::FETCH_ASSOC);

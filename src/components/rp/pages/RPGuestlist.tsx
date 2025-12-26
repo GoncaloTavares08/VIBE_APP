@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { QrCode, Link as LinkIcon, Copy, Share2, Search, Filter, CheckCircle2, Clock, Star, Download, Calendar } from 'lucide-react';
+import { QrCode, Link as LinkIcon, Copy, Share2, Search, CheckCircle2, Clock, Star, Download, Calendar } from 'lucide-react';
+import QRCode from 'qrcode';
 
 interface GuestEntry {
   guestlist_id: string;
@@ -18,6 +19,7 @@ export function RPGuestlist() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [copiedLink, setCopiedLink] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
   // Get user info
   const userStr = localStorage.getItem('user');
@@ -35,6 +37,27 @@ export function RPGuestlist() {
   const rpLink = username
     ? `https://vibe.infinityfree.me/guest/${username}`
     : 'A carregar...';
+
+  // Generate QR Code once when username is available
+  useEffect(() => {
+    if (username && username !== 'A carregar...') {
+      const link = `https://vibe.infinityfree.me/guest/${username}`;
+      QRCode.toDataURL(link, {
+        width: 250,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        }
+      })
+        .then(url => {
+          setQrCodeUrl(url);
+        })
+        .catch(err => {
+          console.error('Error generating QR code:', err);
+        });
+    }
+  }, [username]);
 
   useEffect(() => {
     const fetchGuestlistUrl = async () => {
@@ -100,6 +123,17 @@ export function RPGuestlist() {
     navigator.clipboard.writeText(rpLink);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleDownloadQR = () => {
+    if (!qrCodeUrl) return;
+
+    const link = document.createElement('a');
+    link.href = qrCodeUrl;
+    link.download = `qr-code-${username}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const getStatusBadge = (status: string) => {
@@ -181,15 +215,20 @@ export function RPGuestlist() {
             }}
           >
             <div className="text-center p-4 w-full h-full flex items-center justify-center">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://vibe.infinityfree.me/guest/${username}`}
-                alt="RP Public Profile QR"
-                className="w-full h-full object-contain"
-              />
+              {qrCodeUrl ? (
+                <img
+                  src={qrCodeUrl}
+                  alt="RP Public Profile QR"
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="text-gray-400 text-sm">A gerar QR Code...</div>
+              )}
             </div>
           </div>
 
           <button
+            onClick={handleDownloadQR}
             className="w-full px-4 py-3 rounded-xl transition-all duration-300 hover:scale-105 flex items-center justify-center gap-2"
             style={{
               background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
