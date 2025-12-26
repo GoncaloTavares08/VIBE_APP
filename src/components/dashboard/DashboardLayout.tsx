@@ -307,10 +307,10 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
             </span>
           </button>
 
-          <NotificationPanel 
-              isOpen={showNotifications} 
-              onClose={() => setShowNotifications(false)} 
-            />
+          <NotificationPanel
+            isOpen={showNotifications}
+            onClose={() => setShowNotifications(false)}
+          />
         </header>
 
         {/* Page Content */}

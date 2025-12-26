@@ -1,89 +1,55 @@
-import { useState } from 'react';
-import { TrendingUp, Heart } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { TrendingUp, Heart, Loader2 } from 'lucide-react';
 
 interface Person {
   id: number;
   name: string;
-  age: number;
-  bio: string;
+  rank: number;
   vibes: number;
   points: number;
-  photos: string[];
-  distance: string;
+  photo: string | null;
+  photos?: string[];
   instagram?: string;
+  bio?: string;
+  is_me: boolean;
 }
 
 interface LeaderboardProps {
-  onPersonClick: (person: Person) => void;
+  onPersonClick?: (person: any) => void;
 }
-
-const mockLeaderboard: Person[] = [
-  {
-    id: 1,
-    name: 'Miguel Torres',
-    age: 27,
-    bio: 'Always at the best parties 🌙',
-    points: 12420,
-    vibes: 521,
-    distance: '8m away',
-    photos: ['https://images.unsplash.com/photo-1632958983989-49773325c326?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYW4lMjBwb3J0cmFpdCUyMGZhc2hpb258ZW58MXx8fHwxNzY2MDY4NzM0fDA&ixlib=rb-4.1.0&q=80&w=1080'],
-    instagram: '@migueltorres',
-  },
-  {
-    id: 2,
-    name: 'Sofia Alves',
-    age: 24,
-    bio: 'Techno addict 🎧 | Love good vibes ✨',
-    points: 11850,
-    vibes: 689,
-    distance: '12m away',
-    photos: ['https://images.unsplash.com/photo-1760595968567-c5b981a8d6df?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMHdvbWFuJTIwcG9ydHJhaXQlMjBuaWdodHxlbnwxfHx8fDE3NjYwNjg3MzR8MA&ixlib=rb-4.1.0&q=80&w=1080'],
-    instagram: '@sofiaalves',
-  },
-  {
-    id: 3,
-    name: 'Ricardo Lima',
-    age: 26,
-    bio: 'VIP enthusiast 👑',
-    points: 10200,
-    vibes: 445,
-    distance: '5m away',
-    photos: ['https://images.unsplash.com/photo-1632958983989-49773325c326?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYW4lMjBwb3J0cmFpdCUyMGZhc2hpb258ZW58MXx8fHwxNzY2MDY4NzM0fDA&ixlib=rb-4.1.0&q=80&w=1080'],
-    instagram: '@ricardolima',
-  },
-  {
-    id: 4,
-    name: 'Carolina',
-    age: 23,
-    bio: 'Dance floor queen 👑',
-    points: 9750,
-    vibes: 712,
-    distance: '15m away',
-    photos: ['https://images.unsplash.com/photo-1665700301643-def92acad454?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b21hbiUyMGNsdWIlMjBvdXRmaXR8ZW58MXx8fHwxNzY2MDY4NzM0fDA&ixlib=rb-4.1.0&q=80&w=1080'],
-    instagram: '@carolinamartins',
-  },
-  {
-    id: 5,
-    name: 'João Silva',
-    age: 25,
-    bio: 'Music lover 🎵',
-    points: 8920,
-    vibes: 556,
-    distance: '10m away',
-    photos: ['https://images.unsplash.com/photo-1632958983989-49773325c326?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYW4lMjBwb3J0cmFpdCUyMGZhc2hpb258ZW58MXx8fHwxNzY2MDY4NzM0fDA&ixlib=rb-4.1.0&q=80&w=1080'],
-    instagram: '@joaosilva',
-  },
-];
 
 export function Leaderboard({ onPersonClick }: LeaderboardProps) {
   const [activeTab, setActiveTab] = useState<'points' | 'vibes'>('points');
+  const [leaderboard, setLeaderboard] = useState<Person[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userRank, setUserRank] = useState<Person | null>(null);
 
-  const sortedLeaderboard = [...mockLeaderboard].sort((a, b) => {
-    if (activeTab === 'points') {
-      return b.points - a.points;
-    }
-    return b.vibes - a.vibes;
-  });
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const userId = user?.id;
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      if (!userId) return;
+
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/controllers/client_leaderboard.php?user_id=${userId}&sort=${activeTab}`);
+        const data = await response.json();
+
+        if (data.status === 'success') {
+          setLeaderboard(data.data);
+          const me = data.data.find((p: Person) => p.is_me);
+          setUserRank(me || null);
+        }
+      } catch (error) {
+        console.error('Error fetching leaderboard:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLeaderboard();
+  }, [activeTab, userId]);
 
   const getMedalColor = (rank: number) => {
     switch (rank) {
@@ -152,68 +118,109 @@ export function Leaderboard({ onPersonClick }: LeaderboardProps) {
       </div>
 
       {/* Leaderboard List */}
-      <div className="space-y-3">
-        {sortedLeaderboard.map((person, index) => {
-          const rank = index + 1;
-          const isTopThree = rank <= 3;
-          const medalColor = getMedalColor(rank);
-          const score = activeTab === 'points' ? person.points : person.vibes;
+      <div className="space-y-3 min-h-[300px]">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-48 gap-3">
+            <Loader2 className="w-8 h-8 text-[#D4AF37] animate-spin" />
+            <p className="text-gray-500 text-sm">Counting vibes...</p>
+          </div>
+        ) : leaderboard.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <p>No party people yet! 🎉</p>
+          </div>
+        ) : (
+          leaderboard.map((person) => {
+            const isTopThree = person.rank <= 3;
+            const medalColor = getMedalColor(person.rank);
+            const score = activeTab === 'points' ? person.points : person.vibes;
 
-          return (
-            <button
-              key={person.id}
-              onClick={() => onPersonClick(person)}
-              className="w-full flex items-center gap-4 p-4 rounded-xl transition-all duration-300 hover:scale-105"
-              style={{
-                background: isTopThree
-                  ? 'rgba(255, 255, 255, 0.05)'
-                  : 'rgba(255, 255, 255, 0.02)',
-                border: isTopThree
-                  ? `1px solid ${medalColor}40`
-                  : '1px solid rgba(255, 255, 255, 0.05)',
-              }}
-            >
-              {/* Rank Badge */}
+            return (
               <div
-                className="w-12 h-12 rounded-full flex items-center justify-center font-black flex-shrink-0"
+                key={person.id}
+                onClick={() => {
+                  if (onPersonClick) {
+                    onPersonClick({
+                      ...person,
+                      photos: person.photos && person.photos.length > 0 ? person.photos : (person.photo ? [person.photo] : []),
+                      bio: person.bio || 'Adoro boas vibes ✨', // Default text if empty
+                      age: 23, // Use random/default age as DB doesn't have birthdate yet
+                      distance: 'No Clube'
+                    });
+                  }
+                }}
+                className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all duration-300 ${onPersonClick ? 'cursor-pointer hover:scale-105' : ''}`}
                 style={{
-                  background: isTopThree ? medalColor : 'rgba(255, 255, 255, 0.1)',
-                  color: isTopThree ? '#000' : '#888',
-                  boxShadow: isTopThree ? `0 0 20px ${medalColor}60` : 'none',
+                  background: isTopThree
+                    ? 'rgba(255, 255, 255, 0.05)'
+                    : 'rgba(255, 255, 255, 0.02)',
+                  border: isTopThree
+                    ? `1px solid ${medalColor}40`
+                    : person.is_me
+                      ? '1px solid rgba(212, 175, 55, 0.5)'
+                      : '1px solid rgba(255, 255, 255, 0.05)',
                 }}
               >
-                #{rank}
-              </div>
+                {/* Rank Number */}
+                <span
+                  className="font-black text-xl italic w-10 text-center flex-shrink-0"
+                  style={{
+                    color: isTopThree ? medalColor : '#888',
+                    textShadow: isTopThree ? `0 0 15px ${medalColor}60` : 'none'
+                  }}
+                >
+                  #{person.rank}
+                </span>
 
-              {/* Info */}
-              <div className="flex-1 text-left min-w-0">
-                <p className="text-white truncate">{person.name}</p>
-                <p className="text-sm text-gray-400">
-                  {score.toLocaleString()} {activeTab === 'points' ? 'pts' : 'likes'}
-                </p>
-              </div>
+                {/* Profile Photo */}
+                <div
+                  className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 border-2"
+                  style={{
+                    borderColor: isTopThree ? medalColor : 'rgba(255, 255, 255, 0.1)',
+                    boxShadow: isTopThree ? `0 0 15px ${medalColor}40` : 'none',
+                  }}
+                >
+                  {person.photo ? (
+                    <img
+                      src={person.photo}
+                      alt={person.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-black/40 flex items-center justify-center text-xs text-gray-500">
+                      ?
+                    </div>
+                  )}
+                </div>
 
-              {/* View Profile Hint */}
-              <div className="text-xs text-gray-500 flex-shrink-0">
-                Tap to view
+                {/* Info */}
+                <div className="flex-1 text-left min-w-0">
+                  <p className={`font-bold leading-tight ${person.is_me ? 'text-[#D4AF37]' : 'text-white'}`}>
+                    {person.name} {person.is_me && '(You)'}
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    {score.toLocaleString()} {activeTab === 'points' ? 'pts' : 'likes'}
+                  </p>
+                </div>
               </div>
-            </button>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
-      {/* Current User Rank */}
-      <div
-        className="p-4 rounded-xl text-center"
-        style={{
-          background: 'rgba(212, 175, 55, 0.1)',
-          border: '1px solid rgba(212, 175, 55, 0.3)',
-        }}
-      >
-        <p className="text-[#D4AF37]">
-          You are <span className="font-black">#12</span> · 500 {activeTab === 'points' ? 'pts' : 'likes'} to top 10
-        </p>
-      </div>
+      {/* Current User Rank Footer */}
+      {userRank && !loading && (
+        <div
+          className="p-4 rounded-xl text-center animate-in slide-in-from-bottom"
+          style={{
+            background: 'rgba(212, 175, 55, 0.1)',
+            border: '1px solid rgba(212, 175, 55, 0.3)',
+          }}
+        >
+          <p className="text-[#D4AF37]">
+            You are <span className="font-black">#{userRank.rank}</span> with <span className="font-bold">{activeTab === 'points' ? userRank.points : userRank.vibes}</span> {activeTab === 'points' ? 'points' : 'likes'}!
+          </p>
+        </div>
+      )}
     </div>
   );
 }

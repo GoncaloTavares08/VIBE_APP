@@ -56,6 +56,17 @@ try {
         ) <= ?
     ");
     $updCompleted->execute([$currentTimestamp]);
+
+    // Cleanup likes from completed events
+    if ($updCompleted->rowCount() > 0) {
+        $cleanupStmt = $db->prepare("
+            DELETE FROM event_likes 
+            WHERE event_id IN (
+                SELECT id FROM events WHERE status = 'completed'
+            )
+        ");
+        $cleanupStmt->execute();
+    }
 } catch (Exception $e) {
 }
 
@@ -389,6 +400,44 @@ try {
                     "status" => "success",
                     "computed_status" => "no-guestlist",
                     "event" => $nextEvent
+                ));
+            }
+            break;
+
+        case 'get_qr_code':
+            // Get QR code for user's current checked-in guestlist
+            $userId = isset($_GET['user_id']) ? (int) $_GET['user_id'] : null;
+
+            if (!$userId) {
+                echo json_encode(array("status" => "error", "message" => "User ID não fornecido."));
+                exit();
+            }
+
+            // Get the QR code from the most recent checked_in guestlist
+            // This ensures we always get the QR for the party the user is currently at
+            $qrStmt = $db->prepare("
+                SELECT g.qr_code, e.name as event_name, e.id as event_id
+                FROM guestlist g
+                JOIN events e ON g.event_id = e.id
+                WHERE g.client_id = ? 
+                AND g.status = 'checked_in'
+                ORDER BY e.date DESC, e.start_time DESC
+                LIMIT 1
+            ");
+            $qrStmt->execute([$userId]);
+            $result = $qrStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($result && $result['qr_code']) {
+                echo json_encode(array(
+                    "status" => "success",
+                    "qr_code" => $result['qr_code'],
+                    "event_name" => $result['event_name'],
+                    "event_id" => $result['event_id']
+                ));
+            } else {
+                echo json_encode(array(
+                    "status" => "error",
+                    "message" => "Nenhuma guestlist ativa encontrada."
                 ));
             }
             break;
