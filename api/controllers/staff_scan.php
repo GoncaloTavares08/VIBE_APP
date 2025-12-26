@@ -267,21 +267,40 @@ if ($action === 'validate_qr') {
             exit();
         }
 
-        // 2. Validate Event Time (Reuse logic? Or simpler since Staff is manually overriding?)
-        // Let's enforce that event is happening today/now
+        // 2. Validate Event Time
         $evtStmt = $clubDb->prepare("SELECT * FROM events WHERE id = ?");
         $evtStmt->execute([$guest['event_id']]);
         $event = $evtStmt->fetch(PDO::FETCH_ASSOC);
 
-        // Simple check: Is event basically valid for today?
-        // We assume staff knows what they are doing if searching, but basic date check is good.
-        // Skipping strict hour check for manual override flexibility, mainly checking DATE.
-        // Actually user said "active events", so we implicitely checked searching. But let's be safe.
+        if (!$event) {
+            echo json_encode(array("status" => "error", "message" => "Evento não encontrado"));
+            exit();
+        }
 
-        // 3. Update Status
         $lisbonTz = new DateTimeZone('Europe/Lisbon');
         $now = new DateTime('now', $lisbonTz);
         $timestamp = $now->format('Y-m-d H:i:s');
+
+        // Validation: Check if event started
+        $eventString = $event['date'] . ' ' . $event['start_time'];
+        $eventStart = new DateTime($eventString, $lisbonTz);
+
+        if ($now < $eventStart) {
+            $formattedStart = $eventStart->format('H:i');
+            echo json_encode(array(
+                "status" => "error",
+                "message" => "O evento ainda não começou. (Início: {$formattedStart})"
+            ));
+            exit();
+        }
+
+        // Auto-update Event Status if 'upcoming' and time passed
+        if ($event['status'] === 'upcoming' && $now >= $eventStart) {
+            $updEvt = $clubDb->prepare("UPDATE events SET status = 'ongoing' WHERE id = ?");
+            $updEvt->execute([$event['id']]);
+        }
+
+        // 3. Update Status
 
         $upd = $clubDb->prepare("UPDATE guestlist SET status = 'checked_in', checked_in_at = ?, updated_at = ? WHERE id = ?");
 
@@ -314,7 +333,7 @@ function handleGuestlistScan($clubDb, $globalDb, $qrCode, $confirm, $staffUserId
     $stmt = $clubDb->prepare("
         SELECT 
             gl.id, gl.client_id, gl.event_id, gl.status, gl.checked_in_at, gl.qr_code, gl.rp_id,
-            e.name as event_name, e.date as event_date, e.start_time, e.end_time
+            e.name as event_name, e.date as event_date, e.start_time, e.end_time, e.status as event_status
         FROM guestlist gl
         JOIN events e ON gl.event_id = e.id
         WHERE gl.qr_code = ?
@@ -395,6 +414,12 @@ function handleGuestlistScan($clubDb, $globalDb, $qrCode, $confirm, $staffUserId
                 "data" => $responsePayload
             ));
             exit();
+        }
+
+        // Auto-update Event Status if 'upcoming' and time passed
+        if ($guest['event_status'] === 'upcoming' && $nowDate >= $eventStart) {
+            $updEvt = $clubDb->prepare("UPDATE events SET status = 'ongoing' WHERE id = ?");
+            $updEvt->execute([$guest['event_id']]);
         }
 
         // IF CHECKING IN:

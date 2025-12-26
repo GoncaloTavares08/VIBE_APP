@@ -67,6 +67,42 @@ function handleGet($db)
 {
     $id = isset($_GET['id']) ? intval($_GET['id']) : null;
 
+    // AUTO-UPDATE STATUS
+    // Lazily update statuses whenever events are fetched
+    try {
+        $lisbonTz = new DateTimeZone('Europe/Lisbon');
+        $now = new DateTime('now', $lisbonTz);
+        $currentTimestamp = $now->format('Y-m-d H:i:s');
+
+        // 1. Upcoming -> Ongoing (if start_time passed)
+        $updUpcoming = $db->prepare("
+            UPDATE events 
+            SET status = 'ongoing' 
+            WHERE status = 'upcoming' 
+            AND CONCAT(date, ' ', start_time) <= ?
+        ");
+        $updUpcoming->execute([$currentTimestamp]);
+
+        // 2. Ongoing -> Completed (if end_time passed)
+        // Check for cross-midnight events (end_time < start_time)
+        $updCompleted = $db->prepare("
+            UPDATE events 
+            SET status = 'completed' 
+            WHERE status = 'ongoing' 
+            AND (
+                CASE 
+                    WHEN end_time < start_time THEN CONCAT(DATE_ADD(date, INTERVAL 1 DAY), ' ', end_time)
+                    ELSE CONCAT(date, ' ', end_time)
+                END
+            ) <= ?
+        ");
+        $updCompleted->execute([$currentTimestamp]);
+
+    } catch (Exception $e) {
+        // Silent fail on auto-update to not break the GET request
+        // error_log("Auto-update failed: " . $e->getMessage());
+    }
+
     if ($id) {
         // Get single event
         $stmt = $db->prepare("SELECT * FROM events WHERE id = ?");

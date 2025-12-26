@@ -30,6 +30,35 @@ if (!$db) {
 
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
+// AUTO-UPDATE STATUS
+try {
+    $lisbonTz = new DateTimeZone('Europe/Lisbon');
+    $now = new DateTime('now', $lisbonTz);
+    $currentTimestamp = $now->format('Y-m-d H:i:s');
+
+    $updUpcoming = $db->prepare("
+        UPDATE events 
+        SET status = 'ongoing' 
+        WHERE status = 'upcoming' 
+        AND CONCAT(date, ' ', start_time) <= ?
+    ");
+    $updUpcoming->execute([$currentTimestamp]);
+
+    $updCompleted = $db->prepare("
+        UPDATE events 
+        SET status = 'completed' 
+        WHERE status = 'ongoing' 
+        AND (
+            CASE 
+                WHEN end_time < start_time THEN CONCAT(DATE_ADD(date, INTERVAL 1 DAY), ' ', end_time)
+                ELSE CONCAT(date, ' ', end_time)
+            END
+        ) <= ?
+    ");
+    $updCompleted->execute([$currentTimestamp]);
+} catch (Exception $e) {
+}
+
 try {
     switch ($action) {
         case 'list':
