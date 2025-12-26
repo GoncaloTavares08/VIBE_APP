@@ -26,6 +26,7 @@ export default function App() {
   });
 
   const [showAuth, setShowAuth] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Initialize view states based on user role immediately
   const [showDashboard, setShowDashboard] = useState(() => user?.role === 'ADMIN');
@@ -110,7 +111,15 @@ export default function App() {
   };
 
   const handleGoBack = () => {
-    // Just go home, don't logout
+    // Logout user and clear cache
+    localStorage.removeItem('user');
+    clearAllAccessCache();
+    setUser(null);
+    setShowDashboard(false);
+    setShowRPDashboard(false);
+    setShowStaffApp(false);
+
+    // Always redirect to home page
     window.location.href = '/';
   };
 
@@ -154,7 +163,7 @@ export default function App() {
 
   // Show access denied if no access
   // Pass error to AccessDenied for debugging
-  if (user && !hasAccess && !isLoading && hasClubInUrl) {
+  if (user && !hasAccess && !isLoading && hasClubInUrl && !isLoggingOut) {
     return <AccessDenied clubName={clubName || 'Unknown Club'} onGoBack={handleGoBack} />;
     // Note: You might want to update AccessDenied to show the error prop if you haven't yet, 
     // but the user said they aren't seeing this screen, so priority is navigation.

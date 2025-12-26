@@ -62,7 +62,57 @@ export function MyClubs({ user, onNavigate }: MyClubsProps) {
     }
 
     if (clubs.length === 0) {
-        return null; // Don't show anything if no clubs
+        return (
+            <section className="py-20 relative z-10">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="max-w-2xl mx-auto"
+                    >
+                        <div
+                            className="rounded-3xl p-12 text-center"
+                            style={{
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                backdropFilter: 'blur(20px)',
+                            }}
+                        >
+                            <div
+                                className="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center"
+                                style={{
+                                    background: 'rgba(212, 175, 55, 0.1)',
+                                    border: '2px solid rgba(212, 175, 55, 0.3)',
+                                }}
+                            >
+                                <MapPin className="w-12 h-12 text-[#D4AF37]" />
+                            </div>
+
+                            <h2
+                                className="text-3xl md:text-4xl font-black mb-4"
+                                style={{
+                                    background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                }}
+                            >
+                                Ainda sem clubes
+                            </h2>
+
+                            <p className="text-gray-300 mb-6 leading-relaxed">
+                                Ainda não tens acesso a nenhum clube VIBE.<br />
+                                Para te juntares a um clube, visita a página de um RP e entra numa guestlist.
+                            </p>
+
+                            <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
+                                <Star className="w-4 h-4 text-[#D4AF37]" />
+                                <span>Entra num guestlist de algum RP do clube para obteres acesso ao mesmo.</span>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+            </section>
+        );
     }
 
     return (
