@@ -22,23 +22,30 @@ export function RPGuestlist() {
   // Get user info
   const userStr = localStorage.getItem('user');
   const user = userStr ? JSON.parse(userStr) : null;
-  const username = user?.username || 'user'; // Fallback
-  const rpLink = `${window.location.origin}/guest/${username}`;
+  const [username, setUsername] = useState(user?.username || '');
+
+  // Get user info
+  // const username = user?.username || 'user'; // Removed static fallback
 
   const getClubSlug = () => {
     const pathSegments = window.location.pathname.split('/').filter(Boolean);
     return pathSegments[0] || localStorage.getItem('clubSlug') || '';
   };
 
+  const rpLink = username
+    ? `https://vibe.infinityfree.me/guest/${username}`
+    : 'A carregar...';
+
   useEffect(() => {
-    const fetchGuestlist = async () => {
+    const fetchGuestlistUrl = async () => {
       if (!user?.id) return;
 
       try {
         const clubSlug = getClubSlug();
         console.log("Fetching guestlist for:", { userId: user.id, clubSlug });
 
-        const response = await fetch('/api/controllers/rp_guestlist_manage.php', {
+        // Fetch guestlist entries
+        const guestResponse = await fetch('/api/controllers/rp_guestlist_manage.php', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -47,22 +54,36 @@ export function RPGuestlist() {
           body: JSON.stringify({ user_id: user.id }),
         });
 
-        const result = await response.json();
-        console.log("API Result:", result);
-
-        if (result.status === 'success') {
-          setGuests(result.data);
+        const guestResult = await guestResponse.json();
+        if (guestResult.status === 'success') {
+          setGuests(guestResult.data);
         } else {
-          console.error("API returned error:", result.message);
+          console.error("API returned error (Guestlist):", guestResult.message);
         }
+
+        // Fetch RP Profile to get correct username
+        const profileResponse = await fetch('/api/controllers/rp_profile_manage.php?action=get', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client-ID': clubSlug,
+          },
+          body: JSON.stringify({ user_id: user.id }),
+        });
+
+        const profileResult = await profileResponse.json();
+        if (profileResult.status === 'success' && profileResult.data?.username) {
+          setUsername(profileResult.data.username);
+        }
+
       } catch (error) {
-        console.error("Error fetching RP guestlist", error);
+        console.error("Error fetching RP data", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchGuestlist();
+    fetchGuestlistUrl();
   }, [user?.id]);
 
 
@@ -154,14 +175,17 @@ export function RPGuestlist() {
 
           {/* QR Code Placeholder */}
           <div
-            className="aspect-square rounded-2xl mb-4 flex items-center justify-center"
+            className="aspect-square rounded-2xl mb-4 flex items-center justify-center overflow-hidden"
             style={{
               background: '#ffffff',
             }}
           >
-            <div className="text-center p-8">
-              <QrCode className="w-32 h-32 mx-auto text-black mb-2" />
-              <p className="text-xs text-gray-600">Scan to join guestlist</p>
+            <div className="text-center p-4 w-full h-full flex items-center justify-center">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=https://vibe.infinityfree.me/guest/${username}`}
+                alt="RP Public Profile QR"
+                className="w-full h-full object-contain"
+              />
             </div>
           </div>
 
