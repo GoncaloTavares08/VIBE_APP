@@ -473,31 +473,7 @@ function LivePartyView({ event }: { event?: Event | null }) {
         />
       )}
 
-      {/* Vibe Mode Toggle */}
-      <div
-        className="p-6 rounded-2xl flex items-center justify-between"
-        style={{
-          background: 'rgba(147, 51, 234, 0.1)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(147, 51, 234, 0.3)',
-        }}
-      >
-        <div>
-          <p className="text-white font-black">Vibe Mode</p>
-          <p className="text-sm text-gray-400">Auto-share your moments</p>
-        </div>
-        <div
-          className="w-14 h-8 rounded-full p-1 cursor-pointer transition-all"
-          style={{
-            background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-          }}
-        >
-          <div
-            className="w-6 h-6 bg-black rounded-full transition-transform"
-            style={{ transform: 'translateX(24px)' }}
-          />
-        </div>
-      </div>
+
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { X, Instagram, Sparkles, Lock } from 'lucide-react';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 interface Person {
@@ -36,6 +36,22 @@ export function PersonProfileModal({ person, isMatch, onClose }: PersonProfileMo
     }
   };
 
+  // Preload next and previous images
+  useEffect(() => {
+    if (person.photos) {
+      // Preload next
+      if (currentPhotoIndex < person.photos.length - 1) {
+        const img = new Image();
+        img.src = person.photos[currentPhotoIndex + 1];
+      }
+      // Preload previous
+      if (currentPhotoIndex > 0) {
+        const img = new Image();
+        img.src = person.photos[currentPhotoIndex - 1];
+      }
+    }
+  }, [currentPhotoIndex, person.photos]);
+
   return createPortal(
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
@@ -68,11 +84,13 @@ export function PersonProfileModal({ person, isMatch, onClose }: PersonProfileMo
         <div className="overflow-y-auto flex-1 overscroll-contain no-scrollbar">
 
           {/* Photo Gallery */}
-          <div className="relative h-96 select-none">
+          <div className="relative h-96 select-none bg-black">
             <ImageWithFallback
+              key={`photo-${person.id}-${currentPhotoIndex}`} // Force re-render on photo change
               src={person.photos[currentPhotoIndex]}
               alt={person.name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover animate-in fade-in duration-300"
+              loading="eager" // Prioritize loading
             />
 
             {/* Tap Zones */}
