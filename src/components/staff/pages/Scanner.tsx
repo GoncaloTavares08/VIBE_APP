@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ScanQrCode, CheckCircle, XCircle, Gift, User, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, Gift, User, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { apiFetch } from '../../../services/api';
@@ -20,7 +20,9 @@ interface ScanResult {
 export function Scanner({ onOpenManual }: ScannerProps) {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const [isScanning, setIsScanning] = useState(true);
+  const [isScanning, setIsScanning] = useState(true); // Auto-start scanner
+  const [scannerStarted, setScannerStarted] = useState(false);
+  const [cameraPermission, setCameraPermission] = useState<'checking' | 'granted' | 'denied' | 'prompt'>('checking');
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
   useEffect(() => {
@@ -33,68 +35,91 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Check camera permission status
   useEffect(() => {
-    // Initialize Scanner
-    // We need to wait for the DOM element 'reader'
+    const checkPermissions = async () => {
+      try {
+        const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
+        console.log('Camera permission status:', result.state);
+        setCameraPermission(result.state as 'granted' | 'denied' | 'prompt');
+
+        // Listen for permission changes
+        result.addEventListener('change', () => {
+          console.log('Camera permission changed to:', result.state);
+          setCameraPermission(result.state as 'granted' | 'denied' | 'prompt');
+        });
+      } catch (error) {
+        console.error('Error checking camera permissions:', error);
+        setCameraPermission('prompt');
+      }
+    };
+
+    checkPermissions();
+  }, []);
+
+  useEffect(() => {
+    // Initialize Scanner with Html5QrcodeScanner
     if (isScanning && !scannerRef.current) {
       const scannerId = "reader";
-      // Check if element exists
       const element = document.getElementById(scannerId);
-      if (!element) return;
+      if (!element) {
+        console.error("Scanner element not found");
+        return;
+      }
 
-      const scanner = new Html5QrcodeScanner(
-        scannerId,
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0,
-          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
-        },
-            /* verbose= */ false
-      );
+      console.log("Initializing Html5QrcodeScanner...");
 
-      scanner.render(onScanSuccess, onScanFailure);
-      scannerRef.current = scanner;
+      try {
+        const scanner = new Html5QrcodeScanner(
+          scannerId,
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+            showTorchButtonIfSupported: true,
+            rememberLastUsedCamera: true
+          },
+          /* verbose= */ false
+        );
+
+        scanner.render(onScanSuccess, onScanFailure);
+        scannerRef.current = scanner;
+        console.log("✅ Html5QrcodeScanner initialized");
+      } catch (error) {
+        console.error("❌ Exception during scanner creation:", error);
+        alert(`Erro crítico ao iniciar scanner: ${error}`);
+      }
     }
 
     return () => {
       if (scannerRef.current) {
-        scannerRef.current.clear().catch(error => {
-          console.error("Failed to clear html5-qrcode scanner. ", error);
+        console.log("Cleaning up scanner...");
+        scannerRef.current.clear().catch((error: any) => {
+          console.error("Failed to clear scanner:", error);
         });
         scannerRef.current = null;
       }
     };
-  }, [isScanning]); // Re-run if isScanning changes to true
+  }, [isScanning]);
 
   const onScanFailure = (error: any) => {
-    // console.warn(`Code scan error = ${error}`);
-    // Ignore frequent errors, only care about success
+    // Ignore frequent scan errors
   };
 
   const onScanSuccess = async (decodedText: string, decodedResult: any) => {
     if (!isScanning) return;
 
-    // Pause scanning logic implicitly by setting state? 
-    // The library keeps running, but we should ignore processing or pause.
-    // For better UX, we pause the scanner or stop processing.
-    // scannerRef.current?.pause(); // .pause() might be available depending on version, otherwise just ignore.
-    // Let's just ignore subsequent calls via a ref or state if needed.
-    // But we probably want to keep scanning available or restart it.
-
-    // For now, let's process.
     console.log(`Scan result: ${decodedText}`, decodedResult);
     handleProcessCode(decodedText);
   };
 
   const handleProcessCode = async (qrCode: string) => {
-    // Prevent double submission?
-    setIsScanning(false); // Hide scanner UI temporarily or simple block logic
+    setIsScanning(false);
 
     try {
       const data = await apiFetch('/controllers/staff_scan.php?action=validate_qr', {
         method: 'POST',
-        body: JSON.stringify({ qr_code: qrCode, confirm: true }) // Auto-confirm for speed
+        body: JSON.stringify({ qr_code: qrCode, confirm: true })
       });
 
       let resultType: ScanResult['type'] = 'error';
@@ -121,7 +146,7 @@ export function Scanner({ onOpenManual }: ScannerProps) {
       console.error("Scan API Error:", error);
       setScanResult({
         type: 'error',
-        category: 'guestlist', // Default
+        category: 'guestlist',
         name: 'Erro de Leitura',
         photo: null,
         details: 'Tente novamente',
@@ -129,7 +154,6 @@ export function Scanner({ onOpenManual }: ScannerProps) {
       });
     }
 
-    // Stop the scanner physically if needed, or just overlay covers it.
     if (scannerRef.current) {
       try {
         await scannerRef.current.clear();
@@ -147,36 +171,18 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     <div className="h-full relative overflow-hidden bg-black flex flex-col">
       {/* Scanner Container */}
       {isScanning && (
-        <div className="flex-1 relative flex flex-col items-center justify-center p-4">
+        <div className="flex-1 relative flex flex-col p-4">
           {/* HTML5 QR Code Reader Container */}
-          <div id="reader" className="w-full max-w-md h-full overflow-hidden rounded-2xl border-2 border-[#D4AF37]/50" />
+          <div
+            id="reader"
+            className="w-full flex-1 rounded-2xl overflow-hidden border-2 border-[#D4AF37]/50 shadow-2xl"
+          />
 
-          <p className="mt-4 text-gray-400 text-sm md:text-base text-center max-w-xs">
+          <p className="mt-4 text-gray-400 text-sm md:text-base text-center">
             Aponte a câmara para o QR Code do cliente
           </p>
-
-          {/* Overlay for branding */}
-          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-            <ScanQrCode className="w-48 h-48 text-[#D4AF37]/10 animate-pulse" />
-          </div>
         </div>
       )}
-
-      {!isScanning && !scanResult && (
-        <div className="flex-1 flex items-center justify-center">
-          <button onClick={resetScanner} className="px-6 py-3 bg-[#D4AF37] text-black font-bold rounded-xl">
-            ReativarScanner
-          </button>
-        </div>
-      )}
-
-      {/* Manual & Mobile UI Elements - Only show if scanning */}
-      {isScanning && (
-        <div className="absolute top-4 right-4 z-20">
-          {/* Additional controls if needed */}
-        </div>
-      )}
-
 
       {/* Scan Result Toast/Popup using AnimatePresence */}
       <AnimatePresence>
@@ -193,10 +199,10 @@ export function Scanner({ onOpenManual }: ScannerProps) {
               style={{
                 background: 'rgba(10, 10, 10, 0.95)',
                 border: scanResult.type === 'success'
-                  ? '2px solid rgba(34, 197, 94, 0.6)' // Green
+                  ? '2px solid rgba(34, 197, 94, 0.6)'
                   : scanResult.type === 'warning'
-                    ? '2px solid rgba(234, 179, 8, 0.6)' // Yellow
-                    : '2px solid rgba(239, 68, 68, 0.6)', // Red
+                    ? '2px solid rgba(234, 179, 8, 0.6)'
+                    : '2px solid rgba(239, 68, 68, 0.6)',
                 boxShadow: scanResult.type === 'success'
                   ? '0 0 60px rgba(34, 197, 94, 0.2)'
                   : scanResult.type === 'warning'
@@ -264,9 +270,80 @@ export function Scanner({ onOpenManual }: ScannerProps) {
       </AnimatePresence>
 
       <style>{`
+          /* Force reader container to fill available space */
+          #reader {
+            min-height: 400px;
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          
+          /* Make video fill the reader container */
           #reader video {
-              object-fit: cover;
-              border-radius: 1rem;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 400px !important;
+            object-fit: cover !important;
+            flex: 1 !important;
+          }
+          
+          /* Make scan region fill container */
+          #reader__scan_region {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 400px !important;
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          
+          /* Style the dashboard section */
+          #reader__dashboard_section {
+            padding: 20px !important;
+            text-align: center !important;
+            background: rgba(0, 0, 0, 0.8) !important;
+            border-radius: 12px !important;
+            margin: 10px !important;
+          }
+          
+          /* Style dashboard buttons */
+          #reader__dashboard_section button {
+            background: linear-gradient(135deg, #D4AF37 0%, #FFD700 100%) !important;
+            color: black !important;
+            border: none !important;
+            padding: 12px 24px !important;
+            border-radius: 8px !important;
+            font-weight: bold !important;
+            font-size: 14px !important;
+            cursor: pointer !important;
+            transition: transform 0.2s, box-shadow 0.2s !important;
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3) !important;
+            margin: 8px !important;
+          }
+          
+          #reader__dashboard_section button:hover {
+            transform: scale(1.05) !important;
+            box-shadow: 0 6px 16px rgba(212, 175, 55, 0.5) !important;
+          }
+          
+          /* Style camera selector if visible */
+          #reader__camera_selection select {
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+            border: 2px solid #D4AF37 !important;
+            padding: 8px 16px !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            margin: 8px !important;
+          }
+          
+          /* Style dashboard text */
+          #reader__dashboard_section span {
+            color: white !important;
+            font-size: 14px !important;
+          }
+          
+          /* Center the qr box overlay */
+          #reader__scan_region img {
+            margin: auto !important;
           }
       `}</style>
     </div>
