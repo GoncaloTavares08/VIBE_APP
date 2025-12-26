@@ -195,6 +195,7 @@ export function Events() {
     }
   };
 
+  const ongoingEvents = events.filter(e => e.status === 'ongoing');
   const upcomingEvents = events.filter(e => e.status === 'upcoming');
   const completedEvents = events.filter(e => e.status === 'completed');
 
@@ -297,6 +298,92 @@ export function Events() {
           <div className="text-3xl text-white">{events.length}</div>
         </div>
       </div>
+
+      {/* Ongoing Events */}
+      {ongoingEvents.length > 0 && (
+        <div
+          className="p-6 rounded-2xl backdrop-blur-xl relative overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(0, 0, 0, 0.4) 100%)',
+            border: '1px solid rgba(220, 38, 38, 0.3)',
+          }}
+        >
+          <div className="absolute top-0 right-0 p-4">
+            <span className="flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+            </span>
+          </div>
+
+          <h2 className="text-xl text-white mb-6 flex items-center gap-3">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+            Ongoing Events (LIVE)
+          </h2>
+          <div className="space-y-4">
+            {ongoingEvents.map((event) => (
+              <div
+                key={event.id}
+                onClick={() => setSelectedEvent(event)}
+                className="rounded-xl transition-all duration-300 hover:scale-[1.01] cursor-pointer overflow-hidden flex flex-col md:flex-row gap-0 md:gap-6 group"
+                style={{
+                  background: 'rgba(0, 0, 0, 0.6)',
+                  border: '1px solid rgba(220, 38, 38, 0.2)',
+                }}
+              >
+                {/* Event Image */}
+                {event.image_url && (
+                  <div className="w-full md:w-64 h-48 md:h-auto relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-10" />
+                    <img
+                      src={event.image_url}
+                      alt={event.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    />
+                    <div className="absolute bottom-3 left-3 z-20">
+                      <span className="bg-red-600/90 text-white text-xs font-bold px-2 py-1 rounded-md shadow-lg backdrop-blur-sm">
+                        HAPPENING NOW
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Event Info */}
+                <div className="p-6 flex-1 flex flex-col justify-center">
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="text-2xl text-white font-bold">{event.name}</h3>
+                    <div className="text-right">
+                      <p className="text-red-400 font-bold text-lg">{event.end_time} <span className="text-xs text-gray-500 font-normal">FIM</span></p>
+                    </div>
+                  </div>
+
+                  {event.description && (
+                    <p className="text-gray-400 line-clamp-2 mb-4 text-sm">{event.description}</p>
+                  )}
+
+                  <div className="flex items-center gap-6 text-sm">
+                    <div className="flex items-center gap-2 text-gray-300">
+                      <Users className="w-4 h-4 text-red-500" />
+                      <span>Capacidade: <b>{event.capacity}</b></span>
+                    </div>
+                    {event.organizer_name && (
+                      <div className="flex items-center gap-2 text-gray-300">
+                        <Users className="w-4 h-4 text-red-500" />
+                        <span>Org: {event.organizer_name}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-4 flex items-center justify-center border-l border-white/5 bg-white/5">
+                  <button className="px-6 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors">
+                    Gerir
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Upcoming Events */}
       <div

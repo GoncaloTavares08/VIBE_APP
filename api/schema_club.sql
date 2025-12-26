@@ -154,7 +154,6 @@ CREATE TABLE IF NOT EXISTS `reward_redemptions` (
   `points_spent` int(11) NOT NULL COMMENT 'Points deducted',
   `status` enum('pending','used','expired') DEFAULT 'pending',
   `qr_code` varchar(500) NOT NULL COMMENT 'Unique QR code for verification',
-  `event_id` int(11) DEFAULT NULL COMMENT 'Event where reward was activated',
   `activated_by` int(11) DEFAULT NULL COMMENT 'Staff/RP user_id who activated',
   `redeemed_at` datetime DEFAULT current_timestamp(),
   `used_at` datetime DEFAULT NULL,
@@ -164,9 +163,7 @@ CREATE TABLE IF NOT EXISTS `reward_redemptions` (
   KEY `idx_reward` (`reward_id`),
   KEY `idx_status` (`status`),
   KEY `idx_qr_code` (`qr_code`),
-  KEY `idx_event` (`event_id`),
-  CONSTRAINT `fk_redemption_reward` FOREIGN KEY (`reward_id`) REFERENCES `rewards` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `fk_redemption_event` FOREIGN KEY (`event_id`) REFERENCES `events` (`id`) ON DELETE SET NULL
+  CONSTRAINT `fk_redemption_reward` FOREIGN KEY (`reward_id`) REFERENCES `rewards` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 COMMIT;

@@ -23,21 +23,24 @@ if (!$db) {
 
 // Verify admin authentication
 $userSession = SessionHelper::getUser();
-if (!$userSession || $userSession['role'] !== 'ADMIN') {
-    echo json_encode(array("status" => "error", "message" => "Acesso negado. Apenas administradores."));
-    http_response_code(403);
+
+if (!$userSession) {
+    echo json_encode(array("status" => "error", "message" => "Autenticação necessária."));
+    http_response_code(401);
     exit();
 }
 
-// Get club ID from session
-$clubSlug = $userSession['club_slug'];
+// Ensure we have the club ID to check permissions
+$clubSlugHeader = isset($_SERVER['HTTP_X_CLIENT_ID']) ? $_SERVER['HTTP_X_CLIENT_ID'] : '';
+$clubSlug = $clubSlugHeader ?: ($userSession['club_slug'] ?? '');
+
 if (!$clubSlug) {
     echo json_encode(array("status" => "error", "message" => "Club não identificado."));
     http_response_code(400);
     exit();
 }
 
-// Get club ID from slug
+// Get Club ID
 $stmt = $db->prepare("SELECT id FROM clubs WHERE slug = ?");
 $stmt->execute([$clubSlug]);
 $club = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -49,6 +52,25 @@ if (!$club) {
 }
 
 $clubId = $club['id'];
+
+// FORCE FETCH ROLE FROM DB (Session might be stale or missing club context)
+$stmt = $db->prepare("SELECT role FROM user_club_access WHERE user_id = ? AND club_id = ?");
+$stmt->execute([$userSession['id'], $clubId]);
+$access = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$userRole = $access ? $access['role'] : null;
+
+// Allow ADMIN, OWNER, and MANAGER
+$allowedRoles = ['ADMIN'];
+
+if (!$userRole || !in_array($userRole, $allowedRoles)) {
+    echo json_encode(array("status" => "error", "message" => "Acesso negado. Apenas administradores. Role: " . ($userRole ?: 'Nenhum')));
+    http_response_code(403);
+    exit();
+}
+
+// Club ID already fetched above
+// $clubId is set
 
 // Handle different actions
 $action = $_GET['action'] ?? null;

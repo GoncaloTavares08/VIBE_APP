@@ -1,22 +1,29 @@
-import { useState, useEffect } from 'react';
-import { ScanQrCode, CheckCircle, XCircle, X } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { CheckCircle, XCircle, Gift, User, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { apiFetch } from '../../../services/api';
 
 interface ScannerProps {
   onOpenManual: () => void;
 }
 
 interface ScanResult {
-  type: 'success' | 'error';
+  type: 'success' | 'error' | 'warning' | 'info';
+  category: 'guestlist' | 'reward';
   name: string;
-  photo: string;
-  rpName: string;
-  message?: string;
+  photo: string | null;
+  details: string; // RP Name or Reward Name
+  message: string;
 }
 
 export function Scanner({ onOpenManual }: ScannerProps) {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [isScanning, setIsScanning] = useState(true); // Auto-start scanner
+  const [scannerStarted, setScannerStarted] = useState(false);
+  const [cameraPermission, setCameraPermission] = useState<'checking' | 'granted' | 'denied' | 'prompt'>('checking');
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -28,235 +35,234 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const simulateScan = (success: boolean) => {
-    if (success) {
-      setScanResult({
-        type: 'success',
-        name: 'Maria Silva',
-        photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop',
-        rpName: 'João Silva',
+  // Check camera permission status
+  useEffect(() => {
+    const checkPermissions = async () => {
+      try {
+        const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
+        console.log('Camera permission status:', result.state);
+        setCameraPermission(result.state as 'granted' | 'denied' | 'prompt');
+
+        // Listen for permission changes
+        result.addEventListener('change', () => {
+          console.log('Camera permission changed to:', result.state);
+          setCameraPermission(result.state as 'granted' | 'denied' | 'prompt');
+        });
+      } catch (error) {
+        console.error('Error checking camera permissions:', error);
+        setCameraPermission('prompt');
+      }
+    };
+
+    checkPermissions();
+  }, []);
+
+  useEffect(() => {
+    // Initialize Scanner with Html5QrcodeScanner
+    if (isScanning && !scannerRef.current) {
+      const scannerId = "reader";
+      const element = document.getElementById(scannerId);
+      if (!element) {
+        console.error("Scanner element not found");
+        return;
+      }
+
+      console.log("Initializing Html5QrcodeScanner...");
+
+      try {
+        const scanner = new Html5QrcodeScanner(
+          scannerId,
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+            showTorchButtonIfSupported: true,
+            rememberLastUsedCamera: true
+          },
+          /* verbose= */ false
+        );
+
+        scanner.render(onScanSuccess, onScanFailure);
+        scannerRef.current = scanner;
+        console.log("✅ Html5QrcodeScanner initialized");
+      } catch (error) {
+        console.error("❌ Exception during scanner creation:", error);
+        alert(`Erro crítico ao iniciar scanner: ${error}`);
+      }
+    }
+
+    return () => {
+      if (scannerRef.current) {
+        console.log("Cleaning up scanner...");
+        scannerRef.current.clear().catch((error: any) => {
+          console.error("Failed to clear scanner:", error);
+        });
+        scannerRef.current = null;
+      }
+    };
+  }, [isScanning]);
+
+  const onScanFailure = (error: any) => {
+    // Ignore frequent scan errors
+  };
+
+  const onScanSuccess = async (decodedText: string, decodedResult: any) => {
+    if (!isScanning) return;
+
+    console.log(`Scan result: ${decodedText}`, decodedResult);
+    handleProcessCode(decodedText);
+  };
+
+  const handleProcessCode = async (qrCode: string) => {
+    setIsScanning(false);
+
+    try {
+      const data = await apiFetch('/controllers/staff_scan.php?action=validate_qr', {
+        method: 'POST',
+        body: JSON.stringify({ qr_code: qrCode, confirm: true })
       });
-    } else {
+
+      let resultType: ScanResult['type'] = 'error';
+      if (data.status === 'success') resultType = 'success';
+      if (data.status === 'warning') resultType = 'warning';
+
+      const isReward = data.data?.type === 'reward';
+      const client = data.data?.client;
+
+      const newResult: ScanResult = {
+        type: resultType,
+        category: isReward ? 'reward' : 'guestlist',
+        name: client?.name || 'Unknown',
+        photo: client?.photo || null,
+        details: isReward
+          ? `Prémio: ${data.data?.reward?.name}`
+          : `RP: ${data.data?.rp_name || 'N/A'}`,
+        message: data.message || 'Erro desconhecido'
+      };
+
+      setScanResult(newResult);
+
+    } catch (error) {
+      console.error("Scan API Error:", error);
       setScanResult({
         type: 'error',
-        name: 'Pedro Santos',
-        photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop',
-        rpName: 'Unknown',
-        message: 'Not on guestlist',
+        category: 'guestlist',
+        name: 'Erro de Leitura',
+        photo: null,
+        details: 'Tente novamente',
+        message: error instanceof Error ? error.message : String(error)
       });
     }
 
-    setTimeout(() => {
-      setScanResult(null);
-    }, 4000);
+    if (scannerRef.current) {
+      try {
+        await scannerRef.current.clear();
+        scannerRef.current = null;
+      } catch (e) { console.error(e) }
+    }
+  };
+
+  const resetScanner = () => {
+    setScanResult(null);
+    setIsScanning(true);
   };
 
   return (
-    <div className="h-full relative overflow-hidden">
-      {/* Camera Background Simulation */}
-      <div
-        className="absolute inset-0 z-0"
-        style={{
-          background: 'linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%)',
-        }}
-      >
-        {/* Scanning Grid Overlay */}
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage: 'repeating-linear-gradient(0deg, rgba(212, 175, 55, 0.1) 0px, transparent 1px, transparent 30px), repeating-linear-gradient(90deg, rgba(212, 175, 55, 0.1) 0px, transparent 1px, transparent 30px)',
-          }}
-        />
-
-        {/* Animated Scan Line */}
-        <div
-          className="absolute left-0 right-0 h-1 animate-scan"
-          style={{
-            background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)',
-            boxShadow: '0 0 20px rgba(212, 175, 55, 0.8)',
-          }}
-        />
-      </div>
-
-      {/* Scanner Content */}
-      <div className="relative z-10 h-full flex flex-col items-center justify-center p-8">
-        {!isMobile && (
-          <h2 className="text-2xl text-white font-bold mb-8">Live Scanner</h2>
-        )}
-
-        {/* QR Frame */}
-        <div className="w-64 h-64 lg:w-80 lg:h-80 relative mb-8">
-          {/* Gold Corner Frames */}
+    <div className="h-full relative overflow-hidden bg-black flex flex-col">
+      {/* Scanner Container */}
+      {isScanning && (
+        <div className="flex-1 relative flex flex-col p-4">
+          {/* HTML5 QR Code Reader Container */}
           <div
-            className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 rounded-tl-3xl"
-            style={{ borderColor: '#D4AF37' }}
-          />
-          <div
-            className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 rounded-tr-3xl"
-            style={{ borderColor: '#D4AF37' }}
-          />
-          <div
-            className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 rounded-bl-3xl"
-            style={{ borderColor: '#D4AF37' }}
-          />
-          <div
-            className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 rounded-br-3xl"
-            style={{ borderColor: '#D4AF37' }}
+            id="reader"
+            className="w-full flex-1 rounded-2xl overflow-hidden border-2 border-[#D4AF37]/50 shadow-2xl"
           />
 
-          {/* Center Icon */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <ScanQrCode className="w-20 h-20 lg:w-24 lg:h-24 text-[#D4AF37] opacity-50 animate-pulse" />
-          </div>
+          <p className="mt-4 text-gray-400 text-sm md:text-base text-center">
+            Aponte a câmara para o QR Code do cliente
+          </p>
         </div>
-
-        <p className="text-white text-xl font-semibold mb-2">Ready to Scan</p>
-        <p className="text-gray-400 mb-8 text-center">Position QR code within frame</p>
-
-        {/* Test Buttons */}
-        <div className="flex gap-4">
-          <button
-            onClick={() => simulateScan(true)}
-            className="px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105"
-            style={{
-              background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-              color: '#ffffff',
-            }}
-          >
-            <span className="font-semibold">Test Success</span>
-          </button>
-          <button
-            onClick={() => simulateScan(false)}
-            className="px-6 py-3 rounded-xl transition-all duration-300 hover:scale-105"
-            style={{
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              color: '#ffffff',
-            }}
-          >
-            <span className="font-semibold">Test Error</span>
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Scan Result Toast/Popup using AnimatePresence */}
       <AnimatePresence>
         {scanResult && (
           <motion.div
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className={`fixed z-50 ${isMobile ? 'top-8 left-4 right-4' : 'top-1/2 left-1/2'
-              }`}
-            style={{
-              // IMPORTANT: For framer motion to handle X positioning on desktop correctly without conflict,
-              // we set x in 'animate' prop. But we need to ensure the base position is correct.
-              // Mobile: top-8 left-4 right-4 -> positioned by inset.
-              // Desktop: top-1/2 left-1/2 -> we use translateX(-50%) to center.
-              // Since 'x' in motion covers transform, we just need to ensure initial placement.
-              minWidth: isMobile ? 'auto' : '400px',
-              // Using 'y' in translate (-50%) for vertical centering on desktop is tricky if animating 'y'.
-              // So, let's center using marginTop or just adjust y animation values.
-              // Standard center transform is translate(-50%, -50%).
-              // If we animate 'y', Framer Motion overrides 'transform'.
-              // So we should include the centering offset in the 'y' and 'x' values of the animation.
-            }}
-            // Correct logic for Framer Motion Centering:
-            // Mobile: No centering needed, fixed positions.
-            // Desktop: needs -50% -50%.
-            // Let's adjust the variants to be explicit.
-            variants={{
-              mobile: { opacity: 1, y: 0, x: 0 },
-              mobileInitial: { opacity: 0, y: -50, x: 0 },
-              desktop: { opacity: 1, y: '-50%', x: '-50%' },
-              desktopInitial: { opacity: 0, y: '-60%', x: '-50%' },
-            }}
-            initial={isMobile ? "mobileInitial" : "desktopInitial"}
-            animate={isMobile ? "mobile" : "desktop"}
-            exit={isMobile ? "mobileInitial" : "desktopInitial"}
+            className={`fixed z-[60] top-0 left-0 w-full h-full flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
           >
             <div
-              className="rounded-3xl p-6 transition-all duration-300"
+              className="w-full max-w-sm rounded-3xl p-8 text-center relative overflow-hidden"
               style={{
                 background: 'rgba(10, 10, 10, 0.95)',
-                backdropFilter: 'blur(30px)',
                 border: scanResult.type === 'success'
                   ? '2px solid rgba(34, 197, 94, 0.6)'
-                  : '2px solid rgba(239, 68, 68, 0.6)',
+                  : scanResult.type === 'warning'
+                    ? '2px solid rgba(234, 179, 8, 0.6)'
+                    : '2px solid rgba(239, 68, 68, 0.6)',
                 boxShadow: scanResult.type === 'success'
-                  ? '0 0 60px rgba(34, 197, 94, 0.4)'
-                  : '0 0 60px rgba(239, 68, 68, 0.4)',
+                  ? '0 0 60px rgba(34, 197, 94, 0.2)'
+                  : scanResult.type === 'warning'
+                    ? '0 0 60px rgba(234, 179, 8, 0.2)'
+                    : '0 0 60px rgba(239, 68, 68, 0.2)',
               }}
             >
-              {/* Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  {scanResult.type === 'success' ? (
-                    <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center"
-                      style={{
-                        background: 'rgba(34, 197, 94, 0.2)',
-                        border: '2px solid rgba(34, 197, 94, 0.5)',
-                      }}
-                    >
-                      <CheckCircle className="w-7 h-7 text-green-400" />
-                    </div>
+              <div className="flex flex-col items-center gap-6">
+                {/* Icon */}
+                <div
+                  className="w-24 h-24 rounded-full flex items-center justify-center mb-2"
+                  style={{
+                    background: scanResult.type === 'success' ? 'rgba(34, 197, 94, 0.1)' : scanResult.type === 'warning' ? 'rgba(234, 179, 8, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    border: `2px solid ${scanResult.type === 'success' ? '#22c55e' : scanResult.type === 'warning' ? '#eab308' : '#ef4444'}`,
+                  }}
+                >
+                  {scanResult.type === 'success' && <CheckCircle className="w-12 h-12 text-green-500" />}
+                  {scanResult.type === 'warning' && <AlertTriangle className="w-12 h-12 text-yellow-500" />}
+                  {scanResult.type === 'error' && <XCircle className="w-12 h-12 text-red-500" />}
+                </div>
+
+                {/* Text Info */}
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-black text-white">
+                    {scanResult.type === 'success' ? 'Aprovado' : scanResult.type === 'warning' ? 'Atenção' : 'Recusado'}
+                  </h2>
+                  <p className="text-lg text-gray-300 font-medium">{scanResult.message}</p>
+                </div>
+
+                {/* User/Reward Card */}
+                <div className="w-full bg-white/5 rounded-2xl p-4 flex items-center gap-4 text-left border border-white/10">
+                  {scanResult.photo ? (
+                    <img src={scanResult.photo} alt={scanResult.name} className="w-16 h-16 rounded-full object-cover border-2 border-[#D4AF37]" />
                   ) : (
-                    <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center"
-                      style={{
-                        background: 'rgba(239, 68, 68, 0.2)',
-                        border: '2px solid rgba(239, 68, 68, 0.5)',
-                      }}
-                    >
-                      <XCircle className="w-7 h-7 text-red-400" />
+                    <div className="w-16 h-16 rounded-full bg-[#D4AF37]/20 flex items-center justify-center border-2 border-[#D4AF37]">
+                      {scanResult.category === 'reward' ? <Gift className="w-8 h-8 text-[#D4AF37]" /> : <User className="w-8 h-8 text-[#D4AF37]" />}
                     </div>
                   )}
-                  <div>
-                    <h3 className="text-white font-bold text-xl">
-                      {scanResult.type === 'success' ? 'Access Granted' : 'Access Denied'}
-                    </h3>
-                    <p className="text-sm text-gray-400">
-                      {scanResult.type === 'success' ? 'Valid Entry' : scanResult.message}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setScanResult(null)}
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
 
-              {/* Client Info */}
-              <div
-                className="flex items-center gap-4 p-4 rounded-2xl"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                }}
-              >
-                <img
-                  src={scanResult.photo}
-                  alt={scanResult.name}
-                  className="w-16 h-16 rounded-full object-cover"
-                  style={{
-                    border: '2px solid rgba(212, 175, 55, 0.5)',
-                  }}
-                />
-                <div className="flex-1">
-                  <p className="text-white font-bold text-lg">{scanResult.name}</p>
-                  <p className="text-sm text-gray-400">RP: {scanResult.rpName}</p>
-                </div>
-                {scanResult.type === 'success' && (
-                  <div
-                    className="px-3 py-1 rounded-lg"
-                    style={{
-                      background: 'rgba(212, 175, 55, 0.2)',
-                      border: '1px solid rgba(212, 175, 55, 0.3)',
-                    }}
-                  >
-                    <span className="text-[#D4AF37] text-sm font-semibold">VIP</span>
+                  <div>
+                    <p className="text-white font-bold text-lg leading-tight">{scanResult.name}</p>
+                    <p className="text-[#D4AF37] text-sm">{scanResult.details}</p>
+                    <div className="mt-1 inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-white/10 text-gray-400">
+                      {scanResult.category === 'reward' ? 'REDEMPTION' : 'GUESTLIST'}
+                    </div>
                   </div>
-                )}
+                </div>
+
+                {/* Action Button */}
+                <button
+                  onClick={resetScanner}
+                  className="w-full py-4 rounded-xl font-bold text-lg transition-transform hover:scale-105 active:scale-95"
+                  style={{
+                    background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                    color: 'black',
+                    boxShadow: '0 4px 20px rgba(212, 175, 55, 0.3)'
+                  }}
+                >
+                  Ler Próximo
+                </button>
               </div>
             </div>
           </motion.div>
@@ -264,14 +270,81 @@ export function Scanner({ onOpenManual }: ScannerProps) {
       </AnimatePresence>
 
       <style>{`
-        @keyframes scan {
-          0% { top: 0; }
-          50% { top: 100%; }
-          100% { top: 0; }
-        }
-        .animate-scan {
-          animation: scan 3s ease-in-out infinite;
-        }
+          /* Force reader container to fill available space */
+          #reader {
+            min-height: 400px;
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          
+          /* Make video fill the reader container */
+          #reader video {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 400px !important;
+            object-fit: cover !important;
+            flex: 1 !important;
+          }
+          
+          /* Make scan region fill container */
+          #reader__scan_region {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 400px !important;
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          
+          /* Style the dashboard section */
+          #reader__dashboard_section {
+            padding: 20px !important;
+            text-align: center !important;
+            background: rgba(0, 0, 0, 0.8) !important;
+            border-radius: 12px !important;
+            margin: 10px !important;
+          }
+          
+          /* Style dashboard buttons */
+          #reader__dashboard_section button {
+            background: linear-gradient(135deg, #D4AF37 0%, #FFD700 100%) !important;
+            color: black !important;
+            border: none !important;
+            padding: 12px 24px !important;
+            border-radius: 8px !important;
+            font-weight: bold !important;
+            font-size: 14px !important;
+            cursor: pointer !important;
+            transition: transform 0.2s, box-shadow 0.2s !important;
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3) !important;
+            margin: 8px !important;
+          }
+          
+          #reader__dashboard_section button:hover {
+            transform: scale(1.05) !important;
+            box-shadow: 0 6px 16px rgba(212, 175, 55, 0.5) !important;
+          }
+          
+          /* Style camera selector if visible */
+          #reader__camera_selection select {
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+            border: 2px solid #D4AF37 !important;
+            padding: 8px 16px !important;
+            border-radius: 8px !important;
+            font-size: 14px !important;
+            margin: 8px !important;
+          }
+          
+          /* Style dashboard text */
+          #reader__dashboard_section span {
+            color: white !important;
+            font-size: 14px !important;
+          }
+          
+          /* Center the qr box overlay */
+          #reader__scan_region img {
+            margin: auto !important;
+          }
       `}</style>
     </div>
   );

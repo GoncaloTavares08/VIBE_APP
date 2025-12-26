@@ -203,7 +203,6 @@ try {
                     rr.redeemed_at,
                     rr.expires_at,
                     rr.used_at,
-                    rr.event_id,
                     r.image_path,
                     r.description
                 FROM reward_redemptions rr
