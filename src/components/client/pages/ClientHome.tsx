@@ -376,6 +376,9 @@ function HasGuestlistView({ event }: { event?: Event | null }) {
 function LivePartyView({ event }: { event?: Event | null }) {
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [matches, setMatches] = useState<number[]>([]);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrCode, setQrCode] = useState<string>('');
+  const [qrLoading, setQrLoading] = useState(false);
 
   // Get current user ID
   const userId = (() => {
@@ -388,6 +391,29 @@ function LivePartyView({ event }: { event?: Event | null }) {
       return 0;
     }
   })();
+
+  // Fetch QR code text when modal opens
+  useEffect(() => {
+    if (!showQRModal || !userId) return;
+
+    const fetchQRCode = async () => {
+      setQrLoading(true);
+      try {
+        const response = await apiFetch(`/controllers/client_guestlist.php?action=get_qr_code&user_id=${userId}`);
+        if (response.status === 'success' && response.qr_code) {
+          setQrCode(response.qr_code);
+        } else {
+          console.error('No QR code found');
+        }
+      } catch (error) {
+        console.error('Error fetching QR code:', error);
+      } finally {
+        setQrLoading(false);
+      }
+    };
+
+    fetchQRCode();
+  }, [userId, showQRModal]);
 
   // Fetch matches on mount to ensure unlocked status
   useEffect(() => {
@@ -436,6 +462,7 @@ function LivePartyView({ event }: { event?: Event | null }) {
           border: '2px solid rgba(212, 175, 55, 0.5)',
           boxShadow: '0 0 60px rgba(212, 175, 55, 0.4)',
         }}
+        onClick={() => setShowQRModal(true)}
       >
         <QrCode className="w-24 h-24 mx-auto text-[#D4AF37]" />
         <p className="text-[#D4AF37] font-black text-xl">Show Bar QR</p>
@@ -471,6 +498,90 @@ function LivePartyView({ event }: { event?: Event | null }) {
           isMatch={matches.includes(selectedPerson.id)}
           onClose={() => setSelectedPerson(null)}
         />
+      )}
+
+      {/* QR Code Modal */}
+      {showQRModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0, 0, 0, 0.9)', backdropFilter: 'blur(20px)' }}
+          onClick={() => setShowQRModal(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl p-8 text-center space-y-6"
+            style={{
+              background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(255, 215, 0, 0.05) 100%)',
+              backdropFilter: 'blur(40px)',
+              border: '2px solid rgba(212, 175, 55, 0.5)',
+              boxShadow: '0 0 80px rgba(212, 175, 55, 0.4)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Title */}
+            <div className="space-y-2">
+              <h2
+                className="text-3xl font-black"
+                style={{
+                  background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}
+              >
+                Teu QR Code
+              </h2>
+              <p className="text-gray-400 text-sm">Mostra este código no bar para acumular pontos</p>
+            </div>
+
+            {/* QR Code */}
+            <div
+              className="bg-white p-6 rounded-2xl mx-auto"
+              style={{
+                boxShadow: '0 0 40px rgba(212, 175, 55, 0.3)',
+              }}
+            >
+              {qrLoading ? (
+                <div className="flex items-center justify-center" style={{ minHeight: '300px' }}>
+                  <div className="w-12 h-12 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : qrCode ? (
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${btoa('VIBE_SECURE:' + qrCode)}`}
+                  alt="QR Code"
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="flex items-center justify-center" style={{ minHeight: '300px' }}>
+                  <p className="text-gray-600">QR Code não disponível</p>
+                </div>
+              )}
+            </div>
+
+            {/* Event Info */}
+            <div
+              className="py-3 px-4 rounded-xl"
+              style={{
+                background: 'rgba(212, 175, 55, 0.1)',
+                border: '1px solid rgba(212, 175, 55, 0.3)',
+              }}
+            >
+              <p className="text-[#D4AF37] font-semibold">{event?.name || 'Evento Atual'}</p>
+              <p className="text-gray-400 text-xs mt-1">Válido apenas para esta festa</p>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setShowQRModal(false)}
+              className="w-full py-4 rounded-xl transition-all duration-300 hover:scale-105"
+              style={{
+                background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                boxShadow: '0 8px 30px rgba(212, 175, 55, 0.4)',
+              }}
+            >
+              <span className="text-black font-black">Fechar</span>
+            </button>
+          </div>
+        </div>
       )}
 
 
