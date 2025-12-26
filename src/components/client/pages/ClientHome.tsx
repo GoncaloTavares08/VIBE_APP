@@ -5,6 +5,7 @@ import { apiFetch } from '../../../services/api';
 import { WhoIsHere } from '../WhoIsHere';
 import { PersonProfileModal } from '../PersonProfileModal';
 import { Leaderboard } from '../Leaderboard';
+import { MyMatches } from '../MyMatches'
 
 type PartyState = 'no-guestlist' | 'has-guestlist' | 'live-party';
 
@@ -376,8 +377,38 @@ function LivePartyView({ event }: { event?: Event | null }) {
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [matches, setMatches] = useState<number[]>([]);
 
+  // Get current user ID
+  const userId = (() => {
+    try {
+      const userStr = localStorage.getItem('user');
+      if (!userStr) return 0;
+      const user = JSON.parse(userStr);
+      return user.id || 0;
+    } catch {
+      return 0;
+    }
+  })();
+
+  // Fetch matches on mount to ensure unlocked status
+  useEffect(() => {
+    const fetchMatches = async () => {
+      try {
+        const response = await apiFetch(`/controllers/client_event_likes.php?action=my_matches&user_id=${userId}`);
+        if (response.status === 'success' && response.matches) {
+          setMatches(response.matches.map((m: any) => m.id));
+        }
+      } catch (error) {
+        console.error('Error fetching matches:', error);
+      }
+    };
+
+    if (userId) {
+      fetchMatches();
+    }
+  }, [userId]);
+
   const handleMatch = (person: Person) => {
-    setMatches([...matches, person.id]);
+    setMatches(prev => [...prev, person.id]);
   };
 
   const handlePersonClick = (person: Person) => {
@@ -411,6 +442,9 @@ function LivePartyView({ event }: { event?: Event | null }) {
         <p className="text-sm text-gray-300">Tap to accumulate points</p>
       </div>
 
+      {/* My Matches Section */}
+      <MyMatches userId={userId} onPersonClick={handlePersonClick} />
+
       {/* Who is Here - Tinder Style */}
       <div
         className="p-6 rounded-2xl space-y-4"
@@ -424,7 +458,7 @@ function LivePartyView({ event }: { event?: Event | null }) {
           <h3 className="text-white font-black">Who is Here</h3>
           <Users className="w-5 h-5 text-gray-400" />
         </div>
-        <WhoIsHere onMatch={handleMatch} onPersonClick={handlePersonClick} />
+        <WhoIsHere userId={userId} onMatch={handleMatch} onPersonClick={handlePersonClick} />
       </div>
 
       {/* Leaderboard with Tabs */}

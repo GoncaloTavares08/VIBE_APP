@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
-import { X, Heart, MapPin, Sparkles } from 'lucide-react';
+import { apiFetch } from '../../services/api';
+import { X, Heart, Sparkles } from 'lucide-react';
 
 interface Person {
   id: number;
@@ -10,79 +11,82 @@ interface Person {
   vibes: number;
   photos: string[];
   distance: string;
+  instagram?: string;
 }
 
-const mockPeople: Person[] = [
-  {
-    id: 1,
-    name: 'Sofia',
-    age: 24,
-    bio: 'Techno addict 🎧 | Love good vibes ✨',
-    vibes: 342,
-    distance: '12m away',
-    photos: [
-      'https://images.unsplash.com/photo-1760595968567-c5b981a8d6df?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMHdvbWFuJTIwcG9ydHJhaXQlMjBuaWdodHxlbnwxfHx8fDE3NjYwNjg3MzR8MA&ixlib=rb-4.1.0&q=80&w=1080',
-      'https://images.unsplash.com/photo-1638863342226-7ef651886a62?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwZXJzb24lMjBwYXJ0eSUyMHNlbGZpZXxlbnwxfHx8fDE3NjYwNjg2OTF8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    ],
-  },
-  {
-    id: 2,
-    name: 'Miguel',
-    age: 27,
-    bio: 'Always at the best parties 🌙',
-    vibes: 521,
-    distance: '8m away',
-    photos: [
-      'https://images.unsplash.com/photo-1632958983989-49773325c326?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtYW4lMjBwb3J0cmFpdCUyMGZhc2hpb258ZW58MXx8fHwxNzY2MDY4NzM0fDA&ixlib=rb-4.1.0&q=80&w=1080',
-      'https://images.unsplash.com/photo-1763655395450-b070fc4f119b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxuaWdodGNsdWIlMjBmcmllbmRzfGVufDF8fHx8MTc2NjA2ODY5MXww&ixlib=rb-4.1.0&q=80&w=1080',
-    ],
-  },
-  {
-    id: 3,
-    name: 'Carolina',
-    age: 23,
-    bio: 'Dance floor queen 👑 | Looking for good energy',
-    vibes: 287,
-    distance: '15m away',
-    photos: [
-      'https://images.unsplash.com/photo-1665700301643-def92acad454?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3b21hbiUyMGNsdWIlMjBvdXRmaXR8ZW58MXx8fHwxNzY2MDY4NzM0fDA&ixlib=rb-4.1.0&q=80&w=1080',
-      'https://images.unsplash.com/photo-1571513722275-4b41940f54b8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmYXNoaW9uJTIwcG9ydHJhaXR8ZW58MXx8fHwxNzY2MDIxODU1fDA&ixlib=rb-4.1.0&q=80&w=1080',
-    ],
-  },
-];
-
 interface WhoIsHereProps {
+  userId: number;
   onMatch?: (person: Person) => void;
   onPersonClick?: (person: Person) => void;
 }
 
-export function WhoIsHere({ onMatch, onPersonClick }: WhoIsHereProps) {
-  const [people, setPeople] = useState<Person[]>(mockPeople);
+export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
+  const [people, setPeople] = useState<Person[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
   const [showMatchAnimation, setShowMatchAnimation] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const currentPerson = people[currentIndex];
 
-  const handleSwipe = (direction: 'left' | 'right') => {
+  // Fetch people in same event
+  useEffect(() => {
+    const fetchPeople = async () => {
+      try {
+        setLoading(true);
+        const response = await apiFetch(`/controllers/client_who_is_here.php?user_id=${userId}`);
+
+        if (response.status === 'success') {
+          setPeople(response.data || []);
+          setError(null);
+        } else {
+          setError(response.message || 'Erro ao carregar pessoas');
+          setPeople([]);
+        }
+      } catch (err: any) {
+        console.error('Error fetching people:', err);
+        setError(err.message || 'Erro ao conectar ao servidor');
+        setPeople([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (userId) {
+      fetchPeople();
+    }
+  }, [userId]);
+
+  const handleSwipe = async (direction: 'left' | 'right') => {
     setSwipeDirection(direction);
 
-    setTimeout(() => {
-      if (direction === 'right') {
-        // Simulate match 50% of the time
-        if (Math.random() > 0.5) {
+    // Call backend to save like/pass
+    try {
+      const response = await apiFetch('/controllers/client_event_likes.php?action=swipe', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: userId,
+          liked_id: currentPerson.id,
+          action: direction === 'right' ? 'like' : 'pass'
+        })
+      });
+
+      if (response.status === 'success' && response.is_match) {
+        // Show match animation - will close when user clicks
+        setTimeout(() => {
           setShowMatchAnimation(true);
           onMatch?.(currentPerson);
-
-          setTimeout(() => {
-            setShowMatchAnimation(false);
-            moveToNext();
-          }, 2000);
-          return;
-        }
+        }, 300);
+        return;
       }
+    } catch (error) {
+      console.error('Swipe error:', error);
+    }
 
+    // Move to next person
+    setTimeout(() => {
       moveToNext();
     }, 300);
   };
@@ -90,12 +94,22 @@ export function WhoIsHere({ onMatch, onPersonClick }: WhoIsHereProps) {
   const moveToNext = () => {
     setSwipeDirection(null);
     setCurrentPhotoIndex(0);
-    if (currentIndex < people.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      setCurrentIndex(0); // Loop back
-    }
+
+    setPeople(prevPeople => {
+      const newPeople = [...prevPeople];
+      newPeople.splice(currentIndex, 1);
+
+      // Adjust index if we removed the last item
+      if (currentIndex >= newPeople.length && newPeople.length > 0) {
+        setCurrentIndex(newPeople.length - 1);
+      } else if (newPeople.length === 0) {
+        setCurrentIndex(0);
+      }
+
+      return newPeople;
+    });
   };
+
 
   const nextPhoto = () => {
     if (currentPerson && currentPhotoIndex < currentPerson.photos.length - 1) {
@@ -109,10 +123,26 @@ export function WhoIsHere({ onMatch, onPersonClick }: WhoIsHereProps) {
     }
   };
 
-  if (!currentPerson) {
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="w-8 h-8 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (error) {
     return (
       <div className="text-center text-gray-400 py-8">
-        No one here right now...
+        {error}
+      </div>
+    );
+  }
+
+  if (!currentPerson || people.length === 0) {
+    return (
+      <div className="text-center text-gray-400 py-8">
+        Ainda não há ninguém visível na festa... 👻
       </div>
     );
   }
@@ -120,9 +150,21 @@ export function WhoIsHere({ onMatch, onPersonClick }: WhoIsHereProps) {
   return (
     <div className="relative max-w-md mx-auto">
       {/* Match Animation */}
-      {showMatchAnimation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0, 0, 0, 0.95)' }}>
-          <div className="text-center space-y-6 animate-pulse">
+      {showMatchAnimation && currentPerson && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: 'rgba(0, 0, 0, 0.95)' }}
+          onClick={() => {
+            setShowMatchAnimation(false);
+            moveToNext();
+          }}
+        >
+          <div className="text-center space-y-6 max-w-md mx-4 p-8 rounded-3xl"
+            style={{
+              background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(212, 175, 55, 0.05) 100%)',
+              border: '2px solid rgba(212, 175, 55, 0.5)',
+            }}
+          >
             <div className="text-8xl">✨</div>
             <h2
               className="text-5xl font-black"
@@ -134,8 +176,28 @@ export function WhoIsHere({ onMatch, onPersonClick }: WhoIsHereProps) {
             >
               It's a Match!
             </h2>
-            <p className="text-gray-400">
-              You and {currentPerson.name} vibed together
+            <p className="text-gray-300">
+              Tu e {currentPerson.name} deram like um no outro
+            </p>
+
+            {/* Show Instagram */}
+            {currentPerson.instagram && (
+              <div
+                className="mt-4 p-4 rounded-xl"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(212, 175, 55, 0.3)',
+                }}
+              >
+                <p className="text-sm text-gray-400 mb-1">Instagram desbloqueado:</p>
+                <p className="text-2xl font-black text-[#D4AF37]">
+                  @{currentPerson.instagram}
+                </p>
+              </div>
+            )}
+
+            <p className="text-sm text-gray-400 mt-4">
+              Toca para continuar
             </p>
           </div>
         </div>
@@ -222,10 +284,6 @@ export function WhoIsHere({ onMatch, onPersonClick }: WhoIsHereProps) {
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#D4AF37]" />
                 <span className="text-sm text-[#D4AF37]">{currentPerson.vibes} VIBES</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-gray-400" />
-                <span className="text-sm text-gray-400">{currentPerson.distance}</span>
               </div>
             </div>
 

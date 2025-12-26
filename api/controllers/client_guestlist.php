@@ -56,6 +56,17 @@ try {
         ) <= ?
     ");
     $updCompleted->execute([$currentTimestamp]);
+
+    // Cleanup likes from completed events
+    if ($updCompleted->rowCount() > 0) {
+        $cleanupStmt = $db->prepare("
+            DELETE FROM event_likes 
+            WHERE event_id IN (
+                SELECT id FROM events WHERE status = 'completed'
+            )
+        ");
+        $cleanupStmt->execute();
+    }
 } catch (Exception $e) {
 }
 
