@@ -3,7 +3,7 @@ import { ClientDashboardLayout } from './client/ClientDashboardLayout';
 import { ClientHome } from './client/pages/ClientHome';
 import { ClientWallet } from './client/pages/ClientWallet';
 import { ClientProfile } from './client/pages/ClientProfile';
-import { QrCode } from 'lucide-react';
+import { QrCode, Calendar, Gift, Wine, CreditCard, Star } from 'lucide-react';
 
 interface ClientDashboardProps {
   user?: any;
@@ -266,20 +266,166 @@ function ClientQRCode() {
   );
 }
 
-// History Screen (Placeholder)
+// History Screen (Implemented)
 function ClientHistory() {
+  const [activeTab, setActiveTab] = useState<'events' | 'points'>('events');
+  const [historyData, setHistoryData] = useState<{ events: any[]; transactions: any[] } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const userStr = localStorage.getItem('user');
+        if (!userStr) return;
+        const user = JSON.parse(userStr);
+
+        // Get club slug from URL first, then localStorage, then default
+        const pathSegments = window.location.pathname.split('/').filter(Boolean);
+        const clubSlug = pathSegments[0] || localStorage.getItem('clubSlug') || 'vibe';
+
+        const response = await fetch('/api/controllers/client_history.php?action=get_history', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client-ID': clubSlug,
+          },
+          body: JSON.stringify({ user_id: user.id })
+        });
+
+        const data = await response.json();
+        if (data.status === 'success') {
+          setHistoryData(data.data);
+        }
+      } catch (error) {
+        console.error("Error fetching history:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  const events = historyData?.events || [];
+  const transactions = historyData?.transactions || [];
+
   return (
     <div className="min-h-screen p-4 lg:p-8" style={{ background: '#0a0a0a' }}>
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-black text-white mb-6">History</h1>
-        <div
-          className="p-8 rounded-2xl text-center"
-          style={{
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-          }}
-        >
-          <p className="text-gray-400">Full history timeline coming soon...</p>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <h1 className="text-3xl font-black text-white">Atividade</h1>
+
+        {/* Tabs */}
+        <div className="flex p-1 rounded-xl bg-white/5 border border-white/10 w-full max-w-md">
+          <button
+            onClick={() => setActiveTab('events')}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'events'
+              ? 'bg-[#D4AF37] text-black shadow-lg'
+              : 'text-gray-400 hover:text-white'
+              }`}
+          >
+            Eventos
+          </button>
+          <button
+            onClick={() => setActiveTab('points')}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'points'
+              ? 'bg-[#D4AF37] text-black shadow-lg'
+              : 'text-gray-400 hover:text-white'
+              }`}
+          >
+            Pontos
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="space-y-4">
+          {activeTab === 'events' ? (
+            events.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">Sem histórico de eventos.</div>
+            ) : (
+              events.map((event: any, i: number) => (
+                <div
+                  key={i}
+                  className="p-4 rounded-2xl flex items-center justify-between transition-all hover:bg-white/5 cursor-pointer group"
+                  style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)' }}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl overflow-hidden bg-[#D4AF37]/10 flex items-center justify-center border border-white/10 shrink-0">
+                      {event.image_url ? (
+                        <img src={event.image_url} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+                      ) : (
+                        <Calendar className="w-6 h-6 text-[#D4AF37]" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white text-base">{event.event_name}</h3>
+                      <p className="text-sm text-gray-400">
+                        {new Date(event.event_date).toLocaleDateString('pt-PT', { weekday: 'short', day: 'numeric', month: 'short' })} •
+                        <span className="text-[#D4AF37]"> {event.checked_in_at ? event.checked_in_at.substring(11, 16) : ''}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )
+          ) : (
+            transactions.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">Sem histórico de pontos.</div>
+            ) : (
+              transactions.map((tx: any, i: number) => {
+                const isPurchase = tx.transaction_type === 'purchase';
+                // Purchases add points (+), Redemptions remove points (-)
+                const isPositive = isPurchase || tx.points > 0;
+
+                const getIcon = () => {
+                  if (tx.transaction_type === 'purchase') return <Wine className="w-5 h-5" />;
+                  if (tx.transaction_type === 'reward_redemption') return <Gift className="w-5 h-5" />;
+                  if (tx.transaction_type === 'bonus') return <Star className="w-5 h-5" />;
+                  return <CreditCard className="w-5 h-5" />;
+                };
+
+                return (
+                  <div
+                    key={i}
+                    className="p-4 rounded-2xl flex items-center justify-between transition-all hover:bg-white/5"
+                    style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.05)' }}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center border border-white/5 ${isPositive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                        {getIcon()}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-white text-base">
+                          {isPurchase ? 'Compra Bar' : (tx.transaction_type === 'reward_redemption' ? 'Prémio Resgatado' : 'Ajuste')}
+                        </h3>
+                        <p className="text-xs text-gray-400">
+                          {tx.event_name ? tx.event_name : (tx.description ? tx.description : 'Geral')}
+                        </p>
+                        <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">
+                          {new Date(tx.created_at).toLocaleDateString('pt-PT')} • {new Date(tx.created_at).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-lg font-black ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                        {isPositive ? '+' : ''}{tx.points}
+                      </span>
+                      {tx.amount_spent && parseFloat(tx.amount_spent) > 0 && (
+                        <p className="text-xs font-medium text-gray-400 mt-1">{tx.amount_spent}€</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )
+          )}
         </div>
       </div>
     </div>
