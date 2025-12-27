@@ -178,6 +178,9 @@ try {
         return $cmp === 0 ? $b['vibes'] - $a['vibes'] : $cmp;
     });
 
+    // LIMIT TO TOP 10
+    $leaderboard = array_slice($leaderboard, 0, 10);
+
     // Rank
     foreach ($leaderboard as $i => &$p) {
         $p['rank'] = $i + 1;

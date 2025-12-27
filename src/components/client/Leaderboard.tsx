@@ -38,7 +38,8 @@ export function Leaderboard({ onPersonClick }: LeaderboardProps) {
 
         if (data.status === 'success') {
           setLeaderboard(data.data);
-          const me = data.data.find((p: Person) => p.is_me);
+          // Use specific my_entry if available, otherwise try to find in list
+          const me = data.my_entry || data.data.find((p: Person) => p.is_me);
           setUserRank(me || null);
         }
       } catch (error) {
