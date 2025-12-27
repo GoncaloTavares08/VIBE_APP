@@ -106,29 +106,26 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
     // Re-using the mobile layout from before, as that was specifically requested for mobile
     return (
       <div className="h-screen flex flex-col" style={{ background: '#0a0a0a' }}>
-        <div className="flex-1 relative overflow-hidden h-full">
+        <div className="flex-1 relative overflow-y-auto pb-28">
           {currentView === 'scanner' && (
-            <div className="h-full overflow-hidden">
+            <div className="h-full flex flex-col">
               <Scanner onOpenManual={() => setShowManualCheckin(true)} />
+              {/* Manual Check-in Button - Inside scrollable container */}
+              <button
+                onClick={() => setShowManualCheckin(true)}
+                className="mx-4 my-4 transition-all duration-300 hover:scale-105 active:scale-95"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(255, 215, 0, 0.2) 100%)',
+                  backdropFilter: 'blur(20px)', border: '1px solid rgba(212, 175, 55, 0.5)',
+                  borderRadius: '16px', padding: '14px 28px', boxShadow: '0 8px 32px rgba(212, 175, 55, 0.3)',
+                }}
+              >
+                <span className="text-[#D4AF37] font-semibold text-center block">Manual Check-in</span>
+              </button>
             </div>
           )}
           {currentView === 'statistics' && <Statistics />}
         </div>
-        {/* Floating Manual Check-in Button */}
-        {currentView === 'scanner' && (
-          <button
-            onClick={() => setShowManualCheckin(true)}
-            className="fixed z-20 transition-all duration-300 hover:scale-105"
-            style={{
-              bottom: '120px', left: '50%', transform: 'translateX(-50%)',
-              background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(255, 215, 0, 0.2) 100%)',
-              backdropFilter: 'blur(20px)', border: '1px solid rgba(212, 175, 55, 0.5)',
-              borderRadius: '999px', padding: '14px 28px', boxShadow: '0 8px 32px rgba(212, 175, 55, 0.3)',
-            }}
-          >
-            <span className="text-[#D4AF37] font-semibold">Manual Check-in</span>
-          </button>
-        )}
         {/* Bottom Nav */}
         <div className="fixed bottom-0 left-0 right-0 z-50" style={{ background: 'rgba(10, 10, 10, 0.95)', backdropFilter: 'blur(30px)', borderTop: '1px solid rgba(212, 175, 55, 0.2)', boxShadow: '0 -4px 40px rgba(0, 0, 0, 0.6)' }}>
           <div className="flex items-center justify-around px-4 py-3 safe-area-bottom">

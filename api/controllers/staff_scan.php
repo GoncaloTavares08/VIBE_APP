@@ -318,6 +318,92 @@ if ($action === 'validate_qr') {
         echo json_encode(array("status" => "error", "message" => $e->getMessage()));
     }
 
+} elseif ($action === 'process_purchase') {
+    // --- PROCESS BAR PURCHASE & AWARD POINTS ---
+    // Debug logging
+    error_log("Process Purchase Payload: " . print_r($data, true));
+
+    if (!isset($data->user_id) || !isset($data->amount)) {
+        echo json_encode(array("status" => "error", "message" => "User ID e valor são obrigatórios. Payload: " . json_encode($data)));
+        exit();
+    }
+
+    $userId = (int) $data->user_id;
+    $amount = (float) $data->amount;
+    $eventId = isset($data->event_id) ? (int) $data->event_id : null;
+
+    if ($amount <= 0) {
+        echo json_encode(array("status" => "error", "message" => "Valor inválido."));
+        exit();
+    }
+
+    try {
+        // Conversion rate: 1€ = 10 points
+        $pointsAwarded = (int) ($amount * 10);
+
+        // 1. Update user points in user_club_access table
+        // First, get club_id
+        $clubStmt = $db->prepare("SELECT id FROM clubs WHERE slug = ?");
+        $clubStmt->execute([$clubSlug]);
+        $club = $clubStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$club) {
+            echo json_encode(array("status" => "error", "message" => "Clube não encontrado."));
+            exit();
+        }
+
+        $clubId = $club['id'];
+
+        // 2. Check if user has access entry
+        $accessStmt = $db->prepare("SELECT id, points FROM user_club_access WHERE user_id = ? AND club_id = ?");
+        $accessStmt->execute([$userId, $clubId]);
+        $access = $accessStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$access) {
+            // Create access entry
+            $insertStmt = $db->prepare("INSERT INTO user_club_access (user_id, club_id, points, joined_at) VALUES (?, ?, ?, NOW())");
+            $insertStmt->execute([$userId, $clubId, $pointsAwarded]);
+            $newPoints = $pointsAwarded;
+        } else {
+            // Update points
+            $newPoints = $access['points'] + $pointsAwarded;
+            $updateStmt = $db->prepare("UPDATE user_club_access SET points = ? WHERE id = ?");
+            $updateStmt->execute([$newPoints, $access['id']]);
+        }
+
+        // 3. Record transaction in points_transactions table (club DB)
+        $lisbonTz = new DateTimeZone('Europe/Lisbon');
+        $now = new DateTime('now', $lisbonTz);
+        $timestamp = $now->format('Y-m-d H:i:s');
+
+        // Note: Using CREATE TABLE logic if not exists is good but let's assume table exists now
+        $transStmt = $clubDb->prepare("
+            INSERT INTO points_transactions 
+            (user_id, points, transaction_type, amount_spent, event_id, staff_id, created_at) 
+            VALUES (?, ?, 'purchase', ?, ?, ?, ?)
+        ");
+        $transStmt->execute([$userId, $pointsAwarded, $amount, $eventId, $staffUserId, $timestamp]);
+
+        // 4. Get user details
+        $userStmt = $db->prepare("SELECT name, email FROM users WHERE id = ?");
+        $userStmt->execute([$userId]);
+        $user = $userStmt->fetch(PDO::FETCH_ASSOC);
+
+        echo json_encode(array(
+            "status" => "success",
+            "message" => "Compra processada! +{$pointsAwarded} pontos",
+            "data" => array(
+                "user_name" => $user['name'],
+                "amount" => $amount,
+                "points_awarded" => $pointsAwarded,
+                "new_total_points" => $newPoints
+            )
+        ));
+
+    } catch (Exception $e) {
+        echo json_encode(array("status" => "error", "message" => "Erro ao processar compra: " . $e->getMessage()));
+    }
+
 } else {
     echo json_encode(array("status" => "error", "message" => "Ação inválida."));
 }
@@ -350,7 +436,7 @@ function handleGuestlistScan($clubDb, $globalDb, $qrCode, $confirm, $staffUserId
     // 2. Fetch User Details (Global DB)
     // Photo is in client_profiles table, not users table
     $userStmt = $globalDb->prepare("
-        SELECT u.name, u.email, cp.profile_photo_path as photo 
+        SELECT u.id, u.name, u.email, cp.profile_photo_path as photo 
         FROM users u 
         LEFT JOIN client_profiles cp ON u.id = cp.user_id 
         WHERE u.id = ?
@@ -386,8 +472,9 @@ function handleGuestlistScan($clubDb, $globalDb, $qrCode, $confirm, $staffUserId
 
     $responsePayload = [
         'type' => 'guestlist',
-        'client' => $user, // {name, photo, etc}
+        'client' => $user, // {id, name, photo, etc}
         'event' => [
+            'id' => $guest['event_id'], // Explicit event ID
             'name' => $guest['event_name'],
             'date' => $guest['event_date']
         ],
@@ -425,9 +512,12 @@ function handleGuestlistScan($clubDb, $globalDb, $qrCode, $confirm, $staffUserId
         // IF CHECKING IN:
         if ($confirm) {
             if ($guest['status'] === 'checked_in') {
+                // User already checked in - this is now a PURCHASE scan
+                error_log("Awaiting Payment Payload: " . print_r($responsePayload, true));
+
                 echo json_encode(array(
-                    "status" => "warning",
-                    "message" => "AVISO: Este bilhete já entrou às " . $guest['checked_in_at'],
+                    "status" => "awaiting_payment",
+                    "message" => "Cliente já está dentro. Processar compra?",
                     "data" => $responsePayload
                 ));
                 exit();
@@ -451,8 +541,8 @@ function handleGuestlistScan($clubDb, $globalDb, $qrCode, $confirm, $staffUserId
             // PREVIEW MODE
             if ($guest['status'] === 'checked_in') {
                 echo json_encode(array(
-                    "status" => "warning",
-                    "message" => "JÁ ENTROU! Entrada registada às " . $guest['checked_in_at'] . " (Lisboa: " . $nowDate->format('H:i') . ")",
+                    "status" => "awaiting_payment",
+                    "message" => "Cliente já está dentro. Processar compra?",
                     "data" => $responsePayload
                 ));
             } else {
@@ -492,7 +582,7 @@ function handleRewardScan($clubDb, $globalDb, $qrCode, $confirm, $staffUserId)
 
     // 2. Fetch User Details (Global DB)
     $userStmt = $globalDb->prepare("
-        SELECT u.name, u.email, cp.profile_photo_path as photo 
+        SELECT u.id, u.name, u.email, cp.profile_photo_path as photo 
         FROM users u 
         LEFT JOIN client_profiles cp ON u.id = cp.user_id 
         WHERE u.id = ?

@@ -182,3 +182,17 @@ CREATE TABLE IF NOT EXISTS `event_likes` (
   KEY `idx_match` (`is_match`),
   CONSTRAINT `fk_likes_event` FOREIGN KEY (`event_id`) REFERENCES `events` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Stores likes/passes between users at events';
+
+CREATE TABLE IF NOT EXISTS `points_transactions` (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    points INT NOT NULL,
+    transaction_type ENUM('purchase', 'reward_redemption', 'admin_adjustment', 'bonus') NOT NULL DEFAULT 'purchase',
+    amount_spent DECIMAL(10, 2) DEFAULT NULL COMMENT 'Valor em EUR gasto',
+    event_id INT DEFAULT NULL,
+    staff_id INT DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    
+    INDEX (user_id),
+    INDEX (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -25,6 +25,12 @@ export function Scanner({ onOpenManual }: ScannerProps) {
   const [cameraPermission, setCameraPermission] = useState<'checking' | 'granted' | 'denied' | 'prompt'>('checking');
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
+  // Payment states
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState<string>('');
+  const [paymentData, setPaymentData] = useState<any>(null);
+  const [processingPayment, setProcessingPayment] = useState(false);
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 1024);
@@ -122,6 +128,14 @@ export function Scanner({ onOpenManual }: ScannerProps) {
         body: JSON.stringify({ qr_code: qrCode, confirm: true })
       });
 
+      // Check if this is a payment request (user already checked in)
+      if (data.status === 'awaiting_payment') {
+        // Show payment modal
+        setPaymentData(data.data);
+        setShowPaymentModal(true);
+        return;
+      }
+
       let resultType: ScanResult['type'] = 'error';
       if (data.status === 'success') resultType = 'success';
       if (data.status === 'warning') resultType = 'warning';
@@ -167,6 +181,55 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     setIsScanning(true);
   };
 
+  const handleConfirmPayment = async () => {
+    if (!paymentAmount || isNaN(parseFloat(paymentAmount))) {
+      alert("Por favor insira um valor válido");
+      return;
+    }
+
+    setProcessingPayment(true);
+    try {
+      const response = await apiFetch('/controllers/staff_scan.php?action=process_purchase', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: paymentData.client.id, // Assuming backend sends user details inside client object
+          amount: parseFloat(paymentAmount),
+          event_id: paymentData.event?.id || null
+        })
+      });
+
+      if (response.status === 'success') {
+        const points = response.data?.points_awarded || 0;
+        setScanResult({
+          type: 'success',
+          category: 'reward', // Using reward category for points award visualization
+          name: paymentData.client.name || 'Cliente',
+          photo: paymentData.client.photo,
+          details: `Compra de ${paymentAmount}€`,
+          message: `+${points} Pontos Adicionados!`
+        });
+        handleClosePayment();
+      } else {
+        alert(response.message || "Erro ao processar pagamento");
+      }
+    } catch (error) {
+      console.error("Payment error:", error);
+      alert("Erro de conexão ao processar pagamento");
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const handleClosePayment = () => {
+    setShowPaymentModal(false);
+    setPaymentAmount('');
+    setPaymentData(null);
+  };
+
+  const handleQuickAmount = (amount: number) => {
+    setPaymentAmount(amount.toString());
+  };
+
   return (
     <div className="h-full relative overflow-hidden bg-black flex flex-col">
       {/* Scanner Container */}
@@ -183,6 +246,68 @@ export function Scanner({ onOpenManual }: ScannerProps) {
           </p>
         </div>
       )}
+
+      {/* Payment Modal */}
+      <AnimatePresence>
+        {showPaymentModal && paymentData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
+          >
+            <div className="w-full max-w-sm bg-[#111] border border-[#D4AF37]/30 rounded-3xl p-6 relative overflow-hidden">
+              {/* Close Button */}
+              <button
+                onClick={handleClosePayment}
+                className="absolute top-4 right-4 text-gray-400 hover:text-white"
+              >
+                <XCircle className="w-8 h-8" />
+              </button>
+
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold text-white mb-2">Adicionar Pontos</h2>
+                <p className="text-[#D4AF37]">Cliente: {paymentData.client?.name || 'Desconhecido'}</p>
+              </div>
+
+              {/* Amount Input */}
+              <div className="mb-6 relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-[#D4AF37]">€</span>
+                <input
+                  type="number"
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full bg-white/5 border-2 border-[#D4AF37]/30 rounded-xl py-4 pl-12 pr-4 text-3xl font-bold text-white placeholder-gray-600 focus:outline-none focus:border-[#D4AF37] transition-colors"
+                />
+              </div>
+
+              {/* Quick Amounts */}
+              <div className="grid grid-cols-3 gap-3 mb-8">
+                {[5, 10, 20, 50, 100, 200].map((amount) => (
+                  <button
+                    key={amount}
+                    onClick={() => handleQuickAmount(amount)}
+                    className="py-3 rounded-xl bg-white/5 border border-white/10 text-white font-semibold hover:bg-[#D4AF37]/20 hover:border-[#D4AF37] transition-all"
+                  >
+                    {amount}€
+                  </button>
+                ))}
+              </div>
+
+              {/* Confirm Button */}
+              <button
+                onClick={handleConfirmPayment}
+                disabled={processingPayment || !paymentAmount}
+                className="w-full py-4 rounded-xl font-bold text-lg text-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] shadow-[0_4px_20px_rgba(212,175,55,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:grayscale"
+              >
+                {processingPayment ? 'Processando...' : 'Confirmar Pagamento'}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
 
       {/* Scan Result Toast/Popup using AnimatePresence */}
       <AnimatePresence>
@@ -324,15 +449,45 @@ export function Scanner({ onOpenManual }: ScannerProps) {
             box-shadow: 0 6px 16px rgba(212, 175, 55, 0.5) !important;
           }
           
-          /* Style camera selector if visible */
+          /* Style camera selector dropdown - Better Mobile Appearance */
+          #reader__camera_selection {
+            margin: 10px 0 !important;
+            text-align: center !important;
+          }
+          
           #reader__camera_selection select {
-            background: rgba(255, 255, 255, 0.1) !important;
+            background: rgba(0, 0, 0, 0.8) !important;
             color: white !important;
             border: 2px solid #D4AF37 !important;
-            padding: 8px 16px !important;
-            border-radius: 8px !important;
+            padding: 12px 20px !important;
+            border-radius: 12px !important;
+            font-size: 16px !important;
+            font-weight: 600 !important;
+            margin: 0 auto !important;
+            min-width: 200px !important;
+            max-width: 90% !important;
+            cursor: pointer !important;
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
+            appearance: none !important;
+            background-image: linear-gradient(45deg, transparent 50%, #D4AF37 50%), linear-gradient(135deg, #D4AF37 50%, transparent 50%) !important;
+            background-position: calc(100% - 20px) center, calc(100% - 12px) center !important;
+            background-size: 8px 8px, 8px 8px !important;
+            background-repeat: no-repeat !important;
+          }
+          
+          #reader__camera_selection select:focus {
+            outline: none !important;
+            border-color: #FFD700 !important;
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2) !important;
+          }
+          
+          #reader__camera_selection label {
+            color: #D4AF37 !important;
             font-size: 14px !important;
-            margin: 8px !important;
+            font-weight: 600 !important;
+            margin-bottom: 8px !important;
+            display: block !important;
           }
           
           /* Style dashboard text */
@@ -344,6 +499,17 @@ export function Scanner({ onOpenManual }: ScannerProps) {
           /* Center the qr box overlay */
           #reader__scan_region img {
             margin: auto !important;
+          }
+          
+          /* Hide "Scan an image file" option */
+          #html5-qrcode-button-file-selection,
+          #html5-qrcode-anchor-scan-type-change {
+            display: none !important;
+          }
+          
+          /* Hide any file input */
+          input[type="file"] {
+            display: none !important;
           }
       `}</style>
     </div>
