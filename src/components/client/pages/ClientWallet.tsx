@@ -1,6 +1,41 @@
 import { useState, useEffect } from 'react';
 import { ImageWithFallback } from '../../figma/ImageWithFallback';
-import { Sparkles, Gift, TrendingUp, ArrowRight, X, Check, QrCode, Clock } from 'lucide-react';
+import { Sparkles, Gift, TrendingUp, ArrowRight, X, Check, QrCode, Clock, Info, Award } from 'lucide-react';
+
+const RANKS = [
+  {
+    name: 'Bronze',
+    points: '0€ - 250€',
+    color: '#CD7F32',
+    benefits: ['Acesso à Comunidade', 'Acumulação de VIBE']
+  },
+  {
+    name: 'Silver',
+    points: '250€ - 1.500€',
+    color: '#C0C0C0',
+    benefits: ['Prioridade na Guestlist', 'Badge de Perfil Exclusivo']
+  },
+  {
+    name: 'Gold',
+    points: '1.500€ - 5.000€',
+    color: '#FFD700',
+    benefits: ['Entrada Prioritária (Fast Track)', 'Acesso ao Bar Gold']
+  },
+  {
+    name: 'Platinum',
+    points: '5.000€ - 20.000€',
+    color: '#E5E4E2',
+    benefits: ['Entrada Imediata', 'Acesso Área VIP', 'Welcome Drink']
+  },
+  {
+    name: 'Diamond',
+    points: '+20.000€',
+    color: '#B9F2FF',
+    benefits: ['Mesa VIP Sempre Disponível', 'Gestor de Conta Privado', 'Acesso Total']
+  }
+];
+
+
 
 interface Reward {
   id: number;
@@ -53,6 +88,7 @@ export function ClientWallet({ user }: ClientWalletProps) {
   const [showRedeemModal, setShowRedeemModal] = useState(false);
   const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
   const [redeeming, setRedeeming] = useState(false);
+  const [showRanksModal, setShowRanksModal] = useState(false);
 
   const memberLevel = 'Gold Member';
 
@@ -325,14 +361,19 @@ export function ClientWallet({ user }: ClientWalletProps) {
             <div className="flex items-end justify-between">
               <div>
                 <p className="text-white text-lg">{userName}</p>
-                <p
-                  className="text-sm"
-                  style={{
-                    color: '#D4AF37',
-                  }}
-                >
-                  {memberLevel}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p
+                    className="text-sm"
+                    style={{
+                      color: '#D4AF37',
+                    }}
+                  >
+                    {memberLevel}
+                  </p>
+                  <button onClick={() => setShowRanksModal(true)}>
+                    <Info className="w-4 h-4 text-gray-400 hover:text-white transition-colors" />
+                  </button>
+                </div>
               </div>
               <div className="text-right">
                 <p className="text-xs text-gray-400">Member Since</p>
@@ -663,6 +704,89 @@ export function ClientWallet({ user }: ClientWalletProps) {
           </div>
         )}
       </div>
+
+      {/* Ranks Info Modal */}
+      {showRanksModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0, 0, 0, 0.8)' }}
+          onClick={() => setShowRanksModal(false)}
+        >
+          <div
+            className="relative max-w-md w-full rounded-2xl p-6 space-y-6 max-h-[80vh] overflow-y-auto"
+            style={{
+              background: 'rgba(10, 10, 10, 0.95)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setShowRanksModal(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-white"
+            >
+              <X className="w-6 h-6" />
+            </button>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-2xl font-black text-white">Níveis de Membro</h3>
+              <p className="text-gray-400 text-sm">Aumenta o teu investimento total para desbloquear status exclusivo.</p>
+            </div>
+
+            <div className="space-y-4">
+              {RANKS.map((rank) => (
+                <div
+                  key={rank.name}
+                  className="p-4 rounded-xl flex gap-4"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: `1px solid ${rank.color}40`,
+                  }}
+                >
+                  {/* Circle Indicator */}
+                  <div
+                    className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: `linear-gradient(135deg, ${rank.color}20 0%, ${rank.color}05 100%)`,
+                      border: `2px solid ${rank.color}`,
+                      boxShadow: `0 0 10px ${rank.color}30`
+                    }}
+                  >
+                    <Award className="w-6 h-6" style={{ color: rank.color }} />
+                  </div>
+
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center mb-1">
+                      <h4 className="font-bold text-lg" style={{ color: rank.color }}>{rank.name}</h4>
+                      <span className="text-xs font-mono text-gray-400">{rank.points}</span>
+                    </div>
+                    <ul className="space-y-1">
+                      {rank.benefits.map((benefit, i) => (
+                        <li key={i} className="text-xs text-gray-300 flex items-center gap-1">
+                          <span className="w-1 h-1 rounded-full bg-gray-500"></span>
+                          {benefit}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setShowRanksModal(false)}
+              className="w-full py-3 rounded-xl font-bold"
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                color: '#fff',
+              }}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Redeem Confirmation Modal */}
       {showRedeemModal && selectedReward && (

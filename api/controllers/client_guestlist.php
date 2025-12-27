@@ -101,7 +101,7 @@ try {
                 INNER JOIN events e ON g.event_id = e.id
                 WHERE g.client_id = ?
                 AND g.status IN ('confirmed', 'checked_in')
-                AND e.date >= CURDATE()
+                AND e.status IN ('upcoming', 'ongoing')
                 ORDER BY e.date ASC, e.start_time ASC
             ");
             $stmt->execute([$userId]);
