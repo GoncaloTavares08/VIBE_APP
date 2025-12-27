@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Zap, Mail, Lock, User, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useGoogleLogin } from '@react-oauth/google';
 import { InteractiveBackground } from './InteractiveBackground';
 import { ForgotPassword } from './ForgotPassword';
 import { apiFetch } from '../services/api';
@@ -11,13 +12,20 @@ interface AuthProps {
 
 export function Auth({ onLoginSuccess }: AuthProps) {
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [view, setView] = useState<'auth' | 'forgot-password'>('auth');
+  const [view, setView] = useState<'auth' | 'forgot-password' | 'birthday'>('auth');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
   });
+  const [profileData, setProfileData] = useState({
+    birthday: '',
+    gender: '' as 'male' | 'female' | '',
+    genderPreference: 'everyone' as 'male' | 'female' | 'everyone'
+  });
+  const [tempUser, setTempUser] = useState<any>(null);
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -26,6 +34,9 @@ export function Auth({ onLoginSuccess }: AuthProps) {
     email: '',
     password: '',
     confirmPassword: '',
+    birthday: '',
+    gender: '',
+    genderPreference: ''
   });
   const [touched, setTouched] = useState({
     name: false,
@@ -120,9 +131,84 @@ export function Auth({ onLoginSuccess }: AuthProps) {
       email: '',
       password: '',
       confirmPassword: '',
+      birthday: '',
+      gender: '',
+      genderPreference: ''
     });
     setApiError('');
     setApiSuccess('');
+  };
+
+  const processLoginSuccess = (user: any, token?: string) => {
+    if (token) {
+      localStorage.setItem('authToken', token);
+    }
+    localStorage.setItem('user', JSON.stringify(user));
+
+    if (!user.birthdate || !user.gender || !user.gender_preference) {
+      setTempUser(user);
+      // Pre-fill state if some data exists but not all
+      setProfileData(prev => ({
+        ...prev,
+        birthday: user.birthdate || '',
+        gender: user.gender || '',
+        genderPreference: user.gender_preference || 'everyone'
+      }));
+      setView('birthday');
+      setApiSuccess('Almost there! Please tell us your birthday and preferences.');
+    } else {
+      setApiSuccess('Login success!');
+      setTimeout(() => {
+        onLoginSuccess(user);
+      }, 1000);
+    }
+  };
+
+  const handleBirthdaySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Validate
+    if (!profileData.birthday) {
+      setErrors(prev => ({ ...prev, birthday: 'Data de nascimento é obrigatória' }));
+      return;
+    }
+    if (!profileData.gender) {
+      setErrors(prev => ({ ...prev, gender: 'Género é obrigatório' }));
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await apiFetch('/controllers/client_profile_manage.php?action=save_profile', {
+        method: 'POST',
+        body: JSON.stringify({
+          user_id: tempUser.id,
+          birthdate: profileData.birthday,
+          gender: profileData.gender,
+          gender_preference: profileData.genderPreference
+        })
+      });
+
+      if (response.status === 'success') {
+        const updatedUser = {
+          ...tempUser,
+          birthdate: profileData.birthday,
+          gender: profileData.gender,
+          gender_preference: profileData.genderPreference
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser)); // Update local storage
+        setApiSuccess('Profile updated!');
+        setTimeout(() => {
+          onLoginSuccess(updatedUser);
+        }, 1000);
+      } else {
+        setApiError(response.message || 'Error saving birthday');
+      }
+    } catch (err) {
+      setApiError('Connection error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -189,12 +275,7 @@ export function Auth({ onLoginSuccess }: AuthProps) {
 
         if (mode === 'login') {
           console.log('Login success:', data.user);
-          localStorage.setItem('user', JSON.stringify(data.user));
-          setApiSuccess('Login efetuado com sucesso! A entrar...');
-
-          setTimeout(() => {
-            onLoginSuccess(data.user);
-          }, 1000);
+          processLoginSuccess(data.user);
         } else {
           // Register success - switch to login mode with email pre-filled
           setApiSuccess(data.message);
@@ -220,6 +301,42 @@ export function Auth({ onLoginSuccess }: AuthProps) {
       setIsLoading(false);
     }
   };
+
+  /* Google Login Hook */
+  const loginWithGoogle = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setIsLoading(true);
+      setApiError('');
+      console.log('Google Response:', tokenResponse);
+
+      try {
+        const response = await apiFetch('/controllers/auth/google_login.php', {
+          method: 'POST',
+          body: JSON.stringify({
+            token: tokenResponse.access_token, // Sending Access Token
+            type: 'access_token' // Marker for backend
+          }),
+        });
+
+        if (response.status === 'success') {
+          console.log('Login success:', response.user);
+          processLoginSuccess(response.user, response.token);
+        } else {
+          setApiError(response.message || 'Erro no login Google');
+        }
+
+      } catch (err: any) {
+        console.error('Google Login Error:', err);
+        setApiError('Falha ao autenticar com Google');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    onError: () => {
+      setApiError('Falha na conexão com Google');
+      setIsLoading(false);
+    }
+  });
 
   return (
     <div className="min-h-screen relative overflow-hidden" style={{ background: '#0a0a0a' }}>
@@ -259,11 +376,115 @@ export function Auth({ onLoginSuccess }: AuthProps) {
           </div>
         </div>
 
-
-
         {/* Auth Card */}
         {view === 'forgot-password' ? (
           <ForgotPassword onBack={() => setView('auth')} />
+        ) : view === 'birthday' ? (
+          <motion.div
+            className="w-full max-w-md"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <div
+              className="rounded-3xl p-8 md:p-10 relative"
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(20px)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+              }}
+            >
+              <div className="mb-8 text-center">
+                <h2 className="text-2xl font-bold mb-2 text-white">Complete Your Profile</h2>
+                <p className="text-gray-400">Tell us a bit more about you to personalize your experience.</p>
+              </div>
+
+              <form onSubmit={handleBirthdaySubmit} className="space-y-6">
+                {(errors.birthday || errors.gender || errors.genderPreference) && (
+                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
+                    {errors.birthday || errors.gender || errors.genderPreference}
+                  </div>
+                )}
+
+                {/* Birthday */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-300 ml-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={profileData.birthday}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, birthday: e.target.value }))}
+                    className="w-full pl-4 pr-4 py-4 rounded-xl outline-none transition-all duration-300"
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#ffffff',
+                      colorScheme: 'dark'
+                    }}
+                  />
+                </div>
+
+                {/* Gender */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-300 ml-1">I am a...</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {['male', 'female'].map((g) => (
+                      <button
+                        key={g}
+                        type="button"
+                        onClick={() => setProfileData(prev => ({ ...prev, gender: g as any }))}
+                        className={`py-3 rounded-xl border transition-all duration-300 font-medium capitalize ${profileData.gender === g
+                          ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                          : 'bg-black/40 text-gray-400 border-white/10 hover:border-white/30'
+                          }`}
+                      >
+                        {g}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Preference */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-300 ml-1">Show me...</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { value: 'male', label: 'Men' },
+                      { value: 'female', label: 'Women' },
+                      { value: 'everyone', label: 'Everyone' }
+                    ].map((p) => (
+                      <button
+                        key={p.value}
+                        type="button"
+                        onClick={() => setProfileData(prev => ({ ...prev, genderPreference: p.value as any }))}
+                        className={`py-3 rounded-xl border transition-all duration-300 font-medium text-sm ${profileData.genderPreference === p.value
+                          ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                          : 'bg-black/40 text-gray-400 border-white/10 hover:border-white/30'
+                          }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <motion.button
+                  type="submit"
+                  className="w-full py-4 rounded-xl font-semibold transition-all duration-300 hover:scale-105 mt-2"
+                  style={{
+                    background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                    color: '#000000',
+                    boxShadow: '0 0 30px rgba(212, 175, 55, 0.4)',
+                  }}
+                  whileHover={{ boxShadow: '0 0 40px rgba(212, 175, 55, 0.6)' }}
+                  whileTap={{ scale: 0.98 }}
+                  disabled={isLoading}
+                >
+                  {isLoading ? <Loader2 className="w-6 h-6 animate-spin mx-auto text-black" /> : 'Complete Setup'}
+                </motion.button>
+              </form>
+            </div>
+          </motion.div>
         ) : (
           <motion.div
             className="w-full max-w-md"
@@ -563,23 +784,12 @@ export function Auth({ onLoginSuccess }: AuthProps) {
               </div>
 
               {/* Social Login */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-4">
                 <button
-                  className="py-3 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 hover:scale-105"
+                  onClick={() => loginWithGoogle()}
+                  className="w-full py-3 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 hover:scale-105"
                   style={{
-                    background: 'rgba(0, 0, 0, 0.4)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                  }}
-                >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
-                  </svg>
-                  <span className="text-sm font-medium text-white">Apple</span>
-                </button>
-                <button
-                  className="py-3 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 hover:scale-105"
-                  style={{
-                    background: 'rgba(0, 0, 0, 0.4)',
+                    background: 'rgba(255, 255, 255, 0.05)',
                     border: '1px solid rgba(255, 255, 255, 0.2)',
                   }}
                 >
@@ -589,7 +799,7 @@ export function Auth({ onLoginSuccess }: AuthProps) {
                     <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
                     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                   </svg>
-                  <span className="text-sm font-medium text-white">Google</span>
+                  <span className="text-sm font-medium text-white">Continue with Google</span>
                 </button>
               </div>
             </div>

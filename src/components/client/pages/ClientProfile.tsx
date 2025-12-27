@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { User, Eye, EyeOff, Calendar, TrendingUp, Award, Edit, Instagram, Plus, X, Loader2, Camera, AlertCircle, Check } from 'lucide-react';
+import { User, Eye, EyeOff, Calendar, TrendingUp, Award, Edit, Instagram, Plus, X, Loader2, Camera, AlertCircle, Check, Users } from 'lucide-react';
 
 const partyHistory = [
   {
@@ -48,6 +48,7 @@ interface ProfileData {
   instagram: string;
   profile_photo_path: string | null;
   ghost_mode: number;
+  gender_preference: 'male' | 'female' | 'everyone';
   gallery_photos: GalleryPhoto[];
 }
 
@@ -57,6 +58,7 @@ export function ClientProfile() {
 
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [ghostMode, setGhostMode] = useState(false);
+  const [genderPreference, setGenderPreference] = useState<'male' | 'female' | 'everyone'>('everyone');
   const [isEditingInstagram, setIsEditingInstagram] = useState(false);
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [instagramHandle, setInstagramHandle] = useState('');
@@ -96,6 +98,7 @@ export function ClientProfile() {
         setBio(data.data.bio || '');
         setInstagramHandle(data.data.instagram || '');
         setGhostMode(data.data.ghost_mode === 1);
+        setGenderPreference(data.data.gender_preference || 'everyone');
         setPhotos(data.data.gallery_photos || []);
         setProfilePhotoUrl(data.data.profile_photo_path || null);
 
@@ -297,6 +300,28 @@ export function ClientProfile() {
       });
     } catch (err) {
       console.error('Error saving ghost mode:', err);
+    }
+  };
+
+  const handleUpdateGenderPreference = async (newPreference: 'male' | 'female' | 'everyone') => {
+    setGenderPreference(newPreference);
+
+    if (!userId) return;
+
+    try {
+      await fetch('/api/controllers/client_profile_manage.php?action=save_profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          bio: bio,
+          instagram: instagramHandle,
+          ghost_mode: ghostMode ? 1 : 0,
+          gender_preference: newPreference
+        })
+      });
+    } catch (err) {
+      console.error('Error saving gender preference:', err);
     }
   };
 
@@ -739,6 +764,42 @@ export function ClientProfile() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Discovery Preference */}
+        <div
+          className="p-6 rounded-2xl space-y-4"
+          style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+          }}
+        >
+          <h2 className="text-xl font-black text-white flex items-center gap-2">
+            <Users className="w-5 h-5 text-[#D4AF37]" />
+            Discovery Preference
+          </h2>
+
+          <p className="text-sm text-gray-400">Who do you want to see in the party?</p>
+
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { value: 'male', label: 'Men' },
+              { value: 'female', label: 'Women' },
+              { value: 'everyone', label: 'Everyone' }
+            ].map((option) => (
+              <button
+                key={option.value}
+                onClick={() => handleUpdateGenderPreference(option.value as any)}
+                className={`py-3 rounded-xl border transition-all duration-300 font-medium text-sm ${genderPreference === option.value
+                  ? 'bg-[#D4AF37] text-black border-[#D4AF37]'
+                  : 'bg-black/40 text-gray-400 border-white/10 hover:border-white/30'
+                  }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Achievements */}

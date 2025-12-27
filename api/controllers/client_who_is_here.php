@@ -39,6 +39,14 @@ try {
         throw new Exception('Erro ao conectar à base de dados global');
     }
 
+    // STEP 0: Fetch current user's gender and preference
+    $currentUserStmt = $globalDb->prepare("SELECT gender, gender_preference FROM client_profiles WHERE user_id = ?");
+    $currentUserStmt->execute([$userId]);
+    $currentUserProfile = $currentUserStmt->fetch(PDO::FETCH_ASSOC);
+
+    $myGender = $currentUserProfile['gender'] ?? null;
+    $myPreference = $currentUserProfile['gender_preference'] ?? 'everyone';
+
     // STEP 1: Find which event the current user is checked into
     $eventStmt = $clubDb->prepare("
         SELECT event_id, e.name as event_name
@@ -82,13 +90,22 @@ try {
     $clientsStmt->execute([$eventId, $userId]);
     $checkedInClients = $clientsStmt->fetchAll(PDO::FETCH_COLUMN);
 
-    // Filter out already swiped users
-    $checkedInClients = array_values(array_diff($checkedInClients, $alreadySwiped));
+    // STEP 3.5: Get users who LIKED me at this event (even if they checked out)
+    $likersStmt = $clubDb->prepare("
+        SELECT DISTINCT liker_id 
+        FROM event_likes 
+        WHERE event_id = ? AND liked_id = ? AND action = 'like'
+    ");
+    $likersStmt->execute([$eventId, $userId]);
+    $likers = $likersStmt->fetchAll(PDO::FETCH_COLUMN);
 
-    // Remove duplicates (in case same user has multiple guestlist entries)
-    $checkedInClients = array_values(array_unique($checkedInClients));
+    // Merge checked-in people with people who liked me
+    $allCandidates = array_unique(array_merge($checkedInClients, $likers));
 
-    if (empty($checkedInClients)) {
+    // Filter out already swiped users (matches or passes)
+    $candidates = array_values(array_diff($allCandidates, $alreadySwiped));
+
+    if (empty($candidates)) {
         echo json_encode([
             'status' => 'success',
             'event_id' => $eventId,
@@ -98,6 +115,9 @@ try {
         ]);
         exit;
     }
+
+    // Use candidates for profile fetching
+    $checkedInClients = $candidates;
 
     // STEP 3: Filter by visibility (ghost_mode = 0) and get profile data
     $placeholders = implode(',', array_fill(0, count($checkedInClients), '?'));
@@ -109,6 +129,9 @@ try {
             cp.bio,
             cp.instagram,
             cp.ghost_mode,
+            cp.birthdate,
+            cp.gender,
+            cp.gender_preference,
             COALESCE(uca.points, 0) as points
         FROM users u
         LEFT JOIN client_profiles cp ON cp.user_id = u.id
@@ -128,6 +151,28 @@ try {
     $result = [];
     foreach ($profiles as $profile) {
         $clientId = $profile['id'];
+
+        // FILTER: Gender Compatibility Check
+        $candidateGender = $profile['gender'] ?? null;
+        $candidatePreference = $profile['gender_preference'] ?? 'everyone';
+
+        // 1. Do they match MY preference?
+        if ($myPreference !== 'everyone') {
+            // If I want 'male' but they are not 'male', skip
+            // Note: If they haven't set a gender ($candidateGender is null), we usually display them or hide them?
+            // Safer to hide if strict preference is set.
+            if ($candidateGender && $candidateGender !== $myPreference) {
+                continue;
+            }
+        }
+
+        // 2. Do I match THEIR preference?
+        if ($candidatePreference !== 'everyone') {
+            // If they want 'female' but I am not 'female', skip
+            if ($myGender && $myGender !== $candidatePreference) {
+                continue;
+            }
+        }
 
         // Get profile photos
         $photosStmt = $globalDb->prepare("
@@ -153,8 +198,17 @@ try {
             continue;
         }
 
-        // Mock age (18-30) - can be replaced with real birthdate calculation later
-        $age = rand(18, 30);
+        // Calculate Age
+        $age = 18; // Default fallback
+        if (!empty($profile['birthdate'])) {
+            try {
+                $dob = new DateTime($profile['birthdate']);
+                $now = new DateTime();
+                $age = $now->diff($dob)->y;
+            } catch (Exception $e) {
+                // Keep default
+            }
+        }
 
         // Calculate Vibes (Total LIKES received)
         $vibesStmt = $clubDb->prepare("
@@ -181,8 +235,32 @@ try {
         ];
     }
 
-    // Shuffle to randomize order
-    shuffle($result);
+    // STEP 5: Prioritize users who liked me
+    // Get list of users who liked the current user in this event
+    $likesMeStmt = $clubDb->prepare("
+        SELECT liker_id FROM event_likes
+        WHERE event_id = ? AND liked_id = ? AND action = 'like'
+    ");
+    $likesMeStmt->execute([$eventId, $userId]);
+    $usersWhoLikedMe = $likesMeStmt->fetchAll(PDO::FETCH_COLUMN);
+
+    $likers = [];
+    $others = [];
+
+    foreach ($result as $person) {
+        if (in_array($person['id'], $usersWhoLikedMe)) {
+            $likers[] = $person;
+        } else {
+            $others[] = $person;
+        }
+    }
+
+    // Shuffle both groups to keep it fun
+    shuffle($likers);
+    shuffle($others);
+
+    // Merge: Likers first!
+    $result = array_merge($likers, $others);
 
     echo json_encode([
         'status' => 'success',

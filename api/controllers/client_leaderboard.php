@@ -107,7 +107,7 @@ try {
     // 4. Fetch Details
     $placeholders = implode(',', array_fill(0, count($checkedInIds), '?'));
     $sql = "
-        SELECT u.id, u.name, cp.profile_photo_path as user_photo, cp.instagram, cp.bio, cp.ghost_mode, COALESCE(uca.points, 0) as points
+        SELECT u.id, u.name, cp.profile_photo_path as user_photo, cp.instagram, cp.bio, cp.ghost_mode, cp.birthdate, COALESCE(uca.points, 0) as points
         FROM users u
         LEFT JOIN client_profiles cp ON cp.user_id = u.id
         LEFT JOIN user_club_access uca ON uca.user_id = u.id AND uca.club_id = (
@@ -153,6 +153,18 @@ try {
         } catch (Exception $e) {
         }
 
+        // Calculate Age
+        $age = 18; // Default fallback
+        if (!empty($user['birthdate'])) {
+            try {
+                $dob = new DateTime($user['birthdate']);
+                $now = new DateTime();
+                $age = $now->diff($dob)->y;
+            } catch (Exception $e) {
+                // Keep default
+            }
+        }
+
         $leaderboard[] = [
             'id' => $uid,
             'name' => $user['name'] ?? 'Unknown',
@@ -160,6 +172,7 @@ try {
             'vibes' => intval($vibesMap[$uid] ?? 0),
             'instagram' => $user['instagram'] ?? '',
             'bio' => $user['bio'] ?? '', // Include Bio
+            'age' => $age, // Include Age
             // Use profile photo from client_profiles if available, else first album photo
             'photo' => ($user['user_photo'] ? "https://vibe.infinityfree.me/api/" . $user['user_photo'] : ($photos[0] ?? null)),
             'photos' => $photos, // All photos for modal
@@ -178,15 +191,23 @@ try {
         return $cmp === 0 ? $b['vibes'] - $a['vibes'] : $cmp;
     });
 
-    // LIMIT TO TOP 10
-    $leaderboard = array_slice($leaderboard, 0, 10);
-
-    // Rank
+    // Assign Ranks and Find Me
+    $myEntry = null;
     foreach ($leaderboard as $i => &$p) {
         $p['rank'] = $i + 1;
+        if ($p['id'] == $userId) {
+            $myEntry = $p;
+        }
     }
 
-    echo json_encode(['status' => 'success', 'data' => $leaderboard]);
+    // LIMIT TO TOP 10
+    $top10 = array_slice($leaderboard, 0, 10);
+
+    echo json_encode([
+        'status' => 'success',
+        'data' => $top10,
+        'my_entry' => $myEntry
+    ]);
 
 } catch (Exception $e) {
     // Return formatted error JSON

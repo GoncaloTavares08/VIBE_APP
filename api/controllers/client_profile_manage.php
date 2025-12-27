@@ -79,7 +79,7 @@ try {
 
             // Get profile
             $stmt = $db->prepare("
-                SELECT id, bio, instagram, profile_photo_path, ghost_mode
+                SELECT id, bio, instagram, profile_photo_path, ghost_mode, birthdate, gender, gender_preference
                 FROM client_profiles
                 WHERE user_id = ?
             ");
@@ -100,6 +100,25 @@ try {
                 $profile['gallery_photos'] = $photos;
             }
 
+            // Fetch points if club context is provided
+            $clientSlug = isset($_SERVER['HTTP_X_CLIENT_ID']) ? strtolower($_SERVER['HTTP_X_CLIENT_ID']) : null;
+            if ($clientSlug && $profile) {
+                $stmt = $db->prepare("SELECT id FROM clubs WHERE slug = ?");
+                $stmt->execute([$clientSlug]);
+                $club = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($club) {
+                    $stmt = $db->prepare("SELECT points, role FROM user_club_access WHERE user_id = ? AND club_id = ?");
+                    $stmt->execute([$userId, $club['id']]);
+                    $access = $stmt->fetch(PDO::FETCH_ASSOC);
+
+                    if ($access) {
+                        $profile['points'] = (int) $access['points'];
+                        $profile['role'] = $access['role'];
+                    }
+                }
+            }
+
             echo json_encode(array(
                 "status" => "success",
                 "data" => $profile
@@ -107,17 +126,27 @@ try {
             break;
 
         case 'save_profile':
-            // Save profile fields (bio, instagram, ghost_mode)
+            // Save profile fields (bio, instagram, ghost_mode, birthdate)
             $data = json_decode(file_get_contents("php://input"));
             $userId = isset($data->user_id) ? (int) $data->user_id : null;
-            $bio = isset($data->bio) ? trim($data->bio) : '';
-            $instagram = isset($data->instagram) ? trim(str_replace('@', '', $data->instagram)) : '';
-            $ghostMode = isset($data->ghost_mode) ? (int) $data->ghost_mode : 0;
+            // Check if profile exists
+            $stmt = $db->prepare("SELECT id, bio, instagram, ghost_mode, birthdate, gender, gender_preference FROM client_profiles WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $existingProfile = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if (!$userId) {
-                echo json_encode(array("status" => "error", "message" => "User ID não fornecido."));
-                exit();
+            // Prepare values (Input > Existing DB > Default)
+            $bio = isset($data->bio) ? trim($data->bio) : ($existingProfile['bio'] ?? '');
+            $instagram = isset($data->instagram) ? trim(str_replace('@', '', $data->instagram)) : ($existingProfile['instagram'] ?? '');
+
+            if (isset($data->ghost_mode)) {
+                $ghostMode = (int) $data->ghost_mode;
+            } else {
+                $ghostMode = isset($existingProfile['ghost_mode']) ? (int) $existingProfile['ghost_mode'] : 0;
             }
+
+            $birthdate = isset($data->birthdate) ? $data->birthdate : ($existingProfile['birthdate'] ?? null);
+            $gender = isset($data->gender) ? $data->gender : ($existingProfile['gender'] ?? null);
+            $genderPreference = isset($data->gender_preference) ? $data->gender_preference : ($existingProfile['gender_preference'] ?? 'everyone');
 
             // Validations
             if (strlen($bio) > 500) {
@@ -130,26 +159,31 @@ try {
                 exit();
             }
 
-            // Check if profile exists
-            $stmt = $db->prepare("SELECT id FROM client_profiles WHERE user_id = ?");
-            $stmt->execute([$userId]);
-            $existingProfile = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($gender && !in_array($gender, ['male', 'female'])) {
+                echo json_encode(array("status" => "error", "message" => "Género inválido."));
+                exit();
+            }
+
+            if ($genderPreference && !in_array($genderPreference, ['male', 'female', 'everyone'])) {
+                echo json_encode(array("status" => "error", "message" => "Preferência inválida."));
+                exit();
+            }
 
             if ($existingProfile) {
                 // Update
                 $stmt = $db->prepare("
                     UPDATE client_profiles 
-                    SET bio = ?, instagram = ?, ghost_mode = ?, updated_at = NOW()
+                    SET bio = ?, instagram = ?, ghost_mode = ?, birthdate = ?, gender = ?, gender_preference = ?, updated_at = NOW()
                     WHERE user_id = ?
                 ");
-                $stmt->execute([$bio, $instagram, $ghostMode, $userId]);
+                $stmt->execute([$bio, $instagram, $ghostMode, $birthdate, $gender, $genderPreference, $userId]);
             } else {
                 // Insert
                 $stmt = $db->prepare("
-                    INSERT INTO client_profiles (user_id, bio, instagram, ghost_mode) 
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO client_profiles (user_id, bio, instagram, ghost_mode, birthdate, gender, gender_preference) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                 ");
-                $stmt->execute([$userId, $bio, $instagram, $ghostMode]);
+                $stmt->execute([$userId, $bio, $instagram, $ghostMode, $birthdate, $gender, $genderPreference]);
             }
 
             echo json_encode(array(

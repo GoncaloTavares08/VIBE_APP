@@ -131,12 +131,12 @@ export function RPPublicProfile({ data }: RPPublicProfileProps) {
                             {currentUser.photo ? (
                                 <img src={`/api/controllers/serve_image.php?file=${currentUser.photo}`} className="w-full h-full rounded-full object-cover" alt="" />
                             ) : (
-                                currentUser.name.charAt(0).toUpperCase()
+                                (currentUser?.name || '?').charAt(0).toUpperCase()
                             )}
                         </div>
                         <div className="flex flex-col items-start">
                             <span className="text-xs text-[#D4AF37] font-medium leading-none mb-0.5">Logado como</span>
-                            <span className="text-sm text-white font-bold leading-none">{currentUser.name.split(' ')[0]}</span>
+                            <span className="text-sm text-white font-bold leading-none">{(currentUser?.name || 'User').split(' ')[0]}</span>
                         </div>
                         <button
                             onClick={handleLogout}

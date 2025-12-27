@@ -28,11 +28,13 @@ export function Leaderboard({ onPersonClick }: LeaderboardProps) {
   const userId = user?.id;
 
   useEffect(() => {
-    const fetchLeaderboard = async () => {
+    let intervalId: NodeJS.Timeout;
+
+    const fetchLeaderboard = async (isBackground = false) => {
       if (!userId) return;
 
       try {
-        setLoading(true);
+        if (!isBackground) setLoading(true);
         const response = await fetch(`/api/controllers/client_leaderboard.php?user_id=${userId}&sort=${activeTab}`);
         const data = await response.json();
 
@@ -45,11 +47,18 @@ export function Leaderboard({ onPersonClick }: LeaderboardProps) {
       } catch (error) {
         console.error('Error fetching leaderboard:', error);
       } finally {
-        setLoading(false);
+        if (!isBackground) setLoading(false);
       }
     };
 
     fetchLeaderboard();
+
+    // Auto-refresh every 30 seconds
+    intervalId = setInterval(() => {
+      fetchLeaderboard(true);
+    }, 60000);
+
+    return () => clearInterval(intervalId);
   }, [activeTab, userId]);
 
   const getMedalColor = (rank: number) => {

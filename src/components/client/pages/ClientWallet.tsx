@@ -83,15 +83,44 @@ export function ClientWallet({ user }: ClientWalletProps) {
 
   useEffect(() => {
     // Priority: Prop > LocalStorage
-    // We check every time 'user' prop changes
     const userData = user || JSON.parse(localStorage.getItem('user') || '{}');
 
     if (userData && userData.id) {
       setUserName(userData.name || 'Guest');
       setUserPoints(userData.points || 0);
       setUserId(userData.id || 0);
-      // Prioritize member_since (club join date), fallback to created_at (global join date)
       setMemberSince(userData.member_since || userData.created_at || null);
+
+      // Fetch fresh data from API to get latest points
+      const fetchFreshData = async () => {
+        try {
+          const response = await fetch('/api/controllers/client_profile_manage.php?action=get', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Client-ID': getClubSlug()
+            },
+            body: JSON.stringify({ user_id: userData.id })
+          });
+
+          const data = await response.json();
+          if (data.status === 'success' && data.data) {
+            const freshPoints = data.data.points;
+            if (freshPoints !== undefined) {
+              setUserPoints(freshPoints);
+
+              // Update local storage to keep it in sync
+              const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+              storedUser.points = freshPoints;
+              localStorage.setItem('user', JSON.stringify(storedUser));
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching fresh user data:', error);
+        }
+      };
+
+      fetchFreshData();
     }
     setLoading(false);
   }, [user]); // React to user prop changes!
@@ -154,10 +183,10 @@ export function ClientWallet({ user }: ClientWalletProps) {
   };
 
   useEffect(() => {
-    if (activeTab === 'myrewards' && userId) {
+    if (userId) {
       fetchMyRedemptions();
     }
-  }, [activeTab, userId]);
+  }, [userId]);
 
   const handleRedeemClick = (reward: Reward) => {
     setSelectedReward(reward);
@@ -212,6 +241,9 @@ export function ClientWallet({ user }: ClientWalletProps) {
         // Close modal
         setShowRedeemModal(false);
         setSelectedReward(null);
+
+        // Refresh my redemptions
+        await fetchMyRedemptions();
 
         // Switch to my rewards tab
         setActiveTab('myrewards');
@@ -554,7 +586,7 @@ export function ClientWallet({ user }: ClientWalletProps) {
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <h3 className="text-white font-black text-lg">{redemption.reward_name}</h3>
-                            <p className="text-gray-400 text-sm">{redemption.points_spent} pontos</p>
+                            <p className="text-gray-400 text-sm">{Math.floor(redemption.points_spent).toLocaleString()} pontos</p>
                           </div>
                           <div
                             className="px-3 py-1 rounded-full text-xs font-bold"

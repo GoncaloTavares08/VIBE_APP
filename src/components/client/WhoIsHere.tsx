@@ -32,30 +32,57 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
   const currentPerson = people[currentIndex];
 
   // Fetch people in same event
-  useEffect(() => {
-    const fetchPeople = async () => {
-      try {
-        setLoading(true);
-        const response = await apiFetch(`/controllers/client_who_is_here.php?user_id=${userId}`);
+  const fetchPeople = async (isBackground = false) => {
+    try {
+      if (!isBackground) setLoading(true);
+      const response = await apiFetch(`/controllers/client_who_is_here.php?user_id=${userId}`);
 
-        if (response.status === 'success') {
-          setPeople(response.data || []);
-          setError(null);
+      if (response.status === 'success') {
+        const freshPeople = response.data || [];
+
+        if (isBackground) {
+          setPeople(prev => {
+            // Filter out people we already have in our deck
+            const existingIds = new Set(prev.map(p => p.id));
+            const newOnes = freshPeople.filter((p: Person) => !existingIds.has(p.id));
+
+            if (newOnes.length > 0) {
+              console.log(`[WhoIsHere] Found ${newOnes.length} new people!`);
+              return [...prev, ...newOnes];
+            }
+            return prev;
+          });
         } else {
+          setPeople(freshPeople);
+          setError(null);
+        }
+      } else {
+        if (!isBackground) {
           setError(response.message || 'Erro ao carregar pessoas');
           setPeople([]);
         }
-      } catch (err: any) {
-        console.error('Error fetching people:', err);
+      }
+    } catch (err: any) {
+      console.error('Error fetching people:', err);
+      if (!isBackground) {
         setError(err.message || 'Erro ao conectar ao servidor');
         setPeople([]);
-      } finally {
-        setLoading(false);
       }
-    };
+    } finally {
+      if (!isBackground) setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     if (userId) {
-      fetchPeople();
+      fetchPeople(false);
+
+      // Poll every 15 seconds for new people
+      const intervalId = setInterval(() => {
+        fetchPeople(true);
+      }, 15000);
+
+      return () => clearInterval(intervalId);
     }
   }, [userId]);
 
@@ -142,7 +169,7 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
   if (!currentPerson || people.length === 0) {
     return (
       <div className="text-center text-gray-400 py-8">
-        Ainda não há ninguém visível na festa... 👻
+        Não há mais ninguém visível na festa... 👻
       </div>
     );
   }
@@ -177,7 +204,7 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
               It's a Match!
             </h2>
             <p className="text-gray-300">
-              Tu e {currentPerson.name} deram like um no outro
+              Tu e {currentPerson.name} deram VIBE
             </p>
 
             {/* Show Instagram */}
@@ -190,9 +217,15 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
                 }}
               >
                 <p className="text-sm text-gray-400 mb-1">Instagram desbloqueado:</p>
-                <p className="text-2xl font-black text-[#D4AF37]">
+                <a
+                  href={`https://www.instagram.com/${currentPerson.instagram}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-2xl font-black text-[#D4AF37] hover:underline"
+                >
                   @{currentPerson.instagram}
-                </p>
+                </a>
               </div>
             )}
 
@@ -212,7 +245,7 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
         <div
           className="relative overflow-hidden rounded-3xl"
           style={{
-            height: '600px',
+            height: '480px',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
           }}

@@ -205,6 +205,14 @@ elseif ($data->action == 'login') {
                 }
             }
 
+            // Fetch birthdate and gender info from client_profiles
+            $stmtProfile = $db->prepare("SELECT birthdate, gender, gender_preference FROM client_profiles WHERE user_id = ?");
+            $stmtProfile->execute([$user->id]);
+            $profileData = $stmtProfile->fetch(PDO::FETCH_ASSOC);
+            $birthdate = $profileData['birthdate'] ?? null;
+            $gender = $profileData['gender'] ?? null;
+            $genderPreference = $profileData['gender_preference'] ?? null;
+
             // Set session instead of JWT
             $userData = array(
                 'id' => $user->id,
@@ -212,7 +220,10 @@ elseif ($data->action == 'login') {
                 'email' => $user->email,
                 'role' => $userRole,
                 'club_slug' => $clientSlug,
-                'created_at' => $user->created_at
+                'created_at' => $user->created_at,
+                'birthdate' => $birthdate,
+                'gender' => $gender,
+                'gender_preference' => $genderPreference
             );
 
             SessionHelper::setUser($userData);
@@ -225,7 +236,10 @@ elseif ($data->action == 'login') {
                     "id" => $user->id,
                     "name" => $user->name,
                     "email" => $user->email,
-                    "created_at" => $user->created_at
+                    "created_at" => $user->created_at,
+                    "birthdate" => $birthdate,
+                    "gender" => $gender,
+                    "gender_preference" => $genderPreference
                 )
             );
 

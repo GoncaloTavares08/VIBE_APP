@@ -164,24 +164,24 @@ try {
             $matches = [];
             foreach ($matchedIds as $matchedId) {
                 $userStmt = $globalDb->prepare("
-                    SELECT u.id, u.name, cp.instagram, cp.bio, uca.points
-                    FROM users u
-                    LEFT JOIN client_profiles cp ON cp.user_id = u.id
-                    LEFT JOIN user_club_access uca ON uca.user_id = u.id
-                    WHERE u.id = ?
-                ");
+                        SELECT u.id, u.name, cp.instagram, cp.bio, cp.birthdate, uca.points
+                        FROM users u
+                        LEFT JOIN client_profiles cp ON cp.user_id = u.id
+                        LEFT JOIN user_club_access uca ON uca.user_id = u.id
+                        WHERE u.id = ?
+                    ");
                 $userStmt->execute([$matchedId]);
                 $userData = $userStmt->fetch(PDO::FETCH_ASSOC);
 
                 if ($userData) {
                     // Get photos
                     $photosStmt = $globalDb->prepare("
-                        SELECT cpp.photo_path
-                        FROM client_profile_photos cpp
-                        INNER JOIN client_profiles cp ON cp.id = cpp.client_profile_id
-                        WHERE cp.user_id = ?
-                        ORDER BY cpp.photo_order ASC
-                    ");
+                            SELECT cpp.photo_path
+                            FROM client_profile_photos cpp
+                            INNER JOIN client_profiles cp ON cp.id = cpp.client_profile_id
+                            WHERE cp.user_id = ?
+                            ORDER BY cpp.photo_order ASC
+                        ");
                     $photosStmt->execute([$matchedId]);
                     $photos = $photosStmt->fetchAll(PDO::FETCH_COLUMN);
 
@@ -195,15 +195,28 @@ try {
 
                     // Get total likes (VIBES) for this user
                     $vibesStmt = $clubDb->prepare("
-                        SELECT COUNT(*) 
-                        FROM event_likes 
-                        WHERE liked_id = ? AND action = 'like'
-                    ");
+                            SELECT COUNT(*) 
+                            FROM event_likes 
+                            WHERE liked_id = ? AND action = 'like'
+                        ");
                     $vibesStmt->execute([$matchedId]);
                     $matchCount = $vibesStmt->fetchColumn();
 
                     $userData['photos'] = !empty($photos) ? $photos : [];
-                    $userData['age'] = rand(18, 30); // Mock
+
+                    // Calculate Age
+                    $age = 18; // Default fallback
+                    if (!empty($userData['birthdate'])) {
+                        try {
+                            $dob = new DateTime($userData['birthdate']);
+                            $now = new DateTime();
+                            $age = $now->diff($dob)->y;
+                        } catch (Exception $e) {
+                            // Keep default
+                        }
+                    }
+                    $userData['age'] = $age;
+
                     $userData['vibes'] = $matchCount;
                     $userData['distance'] = 'Na festa';
 
