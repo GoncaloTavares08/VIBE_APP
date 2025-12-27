@@ -3,6 +3,7 @@ import { RPDashboardLayout } from './rp/RPDashboardLayout';
 import { RPOverview } from './rp/pages/RPOverview';
 import { RPGuestlist } from './rp/pages/RPGuestlist';
 import { RPTeam } from './rp/pages/RPTeam';
+import { RPCompetitions } from './rp/pages/RPCompetitions';
 import { RPLeaderboard } from './rp/pages/RPLeaderboard';
 import { RPProfile } from './rp/pages/RPProfile';
 import { ClientWallet } from './client/pages/ClientWallet';
@@ -25,10 +26,12 @@ export function RPDashboard({ userRole, user, onLogout }: RPDashboardProps) {
             case 'team':
                 // Pass isTeamLeader based on the userRole
                 return <RPTeam isTeamLeader={userRole === 'team_leader'} />;
+            case 'competitions':
+                return <RPCompetitions />;
             case 'leaderboard':
                 return <RPLeaderboard />;
             case 'wallet':
-                return <ClientWallet />;
+                return <ClientWallet user={user} />;
             case 'profile':
                 return <RPProfile />;
             default:
@@ -43,6 +46,7 @@ export function RPDashboard({ userRole, user, onLogout }: RPDashboardProps) {
             rpName={user?.name || "João Silva"}
             user={user}
             onLogout={onLogout}
+            isTeamLeader={userRole === 'team_leader'}
         >
             {renderPage()}
         </RPDashboardLayout>

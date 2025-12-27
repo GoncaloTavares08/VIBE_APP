@@ -24,7 +24,7 @@ export function ClientDashboard({ user, onLogout }: ClientDashboardProps) {
       case 'history':
         return <ClientHistory />;
       case 'profile':
-        return <ClientProfile />;
+        return <ClientProfile onNavigate={(page) => setCurrentPage(page)} />;
       default:
         return <ClientHome />;
     }

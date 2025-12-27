@@ -160,6 +160,36 @@ try {
                         $rankStmt->execute([$club['id'], $access['points']]);
                         $rankData = $rankStmt->fetch(PDO::FETCH_ASSOC);
                         $profile['global_rank'] = (int) $rankData['rank_above'] + 1;
+
+                        // PARTY HISTORY (Last 4 events)
+                        if ($clientDb) {
+                            $historyStmt = $clientDb->prepare("
+                                SELECT 
+                                    e.id, 
+                                    e.name, 
+                                    e.date, 
+                                    e.image_url,
+                                    e.organizer_name as venue, 
+                                    (
+                                        SELECT COALESCE(SUM(pt.points), 0) 
+                                        FROM points_transactions pt 
+                                        WHERE pt.user_id = ? 
+                                        AND DATE(pt.created_at) = e.date
+                                        AND pt.points > 0
+                                    ) as points_earned
+                                FROM guestlist g
+                                JOIN events e ON g.event_id = e.id
+                                WHERE g.client_id = ? 
+                                AND g.status = 'checked_in'
+                                ORDER BY e.date DESC
+                                LIMIT 4
+                            ");
+                            // Note: client_id in guestlist is GLOBAL user_id (comment in schema says 'User ID from users table')
+                            $historyStmt->execute([$userId, $userId]);
+                            $profile['party_history'] = $historyStmt->fetchAll(PDO::FETCH_ASSOC);
+                        } else {
+                            $profile['party_history'] = [];
+                        }
                     }
                 }
             }

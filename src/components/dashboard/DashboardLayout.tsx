@@ -4,7 +4,6 @@ import {
   Users,
   History,
   Calendar,
-  Trophy,
   Gift,
   Settings,
   Bell,
@@ -29,7 +28,6 @@ const menuItems = [
   { id: 'rps', label: 'RPs e Equipas', icon: Users },
   { id: 'history', label: 'Histórico', icon: History },
   { id: 'events', label: 'Eventos', icon: Calendar },
-  { id: 'competitions', label: 'Competições', icon: Trophy },
   { id: 'rewards', label: 'Prémios', icon: Gift },
   { id: 'settings', label: 'Definições', icon: Settings },
 ];

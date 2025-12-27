@@ -1,40 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { User, Eye, EyeOff, Calendar, TrendingUp, Award, Edit, Instagram, Plus, X, Loader2, Camera, AlertCircle, Check, Users } from 'lucide-react';
 
-const partyHistory = [
-  {
-    id: 1,
-    name: 'Friday Madness',
-    date: '2024-12-15',
-    venue: 'Main Club',
-    vibeScore: 2840,
-    rank: 8,
-  },
-  {
-    id: 2,
-    name: 'Saturday Night Fever',
-    date: '2024-12-09',
-    venue: 'Urban Beat',
-    vibeScore: 3120,
-    rank: 5,
-  },
-  {
-    id: 3,
-    name: 'Techno Thursday',
-    date: '2024-12-05',
-    venue: 'Warehouse 23',
-    vibeScore: 1980,
-    rank: 12,
-  },
-  {
-    id: 4,
-    name: 'Weekend Warriors',
-    date: '2024-11-30',
-    venue: 'Main Club',
-    vibeScore: 2650,
-    rank: 9,
-  },
-];
+interface PartyHistoryItem {
+  id: number;
+  name: string;
+  date: string;
+  venue: string;
+  points_earned: number;
+  image_url?: string;
+}
 
 interface GalleryPhoto {
   id: number;
@@ -50,9 +24,14 @@ interface ProfileData {
   ghost_mode: number;
   gender_preference: 'male' | 'female' | 'everyone';
   gallery_photos: GalleryPhoto[];
+  party_history: PartyHistoryItem[];
 }
 
-export function ClientProfile() {
+interface ClientProfileProps {
+  onNavigate?: (page: string) => void;
+}
+
+export function ClientProfile({ onNavigate }: ClientProfileProps) {
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userId = user?.id;
 
@@ -64,6 +43,7 @@ export function ClientProfile() {
   const [instagramHandle, setInstagramHandle] = useState('');
   const [bio, setBio] = useState('');
   const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
+  const [partyHistory, setPartyHistory] = useState<PartyHistoryItem[]>([]);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -76,6 +56,17 @@ export function ClientProfile() {
   const profilePhotoInputRef = useRef<HTMLInputElement>(null);
   const galleryPhotoInputRef = useRef<HTMLInputElement>(null);
 
+  const getClubSlug = () => {
+    // Priority: User's saved slug > LocalStorage > URL > Default
+    if (user?.club_slug) return user.club_slug;
+    const stored = localStorage.getItem('clubSlug');
+    if (stored) return stored;
+
+    // Check URL but ignore obvious non-slugs
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    return '';
+  };
+
   // Load profile on mount
   useEffect(() => {
     loadProfile();
@@ -86,9 +77,13 @@ export function ClientProfile() {
 
     try {
       setLoading(true);
-      const response = await fetch('/api/controllers/client_profile_manage.php?action=get', {
+      const slug = getClubSlug();
+      const response = await fetch(`/api/controllers/client_profile_manage.php?action=get&club_slug=${slug}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-ID': slug
+        },
         body: JSON.stringify({ user_id: userId })
       });
       const data = await response.json();
@@ -100,6 +95,7 @@ export function ClientProfile() {
         setGhostMode(data.data.ghost_mode === 1);
         setGenderPreference(data.data.gender_preference || 'everyone');
         setPhotos(data.data.gallery_photos || []);
+        setPartyHistory(data.data.party_history || []);
         setProfilePhotoUrl(data.data.profile_photo_path || null);
 
         // DEBUG: Log para verificar os dados
@@ -867,59 +863,71 @@ export function ClientProfile() {
                 className="relative pl-8 pb-6 last:pb-0"
               >
                 {/* Timeline Line */}
-                {index !== partyHistory.length - 1 && (
-                  <div
-                    className="absolute left-[11px] top-6 bottom-0 w-0.5"
-                    style={{
-                      background: 'linear-gradient(to bottom, rgba(212, 175, 55, 0.5) 0%, rgba(212, 175, 55, 0.1) 100%)',
-                    }}
-                  />
-                )}
+                <div
+                  className="absolute left-[11px] w-0.5 bg-gradient-to-b from-[#D4AF37]/50 to-[#D4AF37]/10"
+                  style={{
+                    top: index === 0 ? '2.25rem' : '0',
+                    bottom: index === partyHistory.length - 1 ? 'auto' : '0',
+                    height: index === partyHistory.length - 1 ? (index === 0 ? '0' : '2.25rem') : 'auto',
+                  }}
+                />
 
                 {/* Timeline Dot */}
                 <div
-                  className="absolute left-0 top-1 w-6 h-6 rounded-full flex items-center justify-center"
+                  className="absolute left-0 top-9 w-6 h-6 rounded-full flex items-center justify-center z-10"
                   style={{
-                    background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-                    boxShadow: '0 0 15px rgba(212, 175, 55, 0.5)',
+                    background: '#0a0a0a',
+                    border: '2px solid #D4AF37',
+                    boxShadow: '0 0 10px rgba(212, 175, 55, 0.3)',
                   }}
                 >
-                  <div className="w-2 h-2 bg-black rounded-full" />
+                  <div className="w-1.5 h-1.5 bg-[#D4AF37] rounded-full" />
                 </div>
 
                 {/* Event Card */}
                 <div
-                  className="p-4 rounded-xl transition-all duration-300 hover:scale-105"
+                  className="p-4 rounded-xl transition-all duration-300 hover:bg-white/5"
                   style={{
                     background: 'rgba(255, 255, 255, 0.03)',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
                   }}
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <h3 className="text-white font-black">{party.name}</h3>
-                      <p className="text-sm text-gray-400">{party.venue}</p>
+                  <div className="flex gap-4">
+                    {/* Event Image */}
+                    <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-white/5 border border-white/10">
+                      {party.image_url ? (
+                        <img
+                          src={party.image_url}
+                          alt={party.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Calendar className="w-6 h-6 text-gray-600" />
+                        </div>
+                      )}
                     </div>
-                    <p className="text-xs text-gray-500">
-                      {new Date(party.date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                      })}
-                    </p>
-                  </div>
 
-                  <div className="flex items-center gap-4 mt-3">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-[#D4AF37]" />
-                      <span className="text-sm text-[#D4AF37] font-black">
-                        {party.vibeScore.toLocaleString()} pts
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Award className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-400">
-                        Rank #{party.rank}
-                      </span>
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <h3 className="text-white font-black line-clamp-1">{party.name}</h3>
+                          <p className="text-sm text-gray-400">{party.venue}</p>
+                        </div>
+                        <p className="text-xs text-gray-500 whitespace-nowrap ml-2">
+                          {new Date(party.date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-[#D4AF37]" />
+                        <span className="text-sm text-[#D4AF37] font-black">
+                          {party.points_earned.toLocaleString()} pts
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -929,6 +937,7 @@ export function ClientProfile() {
 
           {/* Load More */}
           <button
+            onClick={() => onNavigate?.('history')}
             className="w-full py-3 rounded-xl transition-all duration-300 hover:scale-105"
             style={{
               background: 'rgba(212, 175, 55, 0.1)',
@@ -938,8 +947,8 @@ export function ClientProfile() {
           >
             View All History
           </button>
-        </div>
-      </div>
-    </div>
+        </div >
+      </div >
+    </div >
   );
 }

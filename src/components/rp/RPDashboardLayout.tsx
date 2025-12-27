@@ -11,7 +11,8 @@ import {
   Link as LinkIcon,
   Bell,
   Zap,
-  ChevronRight
+  ChevronRight,
+  Trophy
 } from 'lucide-react';
 import { NotificationPanel } from '../NotificationPanel';
 
@@ -22,18 +23,20 @@ interface RPDashboardLayoutProps {
   rpName?: string;
   user?: any; // Added user prop for ID
   onLogout?: () => void;
+  isTeamLeader?: boolean;
 }
 
 const menuItems = [
   { id: 'overview', label: 'RP Center', icon: Home },
   { id: 'guestlist', label: 'Guestlist', icon: LinkIcon },
   { id: 'team', label: 'Team', icon: UsersRound },
+  { id: 'competitions', label: 'Competitions', icon: Trophy },
   { id: 'wallet', label: 'Wallet', icon: Wallet },
   { id: 'leaderboard', label: 'Leaderboard', icon: Award },
   { id: 'profile', label: 'Profile', icon: User },
 ];
 
-export function RPDashboardLayout({ children, currentPage, onPageChange, rpName = "João Silva", user, onLogout }: RPDashboardLayoutProps) {
+export function RPDashboardLayout({ children, currentPage, onPageChange, rpName = "João Silva", user, onLogout, isTeamLeader = false }: RPDashboardLayoutProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -51,6 +54,12 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
   const currentTime = new Date().toLocaleTimeString('pt-PT', {
     hour: '2-digit',
     minute: '2-digit'
+  });
+
+  // Filter menu items based on role
+  const filteredMenuItems = menuItems.filter(item => {
+    if (item.id === 'competitions' && !isTeamLeader) return false;
+    return true;
   });
 
   // Handle Resize for Responsive Behavior
@@ -202,7 +211,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
 
         {/* Menu Items */}
         <nav className="flex-1 space-y-2 overflow-y-auto custom-scrollbar">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
 
@@ -364,8 +373,8 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
             <span className="text-[10px] font-medium">Menu</span>
           </button>
 
-          {/* Render Requested Order: Guestlist, Wallet, Leaderboard, Profile (skipping Team) */}
-          {menuItems.filter(item => item.id !== 'overview' && item.id !== 'team').map((item) => {
+          {/* Render Requested Order: Guestlist, Wallet, Leaderboard, Profile (skipping Team & Competitions) */}
+          {filteredMenuItems.filter(item => item.id !== 'overview' && item.id !== 'team' && item.id !== 'competitions').map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
             return (

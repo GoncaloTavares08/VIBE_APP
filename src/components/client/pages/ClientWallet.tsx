@@ -114,13 +114,18 @@ export function ClientWallet({ user }: ClientWalletProps) {
   const getClubSlug = () => {
     // Priority: User's saved slug > LocalStorage > URL (careful with subdirs) > Default
     if (user?.club_slug) return user.club_slug;
+
     const stored = localStorage.getItem('clubSlug');
     if (stored) return stored;
 
-    // Check URL but ignore obvious non-slugs like 'APPs' if possible, or just fallback
+    // Check URL. If we are at /rp/wallet, this might fail to give a club slug.
+    // However, if the user logged in correctly, user.club_slug SHOULD be populated.
     const pathSegments = window.location.pathname.split('/').filter(Boolean);
-    // If path is "APP/client/...", path[0] is APP. Assuming 'vibe' as safe default if unsure.
-    return 'vibe';
+    if (pathSegments.length > 0 && pathSegments[0] !== 'rp' && pathSegments[0] !== 'admin') {
+      return pathSegments[0];
+    }
+
+    return '';
   };
 
   useEffect(() => {
@@ -136,7 +141,8 @@ export function ClientWallet({ user }: ClientWalletProps) {
       // Fetch fresh data from API to get latest points
       const fetchFreshData = async () => {
         try {
-          const slug = getClubSlug();
+          // Use the prop user first, then fallback to valid logic
+          const slug = user?.club_slug || getClubSlug();
           const response = await fetch(`/api/controllers/client_profile_manage.php?action=get&club_slug=${slug}`, {
             method: 'POST',
             headers: {

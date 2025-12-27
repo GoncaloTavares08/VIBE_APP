@@ -4,7 +4,6 @@ import { GeneralDashboard } from './dashboard/pages/GeneralDashboard';
 import { RPManagement } from './dashboard/pages/RPManagement';
 import { NightMetrics } from './dashboard/pages/NightMetrics';
 import { Events } from './dashboard/pages/Events';
-import { Competitions } from './dashboard/pages/Competitions';
 import { Rewards } from './dashboard/pages/Rewards';
 import { Settings } from './dashboard/pages/Settings';
 
@@ -26,8 +25,6 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
         return <NightMetrics />;
       case 'events':
         return <Events />;
-      case 'competitions':
-        return <Competitions />;
       case 'rewards':
         return <Rewards />;
       case 'settings':

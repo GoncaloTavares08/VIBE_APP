@@ -57,6 +57,20 @@ try {
     ");
     $updCompleted->execute([$currentTimestamp]);
 
+    // FIX: Revert 'completed' events to 'ongoing' if they are still running (fixes premature completion)
+    $revertCompleted = $db->prepare("
+        UPDATE events 
+        SET status = 'ongoing' 
+        WHERE status = 'completed' 
+        AND (
+            CASE 
+                WHEN end_time < start_time THEN CONCAT(DATE_ADD(date, INTERVAL 1 DAY), ' ', end_time)
+                ELSE CONCAT(date, ' ', end_time)
+            END
+        ) > ?
+    ");
+    $revertCompleted->execute([$currentTimestamp]);
+
     // Cleanup likes from completed events
     if ($updCompleted->rowCount() > 0) {
         $cleanupStmt = $db->prepare("
