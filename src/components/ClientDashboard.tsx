@@ -415,9 +415,9 @@ function ClientHistory() {
                     </div>
                     <div className="text-right">
                       <span className={`text-lg font-black ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                        {isPositive ? '+' : ''}{tx.points}
+                        {isPositive ? '+' : ''}{Math.floor(Number(tx.points)).toString()}
                       </span>
-                      {tx.amount_spent && parseFloat(tx.amount_spent) > 0 && (
+                      {isPurchase && tx.amount_spent && parseFloat(tx.amount_spent) > 0 && (
                         <p className="text-xs font-medium text-gray-400 mt-1">{tx.amount_spent}€</p>
                       )}
                     </div>

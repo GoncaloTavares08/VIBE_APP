@@ -100,28 +100,74 @@ try {
                 $profile['gallery_photos'] = $photos;
             }
 
-            // Fetch points if club context is provided
-            $clientSlug = isset($_SERVER['HTTP_X_CLIENT_ID']) ? strtolower($_SERVER['HTTP_X_CLIENT_ID']) : null;
-            if ($clientSlug && $profile) {
+            // Fetch points if club context is provided OR fallback to user's primary club
+            date_default_timezone_set('Europe/Lisbon');
+
+            $clientSlug = isset($_SERVER['HTTP_X_CLIENT_ID']) ? strtolower($_SERVER['HTTP_X_CLIENT_ID']) : (isset($_GET['club_slug']) ? strtolower($_GET['club_slug']) : null);
+            $debugLog = [];
+            if ($clientSlug) {
                 $stmt = $db->prepare("SELECT id FROM clubs WHERE slug = ?");
                 $stmt->execute([$clientSlug]);
                 $club = $stmt->fetch(PDO::FETCH_ASSOC);
+                $debugLog[] = "ProfileStats - Slug: $clientSlug, ClubFound: " . ($club ? $club['id'] : 'No');
+            } else {
+                $debugLog[] = "ProfileStats - No X-Client-ID header received";
+            }
 
-                if ($club) {
+            // Fallback: None. Client MUST provide ID.
+            if (!$club) {
+                $debugLog[] = "ProfileStats - No club context found for userID: $userId";
+            }
+
+            if ($club && $profile) {
+                if ($club) { // Valid club found
                     $stmt = $db->prepare("SELECT points, role FROM user_club_access WHERE user_id = ? AND club_id = ?");
                     $stmt->execute([$userId, $club['id']]);
                     $access = $stmt->fetch(PDO::FETCH_ASSOC);
 
+                    $debugLog[] = "ProfileStats - Checking Access for Club: {$club['id']}, User: $userId -> Access: " . ($access ? 'Yes' : 'No');
+
                     if ($access) {
                         $profile['points'] = (int) $access['points'];
                         $profile['role'] = $access['role'];
+
+                        // Calculate Weekly Points (Positive only) -- REQUIRES CLIENT DB
+                        $clientDb = $database->getClientConnectionBySlug($clientSlug);
+
+                        if ($clientDb) {
+                            $startOfWeek = date('Y-m-d 00:00:00', strtotime('monday this week'));
+                            $weeklyStmt = $clientDb->prepare("
+                                SELECT SUM(points) as weekly_points 
+                                FROM points_transactions 
+                                WHERE user_id = ? 
+                                AND created_at >= ?
+                            ");
+                            $weeklyStmt->execute([$userId, $startOfWeek]);
+                            $weeklyData = $weeklyStmt->fetch(PDO::FETCH_ASSOC);
+                            $profile['weekly_points'] = $weeklyData['weekly_points'] ? (int) $weeklyData['weekly_points'] : 0;
+                        } else {
+                            $profile['weekly_points'] = 0;
+                            $debugLog[] = "ProfileStats - Failed to connect to Client DB for slug: $clientSlug";
+                        }
+
+                        // Calculate Rank (Global for this club)
+                        $rankStmt = $db->prepare("
+                            SELECT COUNT(*) as rank_above 
+                            FROM user_club_access 
+                            WHERE club_id = ? 
+                            AND points > ?
+                        ");
+                        $rankStmt->execute([$club['id'], $access['points']]);
+                        $rankData = $rankStmt->fetch(PDO::FETCH_ASSOC);
+                        $profile['global_rank'] = (int) $rankData['rank_above'] + 1;
                     }
                 }
             }
 
             echo json_encode(array(
                 "status" => "success",
-                "data" => $profile
+                "data" => $profile,
+                "debug" => $debugLog
             ));
             break;
 

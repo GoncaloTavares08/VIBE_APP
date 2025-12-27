@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ImageWithFallback } from '../../figma/ImageWithFallback';
-import { Sparkles, Gift, TrendingUp, ArrowRight, X, Check, QrCode, Clock, Info, Award } from 'lucide-react';
+import { Sparkles, Gift, TrendingUp, TrendingDown, ArrowRight, X, Check, QrCode, Clock, Info, Award } from 'lucide-react';
 
 const RANKS = [
   {
@@ -89,6 +89,8 @@ export function ClientWallet({ user }: ClientWalletProps) {
   const [selectedReward, setSelectedReward] = useState<Reward | null>(null);
   const [redeeming, setRedeeming] = useState(false);
   const [showRanksModal, setShowRanksModal] = useState(false);
+  const [weeklyPoints, setWeeklyPoints] = useState(0);
+  const [userRank, setUserRank] = useState(0);
 
   const memberLevel = 'Gold Member';
 
@@ -110,11 +112,15 @@ export function ClientWallet({ user }: ClientWalletProps) {
   };
 
   const getClubSlug = () => {
-    // If user has club_slug, use it, otherwise check URL
+    // Priority: User's saved slug > LocalStorage > URL (careful with subdirs) > Default
     if (user?.club_slug) return user.club_slug;
+    const stored = localStorage.getItem('clubSlug');
+    if (stored) return stored;
 
+    // Check URL but ignore obvious non-slugs like 'APPs' if possible, or just fallback
     const pathSegments = window.location.pathname.split('/').filter(Boolean);
-    return pathSegments[0] || localStorage.getItem('clubSlug') || '';
+    // If path is "APP/client/...", path[0] is APP. Assuming 'vibe' as safe default if unsure.
+    return 'vibe';
   };
 
   useEffect(() => {
@@ -130,20 +136,26 @@ export function ClientWallet({ user }: ClientWalletProps) {
       // Fetch fresh data from API to get latest points
       const fetchFreshData = async () => {
         try {
-          const response = await fetch('/api/controllers/client_profile_manage.php?action=get', {
+          const slug = getClubSlug();
+          const response = await fetch(`/api/controllers/client_profile_manage.php?action=get&club_slug=${slug}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'X-Client-ID': getClubSlug()
+              'X-Client-ID': slug
             },
             body: JSON.stringify({ user_id: userData.id })
           });
 
           const data = await response.json();
+          if (data.debug) {
+            console.log('API Debug:', data.debug);
+          }
           if (data.status === 'success' && data.data) {
             const freshPoints = data.data.points;
             if (freshPoints !== undefined) {
               setUserPoints(freshPoints);
+              if (data.data.weekly_points !== undefined) setWeeklyPoints(data.data.weekly_points);
+              if (data.data.global_rank !== undefined) setUserRank(data.data.global_rank);
 
               // Update local storage to keep it in sync
               const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -401,8 +413,14 @@ export function ClientWallet({ user }: ClientWalletProps) {
               border: '1px solid rgba(255, 255, 255, 0.1)',
             }}
           >
-            <TrendingUp className="w-6 h-6 mx-auto mb-2 text-green-400" />
-            <p className="text-2xl font-black text-white">+340</p>
+            {weeklyPoints >= 0 ? (
+              <TrendingUp className="w-6 h-6 mx-auto mb-2 text-green-400" />
+            ) : (
+              <TrendingDown className="w-6 h-6 mx-auto mb-2 text-red-400" />
+            )}
+            <p className="text-2xl font-black text-white">
+              {weeklyPoints > 0 ? '+' : ''}{weeklyPoints}
+            </p>
             <p className="text-xs text-gray-400">This Week</p>
           </div>
           <div
@@ -426,7 +444,9 @@ export function ClientWallet({ user }: ClientWalletProps) {
             }}
           >
             <Sparkles className="w-6 h-6 mx-auto mb-2 text-purple-400" />
-            <p className="text-2xl font-black text-white">#12</p>
+            <p className="text-2xl font-black text-white">
+              #{userRank > 0 ? userRank : '-'}
+            </p>
             <p className="text-xs text-gray-400">Ranking</p>
           </div>
         </div>

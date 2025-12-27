@@ -159,6 +159,16 @@ try {
                 $updateStmt = $db->prepare("UPDATE reward_redemptions SET qr_code = ? WHERE id = ?");
                 $updateStmt->execute([$finalQrCode, $redemptionId]);
 
+                // Record transaction in points_transactions (negative value)
+                $stmt = $db->prepare("
+                    INSERT INTO points_transactions (user_id, points, transaction_type, created_at)
+                    VALUES (?, ?, 'reward_redemption', NOW())
+                ");
+                $stmt->execute([
+                    $userId,
+                    -1 * $reward['points'] // Negative points
+                ]);
+
                 // Commit both transactions
                 $db->commit();
                 $globalDb->commit();
