@@ -8,7 +8,8 @@ import {
     Instagram,
     Sparkles,
     LogOut,
-    User as UserIcon // Alias for user icon
+    User as UserIcon, // Alias for user icon
+    Home
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -119,6 +120,22 @@ export function RPPublicProfile({ data }: RPPublicProfileProps) {
                 background: 'linear-gradient(180deg, #0a0a0a 0%, #121212 100%)',
             }}
         >
+            {/* My Clubs Navigation Button (Top Left) */}
+            <div className="absolute top-0 left-0 p-4 z-50">
+                {currentUser && (
+                    <motion.button
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        onClick={() => window.location.href = '/'}
+                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-[#D4AF37]/50 text-[#D4AF37] hover:bg-[#D4AF37]/20 transition-all font-semibold text-sm"
+                        title="Voltar aos Meus Clubes"
+                    >
+                        <Home className="w-4 h-4" />
+                        <span className="hidden sm:inline">Meus Clubes</span>
+                    </motion.button>
+                )}
+            </div>
+
             {/* User Login Feedback Header */}
             <div className="absolute top-0 right-0 p-4 z-50">
                 {currentUser ? (
