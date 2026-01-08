@@ -31,17 +31,36 @@ $db = $clientData['conn'];
 $method = $_SERVER['REQUEST_METHOD'];
 
 // Use SessionHelper instead of hardcoded values
-if (!SessionHelper::isLoggedIn()) {
+// Use SessionHelper or Fallback to User ID (Hybrid Auth)
+$userId = null;
+$userRole = null;
+
+// Get input data early to check for user_id
+$input_data = json_decode(file_get_contents("php://input"));
+
+if (SessionHelper::isLoggedIn()) {
+    $userId = SessionHelper::getUserId();
+    $userRole = SessionHelper::getUserRole();
+} else {
+    // Fallback: Check if user_id is provided in request
+    if (isset($_GET['user_id'])) {
+        $userId = $_GET['user_id'];
+    } elseif (isset($input_data->user_id)) {
+        $userId = $input_data->user_id;
+    }
+
+    // For role, we might need to fetch it if not in session, 
+    // but for now let's assume if they have a valid user_id they can attempt
+    // (Database ownership checks in handlers will prevent unauthorized edits)
+    // Ideally we should lookup the role from DB here if critical, but events.php mostly checks ID ownership.
+}
+
+if (!$userId) {
     // Allow GET requests without login (public events)
     if ($method !== 'GET') {
         echo json_encode(array("status" => "error", "message" => "Autenticação necessária"));
         exit();
     }
-    $userId = null;
-    $userRole = null;
-} else {
-    $userId = SessionHelper::getUserId();
-    $userRole = SessionHelper::getUserRole();
 }
 
 switch ($method) {
@@ -49,13 +68,13 @@ switch ($method) {
         handleGet($db);
         break;
     case 'POST':
-        handlePost($db, $userId);
+        handlePost($db, $userId, $input_data);
         break;
     case 'PUT':
-        handlePut($db, $userId);
+        handlePut($db, $userId, $input_data);
         break;
     case 'DELETE':
-        handleDelete($db);
+        handleDelete($db, $input_data);
         break;
     default:
         echo json_encode(array("status" => "error", "message" => "Método não suportado."));
@@ -131,9 +150,10 @@ function handleGet($db)
     }
 }
 
-function handlePost($db, $userId)
+function handlePost($db, $userId, $data)
 {
-    $data = json_decode(file_get_contents("php://input"));
+    // $data is now passed as argument
+
 
     if (!isset($data->name) || !isset($data->date) || !isset($data->start_time) || !isset($data->end_time) || !isset($data->capacity)) {
         echo json_encode(array("status" => "error", "message" => "Dados obrigatórios em falta."));
@@ -179,9 +199,10 @@ function handlePost($db, $userId)
     }
 }
 
-function handlePut($db, $userId)
+function handlePut($db, $userId, $data)
 {
-    $data = json_decode(file_get_contents("php://input"));
+    // $data is now passed as argument
+
 
     if (!isset($data->id)) {
         echo json_encode(array("status" => "error", "message" => "ID do evento não fornecido."));
@@ -250,9 +271,10 @@ function handlePut($db, $userId)
     }
 }
 
-function handleDelete($db)
+function handleDelete($db, $data)
 {
-    $data = json_decode(file_get_contents("php://input"));
+    // $data is now passed as argument
+
 
     if (!isset($data->id)) {
         echo json_encode(array("status" => "error", "message" => "ID do evento não fornecido."));

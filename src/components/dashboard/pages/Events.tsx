@@ -37,6 +37,19 @@ export function Events() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUserId(parsedUser.id);
+      } catch (e) {
+        console.error('Error parsing user from localStorage', e);
+      }
+    }
+  }, []);
 
   const [formData, setFormData] = useState<EventFormData>({
     name: '',
@@ -58,7 +71,7 @@ export function Events() {
     try {
       setLoading(true);
       setError(null);
-      const response = await apiFetch('/controllers/events.php', {
+      const response = await apiFetch(`/controllers/events.php?user_id=${userId}`, {
         method: 'GET',
       });
 
@@ -89,7 +102,7 @@ export function Events() {
 
       const response = await apiFetch('/controllers/events.php', {
         method: 'POST',
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, user_id: userId }),
       });
 
       if (response.status === 'success') {
@@ -124,7 +137,7 @@ export function Events() {
     try {
       const response = await apiFetch('/controllers/events.php', {
         method: 'DELETE',
-        body: JSON.stringify({ id: eventId }),
+        body: JSON.stringify({ id: eventId, user_id: userId }),
       });
 
       if (response.status === 'success') {
@@ -154,7 +167,8 @@ export function Events() {
         method: 'PUT',
         body: JSON.stringify({
           id: editingEvent.id,
-          ...formData
+          ...formData,
+          user_id: userId
         }),
       });
 

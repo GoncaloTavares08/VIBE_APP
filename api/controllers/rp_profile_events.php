@@ -1,7 +1,7 @@
 <?php
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: GET, POST, DELETE");
+header("Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Client-ID");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -12,13 +12,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../utils/SessionHelper.php';
 
-// Validate session
-if (!SessionHelper::isLoggedIn()) {
+// Get input data once
+$input_data = json_decode(file_get_contents("php://input"));
+
+// Hybrid Authentication: Check Session -> Check GET -> Check JSON Body
+$userId = null;
+
+if (SessionHelper::isLoggedIn()) {
+    $userId = SessionHelper::getUserId();
+} else {
+    // Fallback 1: GET parameter
+    if (isset($_GET['user_id'])) {
+        $userId = $_GET['user_id'];
+    }
+    // Fallback 2: JSON User ID
+    elseif (isset($input_data->user_id)) {
+        $userId = $input_data->user_id;
+    }
+}
+
+if (!$userId) {
     echo json_encode(['status' => 'error', 'message' => 'Autenticação necessária']);
     exit();
 }
-
-$userId = SessionHelper::getUserId();
 
 // Get club-specific database
 $database = new Database();
@@ -39,10 +55,10 @@ try {
             handleGet($db, $userId);
             break;
         case 'POST':
-            handlePost($db, $userId);
+            handlePost($db, $userId, $input_data);
             break;
         case 'DELETE':
-            handleDelete($db, $userId);
+            handleDelete($db, $userId, $input_data);
             break;
         default:
             echo json_encode(['status' => 'error', 'message' => 'Método não suportado']);
@@ -50,7 +66,6 @@ try {
     }
 } catch (PDOException $e) {
     error_log("RP Profile Events Error: " . $e->getMessage());
-    // TEMPORARY: Return actual error message for debugging
     echo json_encode(['status' => 'error', 'message' => 'Erro no servidor: ' . $e->getMessage()]);
 } catch (Exception $e) {
     error_log("RP Profile Events Error: " . $e->getMessage());
@@ -61,7 +76,6 @@ try {
 function handleGet($db, $userId)
 {
     // Check if requesting available events (for management modal)
-    // Using query parameter instead of path for better reliability
     $isAvailable = isset($_GET['all']) && $_GET['all'] === 'true';
 
     // AUTO-UPDATE STATUS
@@ -153,10 +167,8 @@ function handleGet($db, $userId)
 }
 
 // POST: Add event to RP profile
-function handlePost($db, $userId)
+function handlePost($db, $userId, $data)
 {
-    $data = json_decode(file_get_contents("php://input"));
-
     if (!isset($data->event_id)) {
         echo json_encode(['status' => 'error', 'message' => 'ID do evento é obrigatório']);
         return;
@@ -180,10 +192,8 @@ function handlePost($db, $userId)
 }
 
 // DELETE: Remove event from RP profile
-function handleDelete($db, $userId)
+function handleDelete($db, $userId, $data)
 {
-    $data = json_decode(file_get_contents("php://input"));
-
     if (!isset($data->event_id)) {
         echo json_encode(['status' => 'error', 'message' => 'ID do evento é obrigatório']);
         return;

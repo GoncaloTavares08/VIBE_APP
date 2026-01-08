@@ -199,7 +199,8 @@ export function RPProfile() {
 
   const fetchProfileEvents = async () => {
     try {
-      const response = await apiFetch('/controllers/rp_profile_events.php');
+      if (!userId) return;
+      const response = await apiFetch(`/controllers/rp_profile_events.php?user_id=${userId}`);
       if (response.status === 'success') {
         setProfileEvents(response.data);
       }
@@ -212,8 +213,9 @@ export function RPProfile() {
 
   const fetchAllEventsWithStatus = async () => {
     try {
+      if (!userId) return;
       console.log('[RPProfile] Fetching all events...');
-      const response = await apiFetch('/controllers/rp_profile_events.php?all=true');
+      const response = await apiFetch(`/controllers/rp_profile_events.php?all=true&user_id=${userId}`);
       console.log('[RPProfile] Response:', response);
       if (response.status === 'success') {
         setAllEvents(response.data);
@@ -251,7 +253,10 @@ export function RPProfile() {
       for (const event of toAdd) {
         await apiFetch('/controllers/rp_profile_events.php', {
           method: 'POST',
-          body: JSON.stringify({ event_id: event.id })
+          body: JSON.stringify({
+            event_id: event.id,
+            user_id: userId
+          })
         });
       }
 
@@ -259,7 +264,10 @@ export function RPProfile() {
       for (const event of toRemove) {
         await apiFetch('/controllers/rp_profile_events.php', {
           method: 'DELETE',
-          body: JSON.stringify({ event_id: event.id })
+          body: JSON.stringify({
+            event_id: event.id,
+            user_id: userId
+          })
         });
       }
 

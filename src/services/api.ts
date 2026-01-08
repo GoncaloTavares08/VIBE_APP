@@ -17,6 +17,11 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
     ...(options.headers || {}),
   };
 
+  // Ensure cookies are sent with requests
+  if (!options.credentials) {
+    options.credentials = 'include';
+  }
+
   if (clientId) {
     headers['X-Client-ID'] = clientId;
 

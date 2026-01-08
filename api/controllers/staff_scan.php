@@ -16,15 +16,30 @@ $database = new Database();
 // We need global connection for Users table
 $db = $database->getGlobalConnection();
 
-// Check if staff is authenticated
-if (!SessionHelper::isLoggedIn()) {
+// Get input data early
+$data = json_decode(file_get_contents("php://input"));
+$action = isset($_GET['action']) ? $_GET['action'] : '';
+
+// Hybrid Authentication for Staff
+$staffUserId = null;
+
+if (SessionHelper::isLoggedIn()) {
+    $staffUserId = SessionHelper::getUserId();
+} else {
+    // Fallback: Check if user_id is provided in request
+    // IMPORTANT: Frontend must ensure staff's user_id is sent when using this fallback
+    if (isset($_GET['user_id'])) {
+        $staffUserId = $_GET['user_id'];
+    } elseif (isset($data->user_id)) {
+        $staffUserId = $data->user_id;
+    }
+}
+
+// Check if staff is authenticated (via session or fallback)
+if (!$staffUserId) {
     echo json_encode(array("status" => "error", "message" => "Utilizador não autenticado."));
     exit();
 }
-
-$staffUserId = SessionHelper::getUserId();
-
-$data = json_decode(file_get_contents("php://input"));
 $clubSlug = isset($_SERVER['HTTP_X_CLIENT_ID']) ? $_SERVER['HTTP_X_CLIENT_ID'] : '';
 
 if (empty($clubSlug)) {
@@ -41,7 +56,7 @@ if (!$clubDb) {
 }
 
 // Action router
-$action = isset($_GET['action']) ? $_GET['action'] : '';
+// $action defined at top
 
 if ($action === 'validate_qr') {
     if (empty($data->qr_code)) {

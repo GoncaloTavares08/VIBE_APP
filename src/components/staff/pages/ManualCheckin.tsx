@@ -23,6 +23,19 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
   const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUserId(parsedUser.id);
+      } catch (e) {
+        console.error('Error parsing user from localStorage', e);
+      }
+    }
+  }, []);
 
   // Debounced search
   useEffect(() => {
@@ -41,12 +54,11 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
     setLoading(true);
     setError(null);
     try {
-      const response = await apiFetch(`/controllers/staff_scan.php?action=search_guestlist&query=${encodeURIComponent(query)}`);
+      const response = await apiFetch(`/controllers/staff_scan.php?action=search_guestlist&query=${encodeURIComponent(query)}&user_id=${userId}`);
 
       if (response.status === 'success') {
         setGuests(response.data);
       } else {
-        // setError(response.message || 'Erro ao pesquisar');
         setGuests([]);
       }
     } catch (err: any) {
@@ -60,7 +72,7 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
 
   const handleCheckIn = async (guestId: string) => {
     try {
-      const response = await apiFetch('/controllers/staff_scan.php?action=manual_checkin', {
+      const response = await apiFetch(`/controllers/staff_scan.php?action=manual_checkin&user_id=${userId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ guest_id: guestId })
@@ -79,7 +91,6 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
               : g
           )
         );
-        // Optional: Show success toast
       } else {
         alert(response.message || 'Erro ao fazer check-in');
       }

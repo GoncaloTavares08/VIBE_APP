@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { QrCode, Link as LinkIcon, Copy, Share2, Search, CheckCircle2, Clock, Star, Download, Calendar } from 'lucide-react';
 import QRCode from 'qrcode';
+import { apiFetch } from '../../../services/api';
 
 interface GuestEntry {
   guestlist_id: string;
@@ -68,16 +69,11 @@ export function RPGuestlist() {
         console.log("Fetching guestlist for:", { userId: user.id, clubSlug });
 
         // Fetch guestlist entries
-        const guestResponse = await fetch('/api/controllers/rp_guestlist_manage.php', {
+        const guestResult = await apiFetch('/controllers/rp_guestlist_manage.php', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Client-ID': clubSlug,
-          },
           body: JSON.stringify({ user_id: user.id }),
         });
 
-        const guestResult = await guestResponse.json();
         if (guestResult.status === 'success') {
           setGuests(guestResult.data);
         } else {
@@ -85,16 +81,11 @@ export function RPGuestlist() {
         }
 
         // Fetch RP Profile to get correct username
-        const profileResponse = await fetch('/api/controllers/rp_profile_manage.php?action=get', {
+        const profileResult = await apiFetch('/controllers/rp_profile_manage.php?action=get', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Client-ID': clubSlug,
-          },
           body: JSON.stringify({ user_id: user.id }),
         });
 
-        const profileResult = await profileResponse.json();
         if (profileResult.status === 'success' && profileResult.data?.username) {
           setUsername(profileResult.data.username);
         }

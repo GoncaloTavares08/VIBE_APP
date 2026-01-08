@@ -23,7 +23,20 @@ export function Scanner({ onOpenManual }: ScannerProps) {
   const [isScanning, setIsScanning] = useState(true); // Auto-start scanner
   const [scannerStarted, setScannerStarted] = useState(false);
   const [cameraPermission, setCameraPermission] = useState<'checking' | 'granted' | 'denied' | 'prompt'>('checking');
+  const [userId, setUserId] = useState<number | null>(null);
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUserId(parsedUser.id);
+      } catch (e) {
+        console.error('Error parsing user from localStorage', e);
+      }
+    }
+  }, []);
 
   // Payment states
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -123,7 +136,7 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     setIsScanning(false);
 
     try {
-      const data = await apiFetch('/controllers/staff_scan.php?action=validate_qr', {
+      const data = await apiFetch(`/controllers/staff_scan.php?action=validate_qr&user_id=${userId}`, {
         method: 'POST',
         body: JSON.stringify({ qr_code: qrCode, confirm: true })
       });
@@ -189,10 +202,10 @@ export function Scanner({ onOpenManual }: ScannerProps) {
 
     setProcessingPayment(true);
     try {
-      const response = await apiFetch('/controllers/staff_scan.php?action=process_purchase', {
+      const response = await apiFetch(`/controllers/staff_scan.php?action=process_purchase&user_id=${userId}`, {
         method: 'POST',
         body: JSON.stringify({
-          user_id: paymentData.client.id, // Assuming backend sends user details inside client object
+          user_id: paymentData.client.id, // Client ID
           amount: parseFloat(paymentAmount),
           event_id: paymentData.event?.id || null
         })
