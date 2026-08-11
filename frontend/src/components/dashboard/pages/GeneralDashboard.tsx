@@ -1,0 +1,276 @@
+import { useState, useEffect } from 'react';
+import { TrendingUp, Flame, Snowflake, Euro, Activity } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { apiFetch } from '../../../services/api';
+
+export function GeneralDashboard() {
+  const [metrics, setMetrics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const response = await apiFetch('/admin/night-metrics', { method: 'GET' });
+        if (response.status === 'success') {
+          setMetrics(response.data);
+        }
+      } catch (err) {
+        console.error('Error fetching night metrics:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMetrics();
+    // Poll every 30 seconds for real-time updates
+    const interval = setInterval(fetchMetrics, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading && !metrics) {
+    return <div className="text-white text-center py-10">A carregar dashboard...</div>;
+  }
+
+  const occupancy = metrics?.capacity > 0 ? Math.round((metrics.total_entries / metrics.capacity) * 100) : 0;
+  const flow = occupancy > 75 ? 'fire' : 'slow'; // 'fire' or 'slow'
+  const chartData = metrics?.hourly_flow || [];
+  const recentActivity = metrics?.recent_activity || [];
+
+  return (
+    <div className="space-y-6 md:space-y-8">
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        {/* Total Entries */}
+        <div
+          className="p-6 rounded-3xl"
+          style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(20px)',
+          }}
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center"
+              style={{
+                background: 'rgba(212, 175, 55, 0.15)',
+                border: '1px solid rgba(212, 175, 55, 0.3)',
+              }}
+            >
+              <TrendingUp className="w-6 h-6 text-[#D4AF37]" />
+            </div>
+            <p className="text-sm text-gray-400 font-medium">Entradas Totais</p>
+          </div>
+          <p className="text-4xl font-black text-white mb-2">{metrics?.total_entries || 0}</p>
+          <p className="text-sm text-green-400">+24% vs ontem</p>
+        </div>
+
+        {/* Current Flow */}
+        <div
+          className="p-6 rounded-3xl"
+          style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(20px)',
+          }}
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center"
+              style={{
+                background: flow === 'fire' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(59, 130, 246, 0.15)',
+                border: flow === 'fire' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(59, 130, 246, 0.3)',
+              }}
+            >
+              {flow === 'fire' ? (
+                <Flame className="w-6 h-6 text-red-500" />
+              ) : (
+                <Snowflake className="w-6 h-6 text-blue-500" />
+              )}
+            </div>
+            <p className="text-sm text-gray-400 font-medium">Fluxo Atual</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {flow === 'fire' ? (
+              <>
+                <Flame className="w-6 h-6 text-red-500" />
+                <span className="text-2xl font-black text-white">Ao Rubro</span>
+              </>
+            ) : (
+              <>
+                <Snowflake className="w-6 h-6 text-blue-500" />
+                <span className="text-2xl font-black text-white">Calmo</span>
+              </>
+            )}
+          </div>
+          <p className="text-sm text-gray-400 mt-2">12 entradas/10min</p>
+        </div>
+
+        {/* Occupancy */}
+        <div
+          className="p-6 rounded-3xl"
+          style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(20px)',
+          }}
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center"
+              style={{
+                background: 'rgba(168, 85, 247, 0.15)',
+                border: '1px solid rgba(168, 85, 247, 0.3)',
+              }}
+            >
+              <Activity className="w-6 h-6 text-purple-500" />
+            </div>
+            <p className="text-sm text-gray-400 font-medium">Lotação</p>
+          </div>
+          <div className="relative w-24 h-24 mx-auto mb-2">
+            <svg className="w-full h-full transform -rotate-90">
+              <circle
+                cx="48"
+                cy="48"
+                r="40"
+                stroke="rgba(255, 255, 255, 0.1)"
+                strokeWidth="8"
+                fill="none"
+              />
+              <circle
+                cx="48"
+                cy="48"
+                r="40"
+                stroke="#D4AF37"
+                strokeWidth="8"
+                fill="none"
+                strokeDasharray={`${2 * Math.PI * 40}`}
+                strokeDashoffset={`${2 * Math.PI * 40 * (1 - occupancy / 100)}`}
+                strokeLinecap="round"
+              />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-2xl font-black text-white">{occupancy}%</span>
+            </div>
+          </div>
+          <p className="text-sm text-gray-400 text-center">{metrics?.total_entries || 0} / {metrics?.capacity || 0} capacidade</p>
+        </div>
+
+        {/* Live Billing */}
+        <div
+          className="p-6 rounded-3xl"
+          style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(20px)',
+          }}
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center"
+              style={{
+                background: 'rgba(34, 197, 94, 0.15)',
+                border: '1px solid rgba(34, 197, 94, 0.3)',
+              }}
+            >
+              <Euro className="w-6 h-6 text-green-500" />
+            </div>
+            <p className="text-sm text-gray-400 font-medium">Faturação ao Vivo</p>
+          </div>
+          <p className="text-4xl font-black text-white mb-2">€{metrics?.total_revenue || 0}</p>
+          <p className="text-sm text-green-400">€890 na última hora</p>
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Chart */}
+        <div
+          className="lg:col-span-2 p-6 rounded-3xl"
+          style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(20px)',
+          }}
+        >
+          <h2 className="text-xl font-black text-white mb-6">Entradas ao longo do tempo</h2>
+          <div className="w-full h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="tonightGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#D4AF37" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="lastNightGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#888888" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#888888" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.1)" />
+                <XAxis dataKey="time" stroke="#888888" />
+                <YAxis stroke="#888888" />
+                <Tooltip
+                  contentStyle={{
+                    background: 'rgba(10, 10, 10, 0.9)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '12px',
+                    color: '#ffffff'
+                  }}
+                />
+                <Legend />
+                <Area
+                  type="monotone"
+                  dataKey="entries"
+                  stroke="#D4AF37"
+                  strokeWidth={3}
+                  fill="url(#tonightGradient)"
+                  name="Entradas por Hora"
+                />
+
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Recent Activity Feed */}
+        <div
+          className="p-6 rounded-3xl"
+          style={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            backdropFilter: 'blur(20px)',
+          }}
+        >
+          <h2 className="text-xl font-black text-white mb-6">Atividade Recente</h2>
+          <div className="space-y-4">
+            {recentActivity.map((activity: any) => (
+              <div key={activity.id} className="flex items-start gap-3">
+                <div
+                  className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
+                  style={{
+                    background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                    color: '#000000',
+                  }}
+                >
+                  {activity.name.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{activity.name}</p>
+                  <p className="text-xs text-gray-400">entrou via {activity.rp}</p>
+                  <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
+                </div>
+                <div
+                  className="w-2 h-2 rounded-full flex-shrink-0 mt-2"
+                  style={{
+                    background: activity.status === 'active' ? '#22c55e' : '#6b7280',
+                  }}
+                ></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,329 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\User;
+use App\Models\Club;
+use App\Models\UserClubAccess;
+use App\Models\ClientProfile;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Str;
+
+class AuthController extends Controller
+{
+    public function register(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|min:2|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8', // Add more password rules if needed
+        ]);
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => Hash::make($request->password),
+        ]);
+
+        $clientSlug = $request->header('X-Client-ID');
+        $userRole = null;
+
+        if ($clientSlug) {
+            $club = Club::where('slug', strtolower($clientSlug))->first();
+            if ($club) {
+                UserClubAccess::create([
+                    'user_id' => $user->id,
+                    'club_id' => $club->id,
+                    'role' => 'CLIENT',
+                ]);
+                $userRole = 'CLIENT';
+            }
+        }
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Conta criada com sucesso!',
+            'token' => $token,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $userRole,
+                'club_slug' => $clientSlug,
+                'created_at' => $user->created_at,
+            ]
+        ], 201);
+    }
+
+    public function login(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required',
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (! $user || ! Hash::check($request->password, $user->password)) {
+            throw ValidationException::withMessages([
+                'email' => ['As credenciais fornecidas estão incorretas.'],
+            ]);
+        }
+
+        $clientSlug = $request->header('X-Client-ID');
+        $userRole = null;
+        $userPoints = 0;
+        $joinedAt = null;
+
+        if ($clientSlug) {
+            $club = Club::where('slug', strtolower($clientSlug))->first();
+            if ($club) {
+                $access = UserClubAccess::firstOrCreate(
+                    ['user_id' => $user->id, 'club_id' => $club->id],
+                    ['role' => 'CLIENT']
+                );
+                $userRole = $access->role;
+                $userPoints = $access->points;
+                $joinedAt = $access->created_at;
+            }
+        }
+
+        $profile = ClientProfile::where('user_id', $user->id)->first();
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        $responseUser = [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'created_at' => $user->created_at,
+            'birthdate' => $profile->birthdate ?? null,
+            'gender' => $profile->gender ?? null,
+            'gender_preference' => $profile->gender_preference ?? null,
+        ];
+
+        if ($clientSlug && $userRole) {
+            $responseUser['role'] = $userRole;
+            $responseUser['club_slug'] = $clientSlug;
+            $responseUser['points'] = $userPoints;
+            $responseUser['member_since'] = $joinedAt;
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Login efetuado com sucesso.',
+            'token' => $token,
+            'user' => $responseUser
+        ]);
+    }
+
+    public function googleLogin(Request $request)
+    {
+        $request->validate([
+            'token' => 'required|string',
+        ]);
+
+        $googleToken = $request->token;
+
+        // Fetch user info from Google
+        $response = \Illuminate\Support\Facades\Http::withToken($googleToken)
+            ->get('https://www.googleapis.com/oauth2/v3/userinfo');
+
+        if ($response->failed()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Token do Google inválido.'
+            ], 401);
+        }
+
+        $googleUser = $response->json();
+        $email = $googleUser['email'] ?? null;
+        $name = $googleUser['name'] ?? 'Google User';
+
+        if (!$email) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Não foi possível obter o email do Google.'
+            ], 400);
+        }
+
+        // Find or Create user
+        $user = User::where('email', $email)->first();
+        if (!$user) {
+            $user = User::create([
+                'name' => $name,
+                'email' => $email,
+                'password' => Hash::make(Str::random(24)),
+            ]);
+        }
+
+        $clientSlug = $request->header('X-Client-ID');
+        $userRole = null;
+        $userPoints = 0;
+        $joinedAt = null;
+
+        if ($clientSlug) {
+            $club = Club::where('slug', strtolower($clientSlug))->first();
+            if ($club) {
+                $access = UserClubAccess::firstOrCreate(
+                    ['user_id' => $user->id, 'club_id' => $club->id],
+                    ['role' => 'CLIENT']
+                );
+                $userRole = $access->role;
+                $userPoints = $access->points;
+                $joinedAt = $access->created_at;
+            }
+        }
+
+        $profile = ClientProfile::where('user_id', $user->id)->first();
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        $responseUser = [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'created_at' => $user->created_at,
+            'birthdate' => $profile->birthdate ?? null,
+            'gender' => $profile->gender ?? null,
+            'gender_preference' => $profile->gender_preference ?? null,
+        ];
+
+        if ($clientSlug && $userRole) {
+            $responseUser['role'] = $userRole;
+            $responseUser['club_slug'] = $clientSlug;
+            $responseUser['points'] = $userPoints;
+            $responseUser['member_since'] = $joinedAt;
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Login Google efetuado com sucesso.',
+            'token' => $token,
+            'user' => $responseUser
+        ]);
+    }
+
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Logout efetuado com sucesso.'
+        ]);
+    }
+    public function resetRequest(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email'
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        if (! $user) {
+            // Security: don't reveal if email exists or not
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Email não encontrado.'
+            ]);
+        }
+
+        $code = Str::upper(Str::random(6));
+        $user->reset_token = Hash::make($code);
+        $user->reset_token_expiry = now()->addMinutes(15);
+        $user->save();
+
+        \App\Jobs\SendResetPasswordEmail::dispatch($user, $code);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Foi enviado um email com o código de verificação (Verificar os logs caso MAIL_MAILER=log).'
+        ]);
+    }
+
+    public function verifyCode(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'code' => 'required|string|size:6'
+        ]);
+
+        $user = User::where('email', $request->email)
+                    ->whereNotNull('reset_token')
+                    ->where('reset_token_expiry', '>', now())
+                    ->first();
+
+        if (! $user || ! Hash::check($request->code, $user->reset_token)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Código inválido ou expirado.'
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Código válido.'
+        ]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'code' => 'required|string|size:6',
+            'password' => 'required|string|min:8'
+        ]);
+
+        $user = User::where('email', $request->email)
+                    ->whereNotNull('reset_token')
+                    ->where('reset_token_expiry', '>', now())
+                    ->first();
+
+        if (! $user || ! Hash::check($request->code, $user->reset_token)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Código inválido ou expirado.'
+            ]);
+        }
+
+        $user->password = Hash::make($request->password);
+        $user->reset_token = null;
+        $user->reset_token_expiry = null;
+        $user->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Password atualizada com sucesso!'
+        ]);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'required',
+            'new_password' => 'required|string|min:8|different:current_password'
+        ]);
+
+        $user = $request->user();
+
+        if (! Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'A password atual está incorreta.'
+            ], 400);
+        }
+
+        $user->password = Hash::make($request->new_password);
+        $user->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Password alterada com sucesso!'
+        ]);
+    }
+}
