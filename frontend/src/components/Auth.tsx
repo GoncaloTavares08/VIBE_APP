@@ -20,6 +20,7 @@ export function Auth({ onLoginSuccess }: AuthProps) {
     confirmPassword: '',
   });
   const [profileData, setProfileData] = useState({
+    name: '',
     birthday: '',
     gender: '' as 'male' | 'female' | '',
     genderPreference: 'everyone' as 'male' | 'female' | 'everyone'
@@ -150,6 +151,7 @@ export function Auth({ onLoginSuccess }: AuthProps) {
       // Pre-fill state if some data exists but not all
       setProfileData(prev => ({
         ...prev,
+        name: user.name || '',
         birthday: user.birthdate || '',
         gender: user.gender || '',
         genderPreference: user.gender_preference || 'everyone'
@@ -168,6 +170,10 @@ export function Auth({ onLoginSuccess }: AuthProps) {
     e.preventDefault();
 
     // Validate
+    if (!profileData.name || profileData.name.trim().length < 2) {
+      setErrors(prev => ({ ...prev, name: 'Nome é obrigatório e deve ter pelo menos 2 caracteres' }));
+      return;
+    }
     if (!profileData.birthday) {
       setErrors(prev => ({ ...prev, birthday: 'Data de nascimento é obrigatória' }));
       return;
@@ -183,6 +189,7 @@ export function Auth({ onLoginSuccess }: AuthProps) {
         method: 'POST',
         body: JSON.stringify({
           user_id: tempUser.id,
+          name: profileData.name,
           birthdate: profileData.birthday,
           gender: profileData.gender,
           gender_preference: profileData.genderPreference
@@ -192,6 +199,7 @@ export function Auth({ onLoginSuccess }: AuthProps) {
       if (response.status === 'success') {
         const updatedUser = {
           ...tempUser,
+          name: profileData.name,
           birthdate: profileData.birthday,
           gender: profileData.gender,
           gender_preference: profileData.genderPreference
@@ -402,11 +410,28 @@ export function Auth({ onLoginSuccess }: AuthProps) {
               </div>
 
               <form onSubmit={handleBirthdaySubmit} className="space-y-6">
-                {(errors.birthday || errors.gender || errors.genderPreference) && (
+                {(errors.name || errors.birthday || errors.gender || errors.genderPreference) && (
                   <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
-                    {errors.birthday || errors.gender || errors.genderPreference}
+                    {errors.name || errors.birthday || errors.gender || errors.genderPreference}
                   </div>
                 )}
+
+                {/* Name */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-300 ml-1">Nome Completo</label>
+                  <input
+                    type="text"
+                    value={profileData.name}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Primeiro e último nome"
+                    className="w-full pl-4 pr-4 py-4 rounded-xl outline-none transition-all duration-300"
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#ffffff',
+                    }}
+                  />
+                </div>
 
                 {/* Birthday */}
                 <div className="space-y-2">

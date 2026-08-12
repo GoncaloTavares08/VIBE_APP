@@ -239,7 +239,7 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
           >
             {profilePhotoUrl ? (
               <img
-                src={`/api/serve-image?file=${profilePhotoUrl}`}
+                src={profilePhotoUrl.startsWith('http') ? profilePhotoUrl : `/api/serve-image?file=${profilePhotoUrl}`}
                 alt={userName}
                 className="w-full h-full object-cover"
               />

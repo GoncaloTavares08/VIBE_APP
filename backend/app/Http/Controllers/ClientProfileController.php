@@ -82,6 +82,7 @@ class ClientProfileController extends Controller
         $profile = ClientProfile::firstOrCreate(['user_id' => $user->id]);
 
         $validated = $request->validate([
+            'name' => 'nullable|string|min:2|max:255',
             'bio' => 'nullable|string',
             'instagram' => 'nullable|string',
             'birthdate' => 'nullable|date',
@@ -108,6 +109,11 @@ class ClientProfileController extends Controller
 
             $validated['profile_photo_path'] = 'storage/' . $fullPath;
             unset($validated['photo']);
+        }
+
+        if (isset($validated['name'])) {
+            $user->update(['name' => $validated['name']]);
+            unset($validated['name']);
         }
 
         $profile->update($validated);

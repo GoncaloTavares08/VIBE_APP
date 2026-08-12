@@ -105,6 +105,7 @@ class AuthController extends Controller
             'birthdate' => $profile->birthdate ?? null,
             'gender' => $profile->gender ?? null,
             'gender_preference' => $profile->gender_preference ?? null,
+            'profile_photo_path' => $profile->profile_photo_path ?? null,
         ];
 
         if ($clientSlug && $userRole) {
@@ -144,6 +145,7 @@ class AuthController extends Controller
         $googleUser = $response->json();
         $email = $googleUser['email'] ?? null;
         $name = $googleUser['name'] ?? 'Google User';
+        $picture = $googleUser['picture'] ?? null;
 
         if (!$email) {
             return response()->json([
@@ -154,12 +156,14 @@ class AuthController extends Controller
 
         // Find or Create user
         $user = User::where('email', $email)->first();
+        $isNewUser = false;
         if (!$user) {
             $user = User::create([
                 'name' => $name,
                 'email' => $email,
                 'password' => Hash::make(Str::random(24)),
             ]);
+            $isNewUser = true;
         }
 
         $clientSlug = $request->header('X-Client-ID');
@@ -180,7 +184,12 @@ class AuthController extends Controller
             }
         }
 
-        $profile = ClientProfile::where('user_id', $user->id)->first();
+        $profile = ClientProfile::firstOrCreate(['user_id' => $user->id]);
+
+        if ($picture && empty($profile->profile_photo_path)) {
+            $profile->profile_photo_path = $picture;
+            $profile->save();
+        }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -192,6 +201,7 @@ class AuthController extends Controller
             'birthdate' => $profile->birthdate ?? null,
             'gender' => $profile->gender ?? null,
             'gender_preference' => $profile->gender_preference ?? null,
+            'profile_photo_path' => $profile->profile_photo_path ?? null,
         ];
 
         if ($clientSlug && $userRole) {
@@ -205,6 +215,7 @@ class AuthController extends Controller
             'status' => 'success',
             'message' => 'Login Google efetuado com sucesso.',
             'token' => $token,
+            'is_new_user' => $isNewUser,
             'user' => $responseUser
         ]);
     }

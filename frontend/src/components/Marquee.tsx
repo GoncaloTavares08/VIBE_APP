@@ -3,10 +3,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '../services/api';
 
 export function Marquee() {
-    const [clubs, setClubs] = useState<string[]>([
-        "LICK", "ESKADA", "LUST IN RIO", "LUX FRÁGIL", 
-        "MOME", "KREMLIN", "BLISS", "BOSQ", "MANDARIM"
-    ]);
+    const [clubs, setClubs] = useState<string[]>([]);
 
     useEffect(() => {
         const fetchClubs = async () => {
@@ -22,8 +19,12 @@ export function Marquee() {
         fetchClubs();
     }, []);
 
+    if (clubs.length === 0) return null;
+
     // Create a large enough base list to fill ultra-wide screens
-    const baseList = Array(10).fill(clubs).flat();
+    // Shuffle the base array again on the frontend just to be sure it's completely random every time it mounts
+    const shuffledClubs = [...clubs].sort(() => 0.5 - Math.random());
+    const baseList = Array(10).fill(shuffledClubs).flat();
 
     return (
         <div 

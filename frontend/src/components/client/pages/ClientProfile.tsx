@@ -393,7 +393,7 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
                 }}
               >
                 {profilePhotoUrl ? (
-                  <img src={`/api/serve-image?file=${profilePhotoUrl}`} alt="Profile" className="w-full h-full object-cover" />
+                  <img src={profilePhotoUrl.startsWith('http') ? profilePhotoUrl : `/api/serve-image?file=${profilePhotoUrl}`} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
                   <User className="w-16 h-16 text-black" />
                 )}
