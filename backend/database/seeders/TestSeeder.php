@@ -52,7 +52,7 @@ class TestSeeder extends Seeder
         $roles = [
             'ADMIN' => 'admin@vibe.com',
             'MANAGER' => 'manager@vibe.com',
-            'DOOR' => 'door@vibe.com',
+            'STAFF' => 'door@vibe.com',
             'RP' => 'rp@vibe.com',
             'CLIENT' => 'goncalo08pt@gmail.com', // Updated for Google Login
         ];

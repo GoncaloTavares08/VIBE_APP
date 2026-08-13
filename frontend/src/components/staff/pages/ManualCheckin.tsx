@@ -26,6 +26,9 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
   const [userId, setUserId] = useState<number | null>(null);
 
   useEffect(() => {
+    // Scroll to top when opening manual check-in
+    window.scrollTo(0, 0);
+
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try {

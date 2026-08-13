@@ -196,7 +196,12 @@ export default function App() {
     );
   }
 
-  // Show dashboard (admin doesn't need access check - has global access)
+  // Show Staff App (does NOT need a club in URL)
+  if (showStaffApp) {
+    return <DoorOpsApp onLogout={handleLogout} />;
+  }
+
+  // Show dashboard - admin (does NOT strictly need club in URL - has global access)
   if (showDashboard && hasAccess && hasClubInUrl) {
     return <Dashboard user={user} onLogout={handleLogout} />;
   }
@@ -207,28 +212,11 @@ export default function App() {
   }
 
   // Show Client Dashboard (only if has access AND club in URL)
-  // Fix: make role check case-insensitive and safer
   const effectiveRole = verifiedRole || user?.role;
   const isClient = effectiveRole && (effectiveRole.toUpperCase() === 'CLIENT');
 
-  if (user) {
-    console.log('[App Debug] State:', {
-      userRole: user.role,
-      verifiedRole,
-      isClient,
-      hasAccess,
-      hasClubInUrl,
-      clubName
-    });
-  }
-
   if (user && isClient && hasAccess && hasClubInUrl) {
     return <ClientDashboard user={user} onLogout={handleLogout} />;
-  }
-
-  // Show Staff App
-  if (showStaffApp) {
-    return <DoorOpsApp onLogout={handleLogout} />;
   }
 
   // Show auth screen

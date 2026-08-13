@@ -212,7 +212,7 @@ class AdminController extends Controller
 
         $users = $users->map(function ($u) use ($club) {
             $nameParts = explode(' ', $u->name);
-            $u->avatar = strtoupper(substr($nameParts[0], 0, 1) . (isset($nameParts[1]) ? substr($nameParts[1], 0, 1) : ''));
+            $u->avatar = mb_strtoupper(mb_substr($nameParts[0], 0, 1, 'UTF-8') . (isset($nameParts[1]) ? mb_substr($nameParts[1], 0, 1, 'UTF-8') : ''), 'UTF-8');
             
             // Calculate real guests for tonight
             $guestsTonight = DB::table('guestlist as g')

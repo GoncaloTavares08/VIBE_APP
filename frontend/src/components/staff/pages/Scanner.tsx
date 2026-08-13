@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Gift, User, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { Scanner as QrScanner } from '@yudiel/react-qr-scanner';
 import { apiFetch } from '../../../services/api';
 
 interface ScannerProps {
@@ -24,8 +24,6 @@ export function Scanner({ onOpenManual }: ScannerProps) {
   const [scannerStarted, setScannerStarted] = useState(false);
   const [cameraPermission, setCameraPermission] = useState<'checking' | 'granted' | 'denied' | 'prompt'>('checking');
   const [userId, setUserId] = useState<number | null>(null);
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
-
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
@@ -76,59 +74,10 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     checkPermissions();
   }, []);
 
-  useEffect(() => {
-    // Initialize Scanner with Html5QrcodeScanner
-    if (isScanning && !scannerRef.current) {
-      const scannerId = "reader";
-      const element = document.getElementById(scannerId);
-      if (!element) {
-        console.error("Scanner element not found");
-        return;
-      }
-
-      console.log("Initializing Html5QrcodeScanner...");
-
-      try {
-        const scanner = new Html5QrcodeScanner(
-          scannerId,
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-            showTorchButtonIfSupported: true,
-            rememberLastUsedCamera: true
-          },
-          /* verbose= */ false
-        );
-
-        scanner.render(onScanSuccess, onScanFailure);
-        scannerRef.current = scanner;
-        console.log("✅ Html5QrcodeScanner initialized");
-      } catch (error) {
-        console.error("❌ Exception during scanner creation:", error);
-        alert(`Erro crítico ao iniciar scanner: ${error}`);
-      }
-    }
-
-    return () => {
-      if (scannerRef.current) {
-        console.log("Cleaning up scanner...");
-        scannerRef.current.clear().catch((error: any) => {
-          console.error("Failed to clear scanner:", error);
-        });
-        scannerRef.current = null;
-      }
-    };
-  }, [isScanning]);
-
-  const onScanFailure = (error: any) => {
-    // Ignore frequent scan errors
-  };
-
-  const onScanSuccess = async (decodedText: string, decodedResult: any) => {
+  const onScanSuccess = async (decodedText: string) => {
     if (!isScanning) return;
 
-    console.log(`Scan result: ${decodedText}`, decodedResult);
+    console.log(`Scan result: ${decodedText}`);
     handleProcessCode(decodedText);
   };
 
@@ -141,17 +90,30 @@ export function Scanner({ onOpenManual }: ScannerProps) {
         body: JSON.stringify({ qr_code: qrCode, confirm: true })
       });
 
-      // Check if this is a payment request (user already checked in)
+      // BAR QR: Prompt for purchase amount
       if (data.status === 'awaiting_payment') {
-        // Show payment modal
         setPaymentData(data.data);
         setShowPaymentModal(true);
+        return;
+      }
+
+      // ENTRY QR: Already checked in — just show green info, no payment
+      if (data.status === 'already_in') {
+        setScanResult({
+          type: 'warning',
+          category: 'guestlist',
+          name: data.data?.client?.name || 'Cliente',
+          photo: data.data?.client?.photo || null,
+          details: `RP: ${data.data?.rp_name || 'N/A'}`,
+          message: data.message || 'Já entrou.'
+        });
         return;
       }
 
       let resultType: ScanResult['type'] = 'error';
       if (data.status === 'success') resultType = 'success';
       if (data.status === 'warning') resultType = 'warning';
+      if (data.status === 'info') resultType = 'info';
 
       const isReward = data.data?.type === 'reward';
       const client = data.data?.client;
@@ -179,13 +141,6 @@ export function Scanner({ onOpenManual }: ScannerProps) {
         details: 'Tente novamente',
         message: error instanceof Error ? error.message : String(error)
       });
-    }
-
-    if (scannerRef.current) {
-      try {
-        await scannerRef.current.clear();
-        scannerRef.current = null;
-      } catch (e) { console.error(e) }
     }
   };
 
@@ -239,6 +194,11 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     setPaymentData(null);
   };
 
+  const handleCancelPayment = () => {
+    handleClosePayment();
+    setIsScanning(true); // Restart scanner when cancelled
+  };
+
   const handleQuickAmount = (amount: number) => {
     setPaymentAmount(amount.toString());
   };
@@ -247,16 +207,34 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     <div className="h-full relative overflow-hidden bg-black flex flex-col">
       {/* Scanner Container */}
       {isScanning && (
-        <div className="flex-1 relative flex flex-col p-4">
-          {/* HTML5 QR Code Reader Container */}
-          <div
-            id="reader"
-            className="w-full flex-1 rounded-2xl overflow-hidden border-2 border-[#D4AF37]/50 shadow-2xl"
-          />
+        <div className="flex-1 relative flex flex-col p-4 pb-20 justify-center">
+          {/* QR Scanner Component */}
+          <div className="w-full max-w-sm mx-auto aspect-[3/4] max-h-[55vh] rounded-2xl overflow-hidden border-2 border-[#D4AF37]/50 shadow-2xl relative flex-shrink-0 bg-gray-900">
+            <QrScanner
+              onScan={(result) => {
+                if (result && result.length > 0) {
+                  onScanSuccess(result[0].rawValue);
+                }
+              }}
+              onError={(error) => console.log(error?.message)}
+            />
+          </div>
 
-          <p className="mt-4 text-gray-400 text-sm md:text-base text-center">
-            Aponte a câmara para o QR Code do cliente
-          </p>
+          <div className="mt-6 flex flex-col items-center gap-4">
+            <p className="text-gray-400 text-sm md:text-base text-center">
+              Aponte a câmara para o QR Code do cliente
+            </p>
+            
+            <button 
+              onClick={onOpenManual}
+              className="w-full max-w-sm mx-auto py-4 rounded-xl font-bold text-lg text-black transition-transform shadow-[0_4px_20px_rgba(212,175,55,0.3)] hover:scale-[1.02] active:scale-[0.98]"
+              style={{
+                background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)'
+              }}
+            >
+              Check-in Manual
+            </button>
+          </div>
         </div>
       )}
 
@@ -272,7 +250,7 @@ export function Scanner({ onOpenManual }: ScannerProps) {
             <div className="w-full max-w-sm bg-[#111] border border-[#D4AF37]/30 rounded-3xl p-6 relative overflow-hidden">
               {/* Close Button */}
               <button
-                onClick={handleClosePayment}
+                onClick={handleCancelPayment}
                 className="absolute top-4 right-4 text-gray-400 hover:text-white"
               >
                 <XCircle className="w-8 h-8" />

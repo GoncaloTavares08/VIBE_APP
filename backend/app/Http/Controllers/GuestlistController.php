@@ -26,12 +26,17 @@ class GuestlistController extends Controller
     {
         $user = $request->user();
         
-        // Return guestlists for upcoming or ongoing events
+        $clubId = $this->getClubId($request);
+        
+        // Return guestlists for upcoming or ongoing events in the current club
         $guestlists = Guestlist::with('event')
             ->where('client_id', $user->id)
             ->whereIn('status', ['confirmed', 'checked_in'])
-            ->whereHas('event', function ($query) {
+            ->whereHas('event', function ($query) use ($clubId) {
                 $query->whereIn('status', ['upcoming', 'ongoing']);
+                if ($clubId) {
+                    $query->where('club_id', $clubId);
+                }
             })
             ->get();
 
@@ -42,7 +47,8 @@ class GuestlistController extends Controller
                 'client_id' => $gl->client_id,
                 'rp_id' => $gl->rp_id,
                 'status' => $gl->status,
-                'qr_code' => \Illuminate\Support\Facades\Crypt::encryptString($gl->qr_code . '|' . time()),
+                // Static encrypted QR for ENTRY scanning - rotated every 30s by frontend
+                'qr_code' => \Illuminate\Support\Facades\Crypt::encryptString('ENTRY:' . $gl->qr_code . '|' . time()),
                 'event_name' => $gl->event->name ?? 'Unknown Event',
                 'event_date' => $gl->event->date ?? 'N/A',
                 'start_time' => $gl->event->start_time ?? '00:00:00',
@@ -200,7 +206,8 @@ class GuestlistController extends Controller
 
         if ($activeGuestlist && $activeGuestlist->qr_code) {
             $timestamp = time();
-            $dynamicToken = \Illuminate\Support\Facades\Crypt::encryptString($activeGuestlist->qr_code . '|' . $timestamp);
+            // Prefix with BAR: so staff scan knows this is for bar points, not entry
+            $dynamicToken = \Illuminate\Support\Facades\Crypt::encryptString('BAR:' . $activeGuestlist->qr_code . '|' . $timestamp);
             
             return response()->json([
                 'status' => 'success',

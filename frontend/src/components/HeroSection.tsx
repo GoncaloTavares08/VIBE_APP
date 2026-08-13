@@ -7,7 +7,8 @@ interface HeroSectionProps {
 
 export function HeroSection({ onLoginClick }: HeroSectionProps) {
     return (
-        <section className="relative w-full max-w-7xl mx-auto px-4 py-20 lg:py-32 flex flex-col lg:flex-row items-center justify-between z-10 min-h-[85vh]">
+        <section className="relative w-full max-w-7xl mx-auto px-4 py-20 flex flex-col lg:flex-row items-center justify-between z-10 min-h-[60vh]">
+
             
             {/* Left Column: Typography & CTAs */}
             <div className="w-full lg:w-1/2 flex flex-col space-y-8 z-20 text-center lg:text-left mt-10 lg:mt-0">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ClientDashboardLayout } from './client/ClientDashboardLayout';
 import { ClientHome } from './client/pages/ClientHome';
 import { ClientWallet } from './client/pages/ClientWallet';
@@ -75,10 +75,10 @@ function ClientQRCode() {
 
     fetchGuestlists();
     
-    // Set up 15-second rotation to refresh dynamic QR codes
+    // Set up 45-second rotation to keep entry QR codes fresh (backend allows 60s)
     const rotationInterval = setInterval(() => {
       fetchGuestlists();
-    }, 15000);
+    }, 45000);
 
     return () => clearInterval(rotationInterval);
   }, []);
@@ -89,6 +89,23 @@ function ClientQRCode() {
 
   const handleNext = () => {
     setCurrentIndex((prev) => (prev < guestlists.length - 1 ? prev + 1 : 0));
+  };
+
+  // Swipe support
+  const dragStartX = useRef<number | null>(null);
+
+  const handleSwipeStart = (e: React.TouchEvent | React.MouseEvent) => {
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    dragStartX.current = clientX;
+  };
+
+  const handleSwipeEnd = (e: React.TouchEvent | React.MouseEvent) => {
+    if (dragStartX.current === null) return;
+    const clientX = 'changedTouches' in e ? e.changedTouches[0].clientX : (e as React.MouseEvent).clientX;
+    const diff = clientX - dragStartX.current;
+    if (diff > 60) handlePrev();
+    else if (diff < -60) handleNext();
+    dragStartX.current = null;
   };
 
   if (loading) {
@@ -144,12 +161,12 @@ function ClientQRCode() {
 
         {/* Guestlist Card with Carousel */}
         <div className="relative">
-          {guestlists.length > 1 && (
+        {guestlists.length > 1 && (
             <>
-              {/* Prev Button - Adjusted for mobile visibility */}
+              {/* Prev Button - hidden on mobile, shown on md+ */}
               <button
                 onClick={handlePrev}
-                className="absolute -left-2 md:-left-12 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+                className="hidden md:flex absolute -left-12 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full items-center justify-center transition-all hover:scale-110 active:scale-95"
                 style={{
                   background: 'rgba(212, 175, 55, 0.2)',
                   border: '1px solid rgba(212, 175, 55, 0.4)',
@@ -159,10 +176,10 @@ function ClientQRCode() {
                 <span className="text-[#D4AF37] text-2xl">‹</span>
               </button>
 
-              {/* Next Button - Adjusted for mobile visibility */}
+              {/* Next Button - hidden on mobile, shown on md+ */}
               <button
                 onClick={handleNext}
-                className="absolute -right-2 md:-right-12 top-1/2 -translate-y-1/2 z-20 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+                className="hidden md:flex absolute -right-12 top-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full items-center justify-center transition-all hover:scale-110 active:scale-95"
                 style={{
                   background: 'rgba(212, 175, 55, 0.2)',
                   border: '1px solid rgba(212, 175, 55, 0.4)',
@@ -174,15 +191,19 @@ function ClientQRCode() {
             </>
           )}
 
-          {/* Main Card - Compact on mobile */}
+          {/* Main Card - swipeable on mobile */}
           <div
-            className="p-5 md:p-8 rounded-3xl space-y-5 md:space-y-6 transition-all duration-300 mx-auto w-full"
+            className="p-5 md:p-8 rounded-3xl space-y-5 md:space-y-6 transition-all duration-300 mx-auto w-full touch-pan-y select-none"
             style={{
               background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(20, 20, 20, 0.95) 100%)',
               backdropFilter: 'blur(30px)',
               border: '2px solid rgba(212, 175, 55, 0.3)',
               boxShadow: '0 0 40px rgba(212, 175, 55, 0.15)',
             }}
+            onTouchStart={handleSwipeStart}
+            onTouchEnd={handleSwipeEnd}
+            onMouseDown={handleSwipeStart}
+            onMouseUp={handleSwipeEnd}
           >
             {/* Event Info */}
             <div className="text-center space-y-1 md:space-y-2">
@@ -211,7 +232,7 @@ function ClientQRCode() {
             {/* QR Code Area - Clean & Simple */}
             <div className="bg-white p-4 md:p-6 rounded-2xl mx-auto w-48 h-48 md:w-60 md:h-60 flex flex-col items-center justify-center shadow-lg relative z-10 overflow-hidden">
               <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${btoa('VIBE_SECURE:' + currentGuest.qr_code)}`}
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(currentGuest.qr_code)}`}
                 alt="QR Code"
                 className="w-full h-full object-contain"
               />
@@ -246,7 +267,7 @@ function ClientQRCode() {
               <div 
                 className="h-full bg-[#D4AF37]" 
                 style={{
-                  animation: 'shrink 15s linear infinite'
+                  animation: 'shrink 45s linear infinite'
                 }}
               />
               <style>{`

@@ -47,27 +47,38 @@ class StaffScanController extends Controller
         $confirm = $validated['confirm'] ?? false;
         $staffUser = $request->user();
 
-        // Dynamic QR (TOTP) Anti-PrintScreen check
+        // Detect QR type and validate freshness
+        $qrType = 'entry'; // default
         try {
             $decrypted = \Illuminate\Support\Facades\Crypt::decryptString($qrCode);
             if (strpos($decrypted, '|') !== false) {
-                list($uuid, $timestamp) = explode('|', $decrypted);
-                
-                if (time() - (int)$timestamp > 30) {
-                    return response()->json(['status' => 'error', 'message' => 'QR Code Expirado (PrintScreen detetado). Por favor faça refresh na app.'], 400);
+                [$payload, $timestamp] = explode('|', $decrypted, 2);
+
+                // Detect type by prefix
+                if (str_starts_with($payload, 'BAR:')) {
+                    $qrType = 'bar';
+                    $uuid = substr($payload, 4); // Remove BAR:
+                    // Bar QR expires in 60 seconds (rotation is 45s)
+                    if (time() - (int)$timestamp > 60) {
+                        return response()->json(['status' => 'error', 'message' => '⏱️ QR Code de Bar Expirado. Pede ao cliente para fazer refresh na app.'], 400);
+                    }
+                } elseif (str_starts_with($payload, 'ENTRY:')) {
+                    $qrType = 'entry';
+                    $uuid = substr($payload, 6); // Remove ENTRY:
+                    // Entry QR expires in 60 seconds
+                    if (time() - (int)$timestamp > 60) {
+                        return response()->json(['status' => 'error', 'message' => '⏱️ QR Code de Entrada Expirado. Pede ao cliente para fazer refresh na app.'], 400);
+                    }
                 }
-                
                 $qrCode = $uuid;
             }
         } catch (\Exception $e) {
-            // Not encrypted or old static code, continue normally
+            // Not encrypted, continue with raw QR code
         }
 
-        // Check both tables to see where it exists.
-        
         $guestlist = Guestlist::with(['event', 'client.profile', 'rp'])->where('qr_code', $qrCode)->first();
         if ($guestlist) {
-            return $this->handleGuestlistScan($guestlist, $confirm, $clubId);
+            return $this->handleGuestlistScan($guestlist, $confirm, $clubId, $qrType);
         }
 
         $redemption = RewardRedemption::with(['reward', 'client.profile'])->where('qr_code', $qrCode)->first();
@@ -78,7 +89,7 @@ class StaffScanController extends Controller
         return response()->json(['status' => 'error', 'message' => 'QR Code inválido ou não encontrado.'], 404);
     }
 
-    private function handleGuestlistScan(Guestlist $guestlist, $confirm, $clubId)
+    private function handleGuestlistScan(Guestlist $guestlist, $confirm, $clubId, $qrType = 'entry')
     {
         if ($guestlist->event->club_id !== $clubId) {
             return response()->json(['status' => 'error', 'message' => 'Bilhete pertence a outro clube.'], 403);
@@ -89,7 +100,9 @@ class StaffScanController extends Controller
 
         $responsePayload = [
             'type' => 'guestlist',
+            'qr_type' => $qrType, // 'entry' or 'bar'
             'client' => [
+                'id' => $guestlist->client->id,
                 'name' => $guestlist->client->name,
                 'photo' => $this->resolvePhotoUrl($guestlist->client->profile->profile_photo_path ?? null),
             ],
@@ -103,6 +116,25 @@ class StaffScanController extends Controller
             'checked_in_at' => $guestlist->checked_in_at
         ];
 
+        // BAR QR: Only for clients already checked in — add points
+        if ($qrType === 'bar') {
+            if ($guestlist->status !== 'checked_in') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Cliente ainda não entrou. Usa o QR de entrada primeiro.',
+                    'data' => $responsePayload
+                ], 400);
+            }
+
+            // Bar scan — prompt for purchase amount
+            return response()->json([
+                'status' => 'awaiting_payment',
+                'message' => 'QR de Bar. Processar consumo?',
+                'data' => $responsePayload
+            ]);
+        }
+
+        // ENTRY QR: Check-in flow
         if ($now->lt($eventStart)) {
             return response()->json([
                 'status' => 'error',
@@ -111,15 +143,15 @@ class StaffScanController extends Controller
             ], 400);
         }
 
-        if ($confirm) {
-            if ($guestlist->status === 'checked_in') {
-                return response()->json([
-                    'status' => 'awaiting_payment',
-                    'message' => 'Cliente já está dentro. Processar compra?',
-                    'data' => $responsePayload
-                ]);
-            }
+        if ($guestlist->status === 'checked_in') {
+            return response()->json([
+                'status' => 'already_in',
+                'message' => 'Já entrou às ' . Carbon::parse($guestlist->checked_in_at)->format('H:i') . '. Tudo bem!',
+                'data' => $responsePayload
+            ]);
+        }
 
+        if ($confirm) {
             $guestlist->update([
                 'status' => 'checked_in',
                 'checked_in_at' => $now
@@ -137,8 +169,8 @@ class StaffScanController extends Controller
 
         // Preview
         return response()->json([
-            'status' => $guestlist->status === 'checked_in' ? 'awaiting_payment' : 'info',
-            'message' => $guestlist->status === 'checked_in' ? 'Cliente já está dentro. Processar compra?' : 'Bilhete Válido. Pode entrar.',
+            'status' => 'info',
+            'message' => 'Bilhete Válido. Confirmar entrada?',
             'data' => $responsePayload
         ]);
     }
@@ -287,11 +319,23 @@ class StaffScanController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Pesquisa muito curta.'], 400);
         }
 
+        $now = Carbon::now('Europe/Lisbon');
+        $activeEvent = \App\Models\Event::where('club_id', $clubId)
+            ->whereIn('status', ['ongoing', 'upcoming'])
+            ->orderByRaw("CASE WHEN status = 'ongoing' THEN 1 ELSE 2 END")
+            ->orderBy('date', 'asc')
+            ->orderBy('start_time', 'asc')
+            ->first();
+
+        if (!$activeEvent) {
+            return response()->json([
+                'status' => 'success',
+                'data' => []
+            ]);
+        }
+
         $guests = Guestlist::with(['client', 'event'])
-            ->whereHas('event', function ($q) use ($clubId) {
-                $q->where('club_id', $clubId)
-                  ->whereIn('status', ['upcoming', 'ongoing']);
-            })
+            ->where('event_id', $activeEvent->id)
             ->whereHas('client', function ($q) use ($queryStr) {
                 $q->where('name', 'like', "%{$queryStr}%")
                   ->orWhere('email', 'like', "%{$queryStr}%");
@@ -338,6 +382,15 @@ class StaffScanController extends Controller
         }
 
         $now = Carbon::now('Europe/Lisbon');
+        $eventStart = Carbon::parse($guestlist->event->date . ' ' . $guestlist->event->start_time, 'Europe/Lisbon');
+
+        if ($now->lt($eventStart)) {
+            return response()->json([
+                'status' => 'error', 
+                'message' => 'O evento ainda não começou. (Início: ' . $eventStart->format('H:i') . ')'
+            ], 400);
+        }
+
         $guestlist->update([
             'status' => 'checked_in',
             'checked_in_at' => $now

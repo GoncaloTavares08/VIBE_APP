@@ -697,35 +697,35 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
           <div
             className="p-4 rounded-xl flex items-center justify-between"
             style={{
-              background: ghostMode
-                ? 'rgba(147, 51, 234, 0.1)'
+              background: !ghostMode
+                ? 'rgba(212, 175, 55, 0.1)'
                 : 'rgba(255, 255, 255, 0.03)',
-              border: ghostMode
-                ? '1px solid rgba(147, 51, 234, 0.3)'
+              border: !ghostMode
+                ? '1px solid rgba(212, 175, 55, 0.3)'
                 : '1px solid rgba(255, 255, 255, 0.05)',
             }}
           >
             <div>
               <p className="text-white font-black">Visibility in Party</p>
               <p className="text-sm text-gray-400">
-                {ghostMode
-                  ? "You're hidden from 'Who is Here' list"
-                  : "Your presence is visible to others"}
+                {!ghostMode
+                  ? "Your presence is visible to others"
+                  : "You're hidden from 'Who is Here' list"}
               </p>
             </div>
             <button
               onClick={handleToggleGhostMode}
               className="relative w-16 h-8 rounded-full p-1 transition-all duration-300"
               style={{
-                background: ghostMode
-                  ? 'linear-gradient(135deg, #9333ea 0%, #c084fc 100%)'
+                background: !ghostMode
+                  ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)'
                   : 'rgba(255, 255, 255, 0.2)',
               }}
             >
               <div
                 className="w-6 h-6 bg-white rounded-full transition-transform duration-300"
                 style={{
-                  transform: ghostMode ? 'translateX(32px)' : 'translateX(0)',
+                  transform: !ghostMode ? 'translateX(32px)' : 'translateX(0)',
                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
                 }}
               />
@@ -736,14 +736,14 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
             <div
               className="p-3 rounded-lg flex items-start gap-3"
               style={{
-                background: 'rgba(147, 51, 234, 0.1)',
-                border: '1px solid rgba(147, 51, 234, 0.3)',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
               }}
             >
-              <EyeOff className="w-5 h-5 text-purple-400 mt-0.5" />
+              <EyeOff className="w-5 h-5 text-gray-400 mt-0.5" />
               <div>
-                <p className="text-sm text-purple-300">Ghost Mode Active</p>
-                <p className="text-xs text-purple-400 mt-1">
+                <p className="text-sm text-gray-300">Incógnito Active</p>
+                <p className="text-xs text-gray-400 mt-1">
                   You'll still earn points, but others won't see you in the live party section.
                 </p>
               </div>

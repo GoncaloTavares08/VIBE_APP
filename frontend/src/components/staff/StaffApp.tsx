@@ -105,23 +105,11 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
   if (window.innerWidth < 1024 && isMobile) { // Using the hook state which relies on resize
     // Re-using the mobile layout from before, as that was specifically requested for mobile
     return (
-      <div className="h-screen flex flex-col" style={{ background: '#0a0a0a' }}>
-        <div className="flex-1 relative overflow-y-auto pb-28">
+      <div className="fixed inset-0 h-[100dvh] flex flex-col overflow-hidden w-full overscroll-none" style={{ background: '#0a0a0a' }}>
+        <div className={`flex-1 relative pb-24 ${currentView === 'scanner' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           {currentView === 'scanner' && (
             <div className="h-full flex flex-col">
               <Scanner onOpenManual={() => setShowManualCheckin(true)} />
-              {/* Manual Check-in Button - Inside scrollable container */}
-              <button
-                onClick={() => setShowManualCheckin(true)}
-                className="mx-4 my-4 transition-all duration-300 hover:scale-105 active:scale-95"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(255, 215, 0, 0.2) 100%)',
-                  backdropFilter: 'blur(20px)', border: '1px solid rgba(212, 175, 55, 0.5)',
-                  borderRadius: '16px', padding: '14px 28px', boxShadow: '0 8px 32px rgba(212, 175, 55, 0.3)',
-                }}
-              >
-                <span className="text-[#D4AF37] font-semibold text-center block">Manual Check-in</span>
-              </button>
             </div>
           )}
           {currentView === 'statistics' && <Statistics />}

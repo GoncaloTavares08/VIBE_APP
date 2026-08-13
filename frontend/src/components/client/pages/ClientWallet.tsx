@@ -142,11 +142,10 @@ export function ClientWallet({ user }: ClientWalletProps) {
       // Fetch fresh data from API to get latest points
       const fetchFreshData = async () => {
         try {
-          const response = await apiFetch(`/profile`, {
+          const data = await apiFetch(`/profile`, {
             method: 'GET'
           });
 
-          const data = await response.json();
           if (data.debug) {
             console.log('API Debug:', data.debug);
           }
@@ -219,7 +218,7 @@ export function ClientWallet({ user }: ClientWalletProps) {
       
       const rotationInterval = setInterval(() => {
         fetchMyRedemptions();
-      }, 15000);
+      }, 45000);
 
       return () => clearInterval(rotationInterval);
     }
@@ -636,56 +635,64 @@ export function ClientWallet({ user }: ClientWalletProps) {
                           </div>
                         </div>
 
-                        {/* QR Code - Hidden by default */}
-                        {!showQR ? (
-                          <button
-                            onClick={() => toggleQRCode(redemption.id)}
-                            className="w-full py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all hover:scale-105"
-                            style={{
-                              background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-                              color: '#000',
-                            }}
-                          >
-                            <QrCode className="w-5 h-5" />
-                            Ver QR Code
-                          </button>
-                        ) : (
-                            <div className="space-y-3">
-                              <div
-                                className="p-4 rounded-xl text-center flex flex-col items-center justify-center overflow-hidden"
-                                style={{
-                                  background: '#FFF',
-                                }}
-                              >
-                                <img
-                                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${btoa('VIBE_SECURE:' + redemption.qr_code)}`}
-                                  alt="Reward QR Code"
-                                  className="w-full max-w-[200px] h-auto object-contain"
-                                />
-                              </div>
-                              
-                              {/* Visual rotation indicator */}
-                              <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden mb-2">
-                                <div 
-                                  className="h-full bg-[#D4AF37]" 
+                        {/* QR Code - Hidden by default, and never shown if already used */}
+                        {redemption.status !== 'used' && (
+                          !showQR ? (
+                            <button
+                              onClick={() => toggleQRCode(redemption.id)}
+                              className="w-full py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all hover:scale-105"
+                              style={{
+                                background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                                color: '#000',
+                              }}
+                            >
+                              <QrCode className="w-5 h-5" />
+                              Ver QR Code
+                            </button>
+                          ) : (
+                              <div className="space-y-3">
+                                <div
+                                  className="p-4 rounded-xl text-center flex flex-col items-center justify-center overflow-hidden"
                                   style={{
-                                    animation: 'shrink 15s linear infinite'
+                                    background: '#FFF',
                                   }}
-                                />
-                              </div>
+                                >
+                                  <img
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(redemption.qr_code)}`}
+                                    alt="Reward QR Code"
+                                    className="w-full max-w-[200px] h-auto object-contain"
+                                  />
+                                </div>
+                                
+                                {/* Visual rotation indicator */}
+                                <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden mb-2">
+                                  <div 
+                                    className="h-full bg-[#D4AF37]" 
+                                    style={{
+                                      animation: 'shrink 45s linear infinite'
+                                    }}
+                                  />
+                                  <style>{`
+                                    @keyframes shrink {
+                                      from { width: 100%; }
+                                      to { width: 0%; }
+                                    }
+                                  `}</style>
+                                </div>
 
-                              <button
-                                onClick={() => toggleQRCode(redemption.id)}
-                                className="w-full py-2 rounded-lg text-sm font-bold"
-                                style={{
-                                  background: 'rgba(255, 255, 255, 0.1)',
-                                  color: '#888',
-                                }}
-                              >
-                                Ocultar QR Code
-                              </button>
-                            </div>
-                          )}
+                                <button
+                                  onClick={() => toggleQRCode(redemption.id)}
+                                  className="w-full py-2 rounded-lg text-sm font-bold"
+                                  style={{
+                                    background: 'rgba(255, 255, 255, 0.1)',
+                                    color: '#888',
+                                  }}
+                                >
+                                  Ocultar QR Code
+                                </button>
+                              </div>
+                            )
+                        )}
 
                         {/* Expiration */}
                         <div className="flex items-center gap-2 text-sm">

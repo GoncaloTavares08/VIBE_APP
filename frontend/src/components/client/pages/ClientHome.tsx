@@ -666,7 +666,7 @@ function LivePartyView({ event }: { event?: Event | null }) {
                 </div>
               ) : qrCode ? (
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${btoa('VIBE_SECURE:' + qrCode)}`}
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrCode)}`}
                   alt="QR Code"
                   className="w-full h-full object-contain"
                 />

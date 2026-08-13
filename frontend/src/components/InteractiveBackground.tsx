@@ -34,7 +34,7 @@ export const InteractiveBackground = () => {
                     repeat: Infinity,
                     ease: "easeInOut"
                 }}
-                className="absolute top-[-10%] left-[-20%] md:left-0 w-[120vw] md:w-[50vw] h-[120vw] md:h-[50vw] rounded-full mix-blend-screen filter blur-[90px] md:blur-[120px] opacity-40 md:opacity-20"
+                className="absolute top-[-10%] left-[-20%] md:left-0 w-[120vw] md:w-[50vw] h-[120vw] md:h-[50vw] rounded-full opacity-40 md:opacity-20"
                 style={{ background: 'radial-gradient(circle, #D4AF37 0%, transparent 70%)' }}
             />
             
@@ -51,7 +51,7 @@ export const InteractiveBackground = () => {
                     ease: "easeInOut",
                     delay: 2
                 }}
-                className="absolute bottom-[-10%] right-[-20%] md:right-0 w-[140vw] md:w-[50vw] h-[140vw] md:h-[50vw] rounded-full mix-blend-screen filter blur-[90px] md:blur-[120px] opacity-30 md:opacity-10"
+                className="absolute bottom-[-10%] right-[-20%] md:right-0 w-[140vw] md:w-[50vw] h-[140vw] md:h-[50vw] rounded-full opacity-30 md:opacity-10"
                 style={{ background: 'radial-gradient(circle, #FFD700 0%, transparent 70%)' }}
             />
 
@@ -68,7 +68,7 @@ export const InteractiveBackground = () => {
                     ease: "easeInOut",
                     delay: 4
                 }}
-                className="absolute top-[20%] left-[10%] w-[100vw] md:w-[40vw] h-[100vw] md:h-[40vw] rounded-full mix-blend-screen filter blur-[100px] opacity-25 md:opacity-0"
+                className="absolute top-[20%] left-[10%] w-[100vw] md:w-[40vw] h-[100vw] md:h-[40vw] rounded-full opacity-25 md:opacity-0"
                 style={{ background: 'radial-gradient(circle, #B8860B 0%, transparent 70%)' }}
             />
 
@@ -85,7 +85,7 @@ export const InteractiveBackground = () => {
                     stiffness: 150,
                     mass: 0.8
                 }}
-                className="absolute w-[500px] h-[500px] rounded-full mix-blend-screen filter blur-[100px] hidden md:block"
+                className="absolute w-[500px] h-[500px] rounded-full hidden md:block"
                 style={{ background: 'radial-gradient(circle, #D4AF37 0%, transparent 60%)' }}
             />
 

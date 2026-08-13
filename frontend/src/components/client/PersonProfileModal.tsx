@@ -36,6 +36,33 @@ export function PersonProfileModal({ person, isMatch, onClose }: PersonProfileMo
     }
   };
 
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe) {
+      nextPhoto();
+    }
+    if (isRightSwipe) {
+      prevPhoto();
+    }
+  };
+
   // Preload next and previous images
   useEffect(() => {
     if (person.photos) {
@@ -84,7 +111,12 @@ export function PersonProfileModal({ person, isMatch, onClose }: PersonProfileMo
         <div className="overflow-y-auto flex-1 overscroll-contain no-scrollbar">
 
           {/* Photo Gallery */}
-          <div className="relative h-96 select-none bg-black">
+          <div 
+            className="relative h-96 select-none bg-black"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
             <ImageWithFallback
               key={`photo-${person.id}-${currentPhotoIndex}`} // Force re-render on photo change
               src={person.photos[currentPhotoIndex]}
