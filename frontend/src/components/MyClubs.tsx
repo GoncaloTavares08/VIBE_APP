@@ -56,8 +56,44 @@ export function MyClubs({ user, onNavigate }: MyClubsProps) {
 
     if (loading) {
         return (
-            <div className="flex justify-center py-12">
-                <div className="w-8 h-8 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin"></div>
+            <div className="space-y-4">
+                <section className="pt-20 pb-10 relative z-10">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="mb-12 text-center animate-pulse">
+                            <div className="h-10 bg-white/10 rounded-xl w-64 mx-auto mb-4"></div>
+                            <div className="h-4 bg-white/5 rounded-lg w-96 mx-auto"></div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {[1, 2, 3].map((skeleton) => (
+                                <div
+                                    key={skeleton}
+                                    className="relative h-full rounded-3xl p-1 overflow-hidden"
+                                    style={{
+                                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02))',
+                                        backdropFilter: 'blur(20px)',
+                                    }}
+                                >
+                                    <div className="bg-[#0a0a0a] rounded-[1.4rem] h-full flex flex-col justify-between">
+                                        <div className="p-6 md:p-8 animate-pulse">
+                                            {/* Icon Skeleton */}
+                                            <div className="w-14 h-14 bg-white/10 rounded-2xl mb-6"></div>
+                                            {/* Title Skeleton */}
+                                            <div className="h-8 bg-white/10 rounded-xl w-3/4 mb-4"></div>
+                                            {/* Location Skeleton */}
+                                            <div className="h-4 bg-white/10 rounded-lg w-1/2 mb-6"></div>
+                                        </div>
+                                        {/* Bottom Bar Skeleton */}
+                                        <div className="p-4 border-t border-white/5 bg-white/5 flex items-center justify-between animate-pulse">
+                                            <div className="h-4 bg-white/10 rounded-lg w-24"></div>
+                                            <div className="w-5 h-5 bg-white/10 rounded-full"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
             </div>
         );
     }

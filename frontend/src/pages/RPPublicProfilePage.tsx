@@ -65,18 +65,32 @@ export function RPPublicProfilePage({ rpname }: RPPublicProfilePageProps) {
     if (loading) {
         return (
             <div
-                className="min-h-screen flex items-center justify-center"
+                className="min-h-screen relative overflow-hidden"
                 style={{ background: 'linear-gradient(180deg, #0a0a0a 0%, #121212 100%)' }}
             >
-                <div className="text-center">
-                    <div
-                        className="w-16 h-16 border-4 rounded-full animate-spin mx-auto mb-4"
-                        style={{
-                            borderColor: 'rgba(212, 175, 55, 0.3)',
-                            borderTopColor: '#D4AF37',
-                        }}
-                    ></div>
-                    <p className="text-gray-400">A carregar perfil...</p>
+                {/* Header Skeleton */}
+                <div className="pt-24 pb-12 px-4 relative z-10">
+                    <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center gap-8 animate-pulse">
+                        <div className="w-32 h-32 md:w-48 md:h-48 rounded-full bg-white/10 shrink-0"></div>
+                        <div className="flex-1 text-center md:text-left space-y-4 w-full">
+                            <div className="h-10 bg-white/10 rounded-xl w-3/4 mx-auto md:mx-0"></div>
+                            <div className="h-6 bg-white/5 rounded-lg w-1/2 mx-auto md:mx-0"></div>
+                            <div className="flex gap-4 justify-center md:justify-start mt-6">
+                                <div className="h-12 bg-white/10 rounded-2xl w-32"></div>
+                                <div className="h-12 bg-white/10 rounded-2xl w-32"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Content Skeleton */}
+                <div className="max-w-7xl mx-auto px-4 pb-24 relative z-10">
+                    <div className="h-8 bg-white/10 rounded-xl w-48 mb-8 animate-pulse"></div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="h-64 bg-white/5 rounded-3xl animate-pulse"></div>
+                        ))}
+                    </div>
                 </div>
             </div>
         );

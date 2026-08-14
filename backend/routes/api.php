@@ -73,6 +73,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/staff/purchase', [StaffScanController::class, 'processPurchase']);
     Route::get('/staff/scan/search', [StaffScanController::class, 'searchGuestlist']);
     Route::post('/staff/scan/manual-checkin', [StaffScanController::class, 'manualCheckin']);
+    Route::get('/staff/statistics', [StaffScanController::class, 'getStatistics']);
 
     Route::get('/rp/profile', [RpController::class, 'showProfile']);
     Route::post('/rp/profile/check-username', [RpController::class, 'checkUsername']);

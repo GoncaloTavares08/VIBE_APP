@@ -6,18 +6,22 @@ import {
     Users,
     AlertCircle,
     Check,
-    X
+    X,
+    Flame
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { apiFetch } from '../services/api';
+import { PersonProfileModal } from './client/PersonProfileModal';
 
 interface Notification {
     id: string;
-    type: 'registration' | 'payment' | 'event' | 'team' | 'system';
+    type: 'registration' | 'payment' | 'event' | 'team' | 'system' | 'match';
     title: string;
     description: string;
     timestamp: string;
     isRead: boolean;
     avatar?: string;
+    data?: any;
 }
 
 interface NotificationPanelProps {
@@ -34,6 +38,7 @@ const notificationIcons = {
     event: Calendar,
     team: Users,
     system: AlertCircle,
+    match: Flame,
 };
 
 const notificationColors = {
@@ -42,25 +47,17 @@ const notificationColors = {
     event: '#D4AF37', // Gold
     team: '#3B82F6', // Blue
     system: '#EF4444', // Red
+    match: '#FF4500', // Orange Red
 };
 
 export function NotificationPanel({ isOpen, onClose, onUnreadCountChange }: NotificationPanelProps) {
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [selectedPerson, setSelectedPerson] = useState<any>(null);
 
     // Fetch notifications
     const fetchNotifications = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const clubId = localStorage.getItem('clubId');
-            
-            const response = await fetch('http://localhost:8000/api/notifications', {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'X-Client-ID': clubId || 'eskada',
-                    'Accept': 'application/json'
-                }
-            });
-            const data = await response.json();
+            const data = await apiFetch('/notifications');
             if (data.status === 'success') {
                 setNotifications(data.data);
             }
@@ -90,15 +87,8 @@ export function NotificationPanel({ isOpen, onClose, onUnreadCountChange }: Noti
     const handleMarkAllRead = async () => {
         setNotifications(notifications.map(n => ({ ...n, isRead: true })));
         try {
-            const token = localStorage.getItem('token');
-            const clubId = localStorage.getItem('clubId');
-            await fetch('http://localhost:8000/api/notifications/mark-all-read', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'X-Client-ID': clubId || 'eskada',
-                    'Accept': 'application/json'
-                }
+            await apiFetch('/notifications/mark-all-read', {
+                method: 'POST'
             });
         } catch (error) {
             console.error(error);
@@ -110,18 +100,31 @@ export function NotificationPanel({ isOpen, onClose, onUnreadCountChange }: Noti
             n.id === id ? { ...n, isRead: true } : n
         ));
         try {
-            const token = localStorage.getItem('token');
-            const clubId = localStorage.getItem('clubId');
-            await fetch(`http://localhost:8000/api/notifications/${id}/mark-read`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'X-Client-ID': clubId || 'eskada',
-                    'Accept': 'application/json'
-                }
+            await apiFetch(`/notifications/${id}/mark-read`, {
+                method: 'POST'
             });
         } catch (error) {
             console.error(error);
+        }
+    };
+
+    const handleNotificationClick = async (notification: Notification) => {
+        if (!notification.isRead) {
+            handleMarkAsRead(notification.id);
+        }
+
+        if (notification.type === 'match' && notification.data?.matched_user_id) {
+            try {
+                const response = await apiFetch('/networking/matches');
+                if (response.status === 'success' && response.matches) {
+                    const person = response.matches.find((m: any) => m.id === notification.data.matched_user_id);
+                    if (person) {
+                        setSelectedPerson(person);
+                    }
+                }
+            } catch (err) {
+                console.error('Error fetching match profile:', err);
+            }
         }
     };
 
@@ -253,7 +256,7 @@ export function NotificationPanel({ isOpen, onClose, onUnreadCountChange }: Noti
                                                         ? 'transparent'
                                                         : 'rgba(212, 175, 55, 0.03)',
                                                 }}
-                                                onClick={() => handleMarkAsRead(notification.id)}
+                                                onClick={() => handleNotificationClick(notification)}
                                                 whileHover={{
                                                     background: 'rgba(212, 175, 55, 0.08)',
                                                 }}
@@ -337,6 +340,15 @@ export function NotificationPanel({ isOpen, onClose, onUnreadCountChange }: Noti
                             </div>
                         )}
                     </motion.div>
+                    
+                    {/* Render Person Profile Modal if a match is clicked */}
+                    {selectedPerson && (
+                        <PersonProfileModal
+                            person={selectedPerson}
+                            isMatch={true}
+                            onClose={() => setSelectedPerson(null)}
+                        />
+                    )}
                 </>
             )}
         </AnimatePresence>

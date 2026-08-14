@@ -54,6 +54,8 @@ class StaffScanController extends Controller
             if (strpos($decrypted, '|') !== false) {
                 [$payload, $timestamp] = explode('|', $decrypted, 2);
 
+                $uuid = $payload;
+
                 // Detect type by prefix
                 if (str_starts_with($payload, 'BAR:')) {
                     $qrType = 'bar';
@@ -399,6 +401,122 @@ class StaffScanController extends Controller
         return response()->json([
             'status' => 'success',
             'checkInTime' => $now->format('H:i')
+        ]);
+    }
+    public function getStatistics(Request $request)
+    {
+        $clubId = $this->getClubId($request);
+        if (!$clubId) {
+            return response()->json(['status' => 'error', 'message' => 'Clube não encontrado.'], 400);
+        }
+
+        $club = Club::find($clubId);
+        if (!$club) {
+            return response()->json(['status' => 'error', 'message' => 'Clube não encontrado.'], 404);
+        }
+
+        // Get today's active event for this club
+        $today = Carbon::today('Europe/Lisbon')->toDateString();
+        // Sometimes events pass midnight, so we also check yesterday if time is early morning.
+        $now = Carbon::now('Europe/Lisbon');
+        $searchDate = $now->hour < 10 ? $now->copy()->subDay()->toDateString() : $today;
+
+        $event = Event::where('club_id', $clubId)
+                      ->where('date', $searchDate)
+                      ->first();
+
+        $currentOccupancy = 0;
+        $maxCapacity = $club->max_capacity ?? 500;
+        $genderRatio = ['male' => 50, 'female' => 50];
+        $entriesData = [];
+        $totalEntries = 0;
+        $avgEntryTime = '--:--';
+
+        if ($event) {
+            $guestlists = Guestlist::with('client.profile')
+                                  ->where('event_id', $event->id)
+                                  ->where('status', 'checked_in')
+                                  ->whereNotNull('checked_in_at')
+                                  ->get();
+
+            $currentOccupancy = $guestlists->count();
+            $totalEntries = $currentOccupancy;
+
+            if ($totalEntries > 0) {
+                $males = 0;
+                $females = 0;
+                $entriesByHour = [];
+                $totalMinutes = 0;
+
+                foreach ($guestlists as $g) {
+                    // Gender
+                    if ($g->client && $g->client->profile) {
+                        if ($g->client->profile->gender === 'male') $males++;
+                        else if ($g->client->profile->gender === 'female') $females++;
+                    }
+
+                    // Entries by hour
+                    $checkInTime = Carbon::parse($g->checked_in_at, 'Europe/Lisbon');
+                    $hourString = $checkInTime->format('H:00');
+                    if (!isset($entriesByHour[$hourString])) {
+                        $entriesByHour[$hourString] = 0;
+                    }
+                    $entriesByHour[$hourString]++;
+
+                    // For Average time
+                    $hour = $checkInTime->hour;
+                    $min = $checkInTime->minute;
+                    // If hour < 10, it's the next day, add 24 to it for average calculation
+                    $calcHour = $hour < 10 ? $hour + 24 : $hour;
+                    $totalMinutes += ($calcHour * 60) + $min;
+                }
+
+                // Calculate Gender Ratio
+                $totalGendered = $males + $females;
+                if ($totalGendered > 0) {
+                    $genderRatio['male'] = round(($males / $totalGendered) * 100);
+                    $genderRatio['female'] = 100 - $genderRatio['male'];
+                }
+
+                // Format entriesData
+                ksort($entriesByHour);
+                foreach ($entriesByHour as $time => $count) {
+                    $entriesData[] = [
+                        'time' => $time,
+                        'count' => $count
+                    ];
+                }
+
+                // Average entry time
+                $avgMinutes = round($totalMinutes / $totalEntries);
+                $avgH = floor($avgMinutes / 60);
+                $avgM = $avgMinutes % 60;
+                if ($avgH >= 24) $avgH -= 24;
+                $avgEntryTime = sprintf('%02d:%02d', $avgH, $avgM);
+            }
+        }
+
+        if (empty($entriesData)) {
+            $entriesData = [
+                ['time' => '23:00', 'count' => 0],
+                ['time' => '00:00', 'count' => 0],
+                ['time' => '01:00', 'count' => 0]
+            ];
+        }
+        
+        $occupancyPercentage = $maxCapacity > 0 ? min(100, ($currentOccupancy / $maxCapacity) * 100) : 0;
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'currentOccupancy' => $currentOccupancy,
+                'maxCapacity' => $maxCapacity,
+                'occupancyPercentage' => $occupancyPercentage,
+                'genderRatio' => $genderRatio,
+                'entriesData' => $entriesData,
+                'totalEntries' => $totalEntries,
+                'avgEntryTime' => $avgEntryTime
+            ]
         ]);
     }
 }

@@ -34,6 +34,7 @@ class ClientHistoryController extends Controller
         $events = DB::table('guestlist as g')
             ->join('events as e', 'g.event_id', '=', 'e.id')
             ->where('g.client_id', $userId)
+            ->where('e.club_id', $club->id)
             ->where('g.status', 'checked_in')
             ->orderBy('g.checked_in_at', 'desc')
             ->orderBy('e.date', 'desc')
@@ -50,11 +51,15 @@ class ClientHistoryController extends Controller
         // 2. Fetch Points History using UNION for proper pagination
         $transactions = DB::table('points_transactions')
             ->where('user_id', $userId)
+            ->where('club_id', $club->id)
+            ->where('transaction_type', '!=', 'reward_redemption')
             ->select('id', 'points', 'transaction_type', 'amount_spent', 'created_at', DB::raw("NULL as reward_name"));
 
-        $history = DB::table('reward_redemptions')
-            ->where('user_id', $userId)
-            ->select('id', DB::raw('(-1 * points_spent) as points'), DB::raw("'reward_redemption' as transaction_type"), DB::raw('0.00 as amount_spent'), 'redeemed_at as created_at', 'reward_name')
+        $history = DB::table('reward_redemptions as rr')
+            ->join('rewards as r', 'rr.reward_id', '=', 'r.id')
+            ->where('rr.user_id', $userId)
+            ->where('r.club_id', $club->id)
+            ->select('rr.id', DB::raw('(-1 * rr.points_spent) as points'), DB::raw("'reward_redemption' as transaction_type"), DB::raw('0.00 as amount_spent'), 'rr.redeemed_at as created_at', 'rr.reward_name')
             ->union($transactions)
             ->orderBy('created_at', 'desc')
             ->paginate(15, ['*'], 'history_page');

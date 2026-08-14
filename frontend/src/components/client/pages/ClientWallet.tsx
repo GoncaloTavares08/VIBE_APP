@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { ImageWithFallback } from '../../figma/ImageWithFallback';
-import { Sparkles, Gift, TrendingUp, TrendingDown, ArrowRight, X, Check, QrCode, Clock, Info, Award } from 'lucide-react';
+import { Sparkles, Gift, TrendingUp, TrendingDown, ArrowRight, X, Check, QrCode, Clock, Info, Award, CreditCard } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
 
 const RANKS = [
@@ -93,7 +94,15 @@ export function ClientWallet({ user }: ClientWalletProps) {
   const [weeklyPoints, setWeeklyPoints] = useState(0);
   const [userRank, setUserRank] = useState(0);
 
-  const memberLevel = 'Gold Member';
+  const getRank = (pts: number) => {
+    if (pts >= 20000) return { name: 'Diamond Member', color: '#B9F2FF', bg: 'linear-gradient(135deg, #0A192F 0%, #000000 100%)', mesh: '#B9F2FF', glow: '#B9F2FF' };
+    if (pts >= 5000) return { name: 'Platinum Member', color: '#E5E4E2', bg: 'linear-gradient(135deg, #1A1A1A 0%, #000000 100%)', mesh: '#E5E4E2', glow: '#E5E4E2' };
+    if (pts >= 1500) return { name: 'Gold Member', color: '#FFD700', bg: 'linear-gradient(135deg, #1A1600 0%, #000000 100%)', mesh: '#D4AF37', glow: '#D4AF37' };
+    if (pts >= 250) return { name: 'Silver Member', color: '#C0C0C0', bg: 'linear-gradient(135deg, #111111 0%, #000000 100%)', mesh: '#C0C0C0', glow: '#C0C0C0' };
+    return { name: 'Bronze Member', color: '#CD7F32', bg: 'linear-gradient(135deg, #241408 0%, #000000 100%)', mesh: '#CD7F32', glow: '#CD7F32' };
+  };
+
+  const currentRank = getRank(userPoints);
 
   const formatMemberSince = (dateString: string | null) => {
     if (!dateString) return 'Jan 2024'; // Fallback
@@ -112,22 +121,7 @@ export function ClientWallet({ user }: ClientWalletProps) {
     }));
   };
 
-  const getClubSlug = () => {
-    // Priority: User's saved slug > LocalStorage > URL (careful with subdirs) > Default
-    if (user?.club_slug) return user.club_slug;
 
-    const stored = localStorage.getItem('clubSlug');
-    if (stored) return stored;
-
-    // Check URL. If we are at /rp/wallet, this might fail to give a club slug.
-    // However, if the user logged in correctly, user.club_slug SHOULD be populated.
-    const pathSegments = window.location.pathname.split('/').filter(Boolean);
-    if (pathSegments.length > 0 && pathSegments[0] !== 'rp' && pathSegments[0] !== 'admin') {
-      return pathSegments[0];
-    }
-
-    return '';
-  };
 
   useEffect(() => {
     // Priority: Prop > LocalStorage
@@ -195,10 +189,10 @@ export function ClientWallet({ user }: ClientWalletProps) {
     fetchRewards();
   }, []);
 
-  const fetchMyRedemptions = async () => {
+  const fetchMyRedemptions = async (silent = false) => {
     if (!userId) return;
 
-    setRedemptionsLoading(true);
+    if (!silent) setRedemptionsLoading(true);
     try {
       const data = await apiFetch('/rewards/my-redemptions');
 
@@ -208,7 +202,7 @@ export function ClientWallet({ user }: ClientWalletProps) {
     } catch (error) {
       console.error('Error fetching redemptions:', error);
     } finally {
-      setRedemptionsLoading(false);
+      if (!silent) setRedemptionsLoading(false);
     }
   };
 
@@ -216,11 +210,11 @@ export function ClientWallet({ user }: ClientWalletProps) {
     if (userId) {
       fetchMyRedemptions();
       
-      const rotationInterval = setInterval(() => {
-        fetchMyRedemptions();
-      }, 45000);
+      const pollInterval = setInterval(() => {
+        fetchMyRedemptions(true);
+      }, 3000); // Polling silent every 3 seconds
 
-      return () => clearInterval(rotationInterval);
+      return () => clearInterval(pollInterval);
     }
   }, [userId]);
 
@@ -291,155 +285,191 @@ export function ClientWallet({ user }: ClientWalletProps) {
   }
 
   return (
-    <div className="min-h-screen p-4 lg:p-8" style={{ background: '#0a0a0a' }}>
+    <div className="relative">
       {/* Ambient background glow */}
       <div
-        className="fixed inset-0 opacity-20 pointer-events-none"
+        className="fixed inset-0 opacity-20 pointer-events-none z-0"
         style={{
-          background: 'radial-gradient(circle at 20% 20%, rgba(212, 175, 55, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(147, 51, 234, 0.2) 0%, transparent 50%)',
+          background: `radial-gradient(circle at 20% 20%, ${currentRank.color}30 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(147, 51, 234, 0.2) 0%, transparent 50%)`,
         }}
       />
 
-      <div className="relative max-w-6xl mx-auto space-y-8">
+      <div className="relative max-w-6xl mx-auto space-y-8 z-10">
         {/* Premium Balance Card */}
-        <div
-          className="relative overflow-hidden rounded-3xl p-8"
+        <motion.div
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="relative overflow-hidden rounded-[2rem] p-8 md:p-10 cursor-pointer shadow-2xl"
           style={{
-            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(255, 215, 0, 0.2) 100%)',
-            backdropFilter: 'blur(30px)',
-            border: '2px solid rgba(212, 175, 55, 0.5)',
-            boxShadow: '0 20px 60px rgba(212, 175, 55, 0.3)',
+            background: currentRank.bg,
+            border: `1px solid ${currentRank.color}40`,
+            boxShadow: `0 30px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1)`,
           }}
         >
-          {/* Card Shine Effect */}
-          <div
-            className="absolute top-0 left-0 w-full h-full opacity-30"
-            style={{
-              background: 'linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%)',
-              transform: 'translateX(-100%)',
-              animation: 'shine 3s infinite',
+          {/* Metallic Mesh Background */}
+          <div 
+            className="absolute inset-0 opacity-[0.04]"
+            style={{ 
+              backgroundImage: `radial-gradient(${currentRank.mesh} 1px, transparent 1px)`,
+              backgroundSize: '20px 20px' 
             }}
           />
 
+          {/* Dynamic Shimmer Effect */}
+          <motion.div
+            animate={{
+              x: ['-100%', '200%'],
+            }}
+            transition={{
+              duration: 3,
+              repeat: Infinity,
+              repeatDelay: 4,
+              ease: "easeInOut"
+            }}
+            className="absolute top-0 left-0 w-[150%] h-full opacity-10 pointer-events-none"
+            style={{
+              background: `linear-gradient(115deg, transparent 20%, rgba(255, 255, 255, 0.6) 45%, ${currentRank.color}80 55%, transparent 80%)`,
+              transform: 'skewX(-20deg)',
+            }}
+          />
+
+          {/* Ambient Glows */}
+          <div className="absolute top-[-20%] right-[-10%] w-64 h-64 opacity-20 rounded-full blur-[80px]" style={{ background: currentRank.glow }} />
+          <div className="absolute bottom-[-20%] left-[-10%] w-48 h-48 opacity-10 rounded-full blur-[60px]" style={{ background: currentRank.color }} />
+
           {/* Card Content */}
-          <div className="relative z-10 space-y-6">
+          <div className="relative z-10 space-y-8">
             {/* Top Row */}
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-gray-300 mb-1">VIBE Balance</p>
+                <p className="text-sm font-medium tracking-widest uppercase mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>VIBE Balance</p>
                 <p
-                  className="text-6xl font-black tracking-tight"
+                  className="text-5xl md:text-6xl font-black tracking-tight flex items-center gap-2"
                   style={{
-                    background: 'linear-gradient(135deg, #FFD700 0%, #FFF 50%, #FFD700 100%)',
+                    background: `linear-gradient(135deg, #FFF 0%, ${currentRank.color} 100%)`,
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                   }}
                 >
                   {userPoints.toLocaleString()}
                 </p>
-                <p className="text-sm text-gray-300 mt-1">POINTS</p>
               </div>
-              <Sparkles className="w-8 h-8 text-[#D4AF37]" />
+              <div className="p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+                <CreditCard className="w-8 h-8" style={{ color: currentRank.color }} />
+              </div>
             </div>
 
             {/* Bottom Row */}
-            <div className="flex items-end justify-between">
+            <div className="flex items-end justify-between pt-4">
               <div>
-                <p className="text-white text-lg">{userName}</p>
-                <div className="flex items-center gap-2">
+                <p className="text-white text-lg font-medium tracking-wide uppercase">{userName}</p>
+                <div className="flex items-center gap-2 mt-1">
                   <p
-                    className="text-sm"
+                    className="text-sm font-bold uppercase tracking-wider"
                     style={{
-                      color: '#D4AF37',
+                      color: currentRank.color,
                     }}
                   >
-                    {memberLevel}
+                    {currentRank.name}
                   </p>
-                  <button onClick={() => setShowRanksModal(true)}>
-                    <Info className="w-4 h-4 text-gray-400 hover:text-white transition-colors" />
+                  <button onClick={() => setShowRanksModal(true)} className="p-1 rounded-full hover:bg-white/10 transition-colors">
+                    <Info className="w-4 h-4 text-gray-400" />
                   </button>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-xs text-gray-400">Member Since</p>
-                <p className="text-sm text-white">{formatMemberSince(memberSince)}</p>
+                <p className="text-xs uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.4)' }}>Member Since</p>
+                <p className="text-sm text-gray-300 font-medium">{formatMemberSince(memberSince)}</p>
               </div>
             </div>
           </div>
-
-          {/* Card Pattern */}
-          <div
-            className="absolute bottom-0 right-0 w-64 h-64 opacity-10"
-            style={{
-              background: 'radial-gradient(circle, rgba(255, 255, 255, 0.5) 0%, transparent 70%)',
-            }}
-          />
-        </div>
+        </motion.div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <div
-            className="p-4 rounded-xl text-center"
+        <div className="grid grid-cols-3 gap-3 md:gap-4">
+          <motion.div
+            whileHover={{ y: -4 }}
+            className="p-4 md:p-5 rounded-2xl text-center group"
             style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
             }}
           >
             {weeklyPoints >= 0 ? (
-              <TrendingUp className="w-6 h-6 mx-auto mb-2 text-green-400" />
+              <TrendingUp className="w-6 h-6 mx-auto mb-3 text-green-400 group-hover:scale-110 transition-transform" />
             ) : (
-              <TrendingDown className="w-6 h-6 mx-auto mb-2 text-red-400" />
+              <TrendingDown className="w-6 h-6 mx-auto mb-3 text-red-400 group-hover:scale-110 transition-transform" />
             )}
-            <p className="text-2xl font-black text-white">
+            <p className="text-xl md:text-2xl font-black text-white">
               {weeklyPoints > 0 ? '+' : ''}{weeklyPoints}
             </p>
-            <p className="text-xs text-gray-400">This Week</p>
-          </div>
-          <div
-            className="p-4 rounded-xl text-center"
+            <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-wider mt-1">This Week</p>
+          </motion.div>
+          <motion.div
+            whileHover={{ y: -4 }}
+            className="p-4 md:p-5 rounded-2xl text-center group"
             style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
             }}
           >
-            <Gift className="w-6 h-6 mx-auto mb-2 text-[#D4AF37]" />
-            <p className="text-2xl font-black text-white">{redemptions.length}</p>
-            <p className="text-xs text-gray-400">Redeemed</p>
-          </div>
-          <div
-            className="p-4 rounded-xl text-center"
+            <Gift className="w-6 h-6 mx-auto mb-3 text-[#D4AF37] group-hover:scale-110 transition-transform" />
+            <p className="text-xl md:text-2xl font-black text-white">{redemptions.length}</p>
+            <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-wider mt-1">Redeemed</p>
+          </motion.div>
+          <motion.div
+            whileHover={{ y: -4 }}
+            className="p-4 md:p-5 rounded-2xl text-center group"
             style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
             }}
           >
-            <Sparkles className="w-6 h-6 mx-auto mb-2 text-purple-400" />
-            <p className="text-2xl font-black text-white">
+            <Sparkles className="w-6 h-6 mx-auto mb-3 text-purple-400 group-hover:scale-110 transition-transform" />
+            <p className="text-xl md:text-2xl font-black text-white">
               #{userRank > 0 ? userRank : '-'}
             </p>
-            <p className="text-xs text-gray-400">Ranking</p>
-          </div>
+            <p className="text-[10px] md:text-xs text-gray-500 uppercase tracking-wider mt-1">Ranking</p>
+          </motion.div>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-4 border-b border-gray-800">
+        <div className="flex p-1.5 rounded-full w-full max-w-md mx-auto lg:mx-0 relative overflow-hidden mt-8 mb-4"
+          style={{
+            background: 'rgba(0, 0, 0, 0.2)',
+            border: '1px solid rgba(255, 255, 255, 0.05)',
+            boxShadow: 'inset 0 2px 10px rgba(0, 0, 0, 0.3)'
+          }}
+        >
+          {/* Animated Background Pill */}
+          <div 
+            className="absolute top-1.5 bottom-1.5 rounded-full transition-all duration-300 ease-out"
+            style={{
+              width: 'calc(50% - 6px)',
+              left: activeTab === 'rewards' ? '6px' : 'calc(50%)',
+              background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 100%)',
+              border: '1px solid rgba(212, 175, 55, 0.3)',
+              boxShadow: '0 4px 15px rgba(212, 175, 55, 0.1)'
+            }}
+          />
+
           <button
             onClick={() => setActiveTab('rewards')}
-            className={`pb-4 px-2 font-black text-sm transition-all ${activeTab === 'rewards'
-              ? 'text-[#D4AF37] border-b-2 border-[#D4AF37]'
-              : 'text-gray-500'
+            className={`flex-1 py-3 rounded-full text-sm font-black transition-colors relative z-10 ${activeTab === 'rewards'
+              ? 'text-[#D4AF37]'
+              : 'text-gray-500 hover:text-gray-300'
               }`}
           >
             Prémios Disponíveis
           </button>
           <button
             onClick={() => setActiveTab('myrewards')}
-            className={`pb-4 px-2 font-black text-sm transition-all ${activeTab === 'myrewards'
-              ? 'text-[#D4AF37] border-b-2 border-[#D4AF37]'
-              : 'text-gray-500'
+            className={`flex-1 py-3 rounded-full text-sm font-black transition-colors relative z-10 ${activeTab === 'myrewards'
+              ? 'text-[#D4AF37]'
+              : 'text-gray-500 hover:text-gray-300'
               }`}
           >
             Meus Prémios
@@ -489,78 +519,77 @@ export function ClientWallet({ user }: ClientWalletProps) {
                   return (
                     <div
                       key={reward.id}
-                      className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:scale-105"
+                      className="group relative overflow-hidden rounded-[2rem] transition-all duration-300 hover:scale-[1.02] flex flex-col"
                       style={{
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        backdropFilter: 'blur(20px)',
+                        background: 'linear-gradient(145deg, rgba(30,30,30,0.6) 0%, rgba(15,15,15,0.8) 100%)',
                         border: canAfford
-                          ? '1px solid rgba(212, 175, 55, 0.4)'
-                          : '1px solid rgba(255, 255, 255, 0.1)',
+                          ? '1px solid rgba(212, 175, 55, 0.3)'
+                          : '1px solid rgba(255, 255, 255, 0.05)',
                         opacity: canAfford ? 1 : 0.6,
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
                       }}
                     >
                       {/* Image */}
-                      <div className="relative h-48 overflow-hidden">
-                        <ImageWithFallback
-                          src={reward.image_path ? `/api/serve-image?file=${reward.image_path}` : ''}
-                          alt={reward.name}
-                          className="w-full h-full object-cover"
-                        />
-                        <div
-                          className="absolute inset-0"
-                          style={{
-                            background: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.8) 100%)',
-                          }}
-                        />
-                        {/* Stock Badge */}
-                        <div
-                          className="absolute top-3 left-3 px-3 py-1 rounded-full text-xs"
-                          style={{
-                            background: 'rgba(0, 0, 0, 0.7)',
-                            backdropFilter: 'blur(10px)',
-                            color: '#D4AF37',
-                          }}
-                        >
-                          {reward.stock} disponível{reward.stock !== 1 ? 's' : ''}
+                      <div className="relative h-56 w-full overflow-hidden p-2">
+                        <div className="w-full h-full rounded-[1.5rem] overflow-hidden relative">
+                          <ImageWithFallback
+                            src={reward.image_path ? `/api/serve-image?file=${reward.image_path}` : ''}
+                            alt={reward.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                          />
+                          <div
+                            className="absolute inset-0"
+                            style={{
+                              background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)',
+                            }}
+                          />
+                          {/* Stock Badge */}
+                          <div
+                            className="absolute top-3 left-3 px-3 py-1.5 rounded-full text-[10px] font-black tracking-wider uppercase"
+                            style={{
+                              background: 'rgba(0, 0, 0, 0.6)',
+                              backdropFilter: 'blur(10px)',
+                              border: '1px solid rgba(212, 175, 55, 0.3)',
+                              color: '#D4AF37',
+                            }}
+                          >
+                            {reward.stock} disponível{reward.stock !== 1 ? 's' : ''}
+                          </div>
+                          
+                          <div className="absolute bottom-3 left-3 right-3">
+                            <h3 className="text-white font-black text-xl drop-shadow-md line-clamp-1">{reward.name}</h3>
+                          </div>
                         </div>
                       </div>
 
                       {/* Content */}
-                      <div className="p-4 space-y-3">
+                      <div className="p-5 pt-2 space-y-4 flex-1 flex flex-col justify-between">
                         <div>
-                          <h3 className="text-white font-black">{reward.name}</h3>
                           {reward.description && (
-                            <p className="text-gray-400 text-xs mt-1 line-clamp-2">{reward.description}</p>
+                            <p className="text-gray-400 text-sm line-clamp-2 leading-relaxed">{reward.description}</p>
                           )}
-                          <p className="text-[#D4AF37] text-sm mt-2">{reward.points.toLocaleString()} pts</p>
+                          <p className="text-[#D4AF37] font-black text-lg mt-3 flex items-center gap-1.5">
+                            <Award className="w-5 h-5" />
+                            {reward.points.toLocaleString()} pts
+                          </p>
                         </div>
 
                         <button
                           onClick={() => handleRedeemClick(reward)}
                           disabled={!canAfford}
-                          className="w-full py-3 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full py-3.5 rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed group-hover:shadow-[0_0_20px_rgba(212,175,55,0.3)] mt-auto"
                           style={{
                             background: canAfford
                               ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)'
-                              : 'rgba(255, 255, 255, 0.1)',
+                              : 'rgba(255, 255, 255, 0.05)',
                             color: canAfford ? '#000' : '#888',
                           }}
                         >
-                          <span className="font-black">
-                            {canAfford ? 'Resgatar' : 'Pontos Insuficientes'}
+                          <span className="font-black text-sm uppercase tracking-wider">
+                            {canAfford ? 'Resgatar Prémio' : 'Pontos Insuficientes'}
                           </span>
                         </button>
                       </div>
-
-                      {/* Hover Glow */}
-                      {canAfford && (
-                        <div
-                          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                          style={{
-                            background: 'radial-gradient(circle at center, rgba(212, 175, 55, 0.2) 0%, transparent 70%)',
-                          }}
-                        />
-                      )}
                     </div>
                   );
                 })}
@@ -606,28 +635,34 @@ export function ClientWallet({ user }: ClientWalletProps) {
                   return (
                     <div
                       key={redemption.id}
-                      className="relative overflow-hidden rounded-2xl"
+                      className="relative overflow-hidden rounded-[2rem] transition-all duration-300"
                       style={{
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        backdropFilter: 'blur(20px)',
+                        background: 'linear-gradient(145deg, rgba(30,30,30,0.6) 0%, rgba(15,15,15,0.8) 100%)',
                         border: redemption.status === 'pending'
-                          ? '1px solid rgba(212, 175, 55, 0.4)'
-                          : '1px solid rgba(34, 197, 94, 0.4)',
+                          ? '1px solid rgba(212, 175, 55, 0.3)'
+                          : '1px solid rgba(34, 197, 94, 0.3)',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
                       }}
                     >
-                      <div className="p-6 space-y-4">
+                      <div className="p-6 space-y-5">
                         {/* Header */}
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h3 className="text-white font-black text-lg">{redemption.reward_name}</h3>
-                            <p className="text-gray-400 text-sm">{Math.floor(redemption.points_spent).toLocaleString()} pontos</p>
+                            <h3 className="text-white font-black text-xl mb-1">{redemption.reward_name}</h3>
+                            <p className="text-[#D4AF37] font-black flex items-center gap-1.5">
+                              <Award className="w-4 h-4" />
+                              {Math.floor(redemption.points_spent).toLocaleString()} pts
+                            </p>
                           </div>
                           <div
-                            className="px-3 py-1 rounded-full text-xs font-bold"
+                            className="px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border"
                             style={{
                               background: redemption.status === 'pending'
-                                ? 'rgba(212, 175, 55, 0.2)'
-                                : 'rgba(34, 197, 94, 0.2)',
+                                ? 'rgba(212, 175, 55, 0.1)'
+                                : 'rgba(34, 197, 94, 0.1)',
+                              borderColor: redemption.status === 'pending'
+                                ? 'rgba(212, 175, 55, 0.3)'
+                                : 'rgba(34, 197, 94, 0.3)',
                               color: redemption.status === 'pending' ? '#D4AF37' : '#22C55E',
                             }}
                           >
@@ -640,21 +675,22 @@ export function ClientWallet({ user }: ClientWalletProps) {
                           !showQR ? (
                             <button
                               onClick={() => toggleQRCode(redemption.id)}
-                              className="w-full py-4 rounded-xl font-black flex items-center justify-center gap-2 transition-all hover:scale-105"
+                              className="w-full py-4 rounded-2xl font-black flex items-center justify-center gap-2 transition-all hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(212,175,55,0.3)]"
                               style={{
                                 background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
                                 color: '#000',
                               }}
                             >
                               <QrCode className="w-5 h-5" />
-                              Ver QR Code
+                              <span className="uppercase tracking-wider text-sm">Ver QR Code</span>
                             </button>
                           ) : (
-                              <div className="space-y-3">
+                              <div className="space-y-4">
                                 <div
-                                  className="p-4 rounded-xl text-center flex flex-col items-center justify-center overflow-hidden"
+                                  className="p-5 rounded-[1.5rem] text-center flex flex-col items-center justify-center overflow-hidden border border-white/10"
                                   style={{
                                     background: '#FFF',
+                                    boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.1)'
                                   }}
                                 >
                                   <img
@@ -665,9 +701,9 @@ export function ClientWallet({ user }: ClientWalletProps) {
                                 </div>
                                 
                                 {/* Visual rotation indicator */}
-                                <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden mb-2">
+                                <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
                                   <div 
-                                    className="h-full bg-[#D4AF37]" 
+                                    className="h-full bg-gradient-to-r from-[#D4AF37] to-[#FFD700]" 
                                     style={{
                                       animation: 'shrink 45s linear infinite'
                                     }}
@@ -682,23 +718,26 @@ export function ClientWallet({ user }: ClientWalletProps) {
 
                                 <button
                                   onClick={() => toggleQRCode(redemption.id)}
-                                  className="w-full py-2 rounded-lg text-sm font-bold"
+                                  className="w-full py-3 rounded-xl text-sm font-bold uppercase tracking-wider transition-colors hover:bg-white/10"
                                   style={{
-                                    background: 'rgba(255, 255, 255, 0.1)',
-                                    color: '#888',
+                                    background: 'rgba(255, 255, 255, 0.05)',
+                                    color: '#AAA',
                                   }}
                                 >
                                   Ocultar QR Code
                                 </button>
                               </div>
-                            )
+                          )
                         )}
 
-                        {/* Expiration */}
+                        {/* Expiration / Used Date */}
                         <div className="flex items-center gap-2 text-sm">
                           <Clock className="w-4 h-4 text-gray-400" />
                           <span className="text-gray-400">
-                            Expira em: {new Date(redemption.expires_at).toLocaleDateString('pt-PT')}
+                            {redemption.status === 'used'
+                              ? `Utilizado a: ${new Date(redemption.used_at || new Date()).toLocaleDateString('pt-PT')}`
+                              : `Expira a: ${new Date(redemption.expires_at).toLocaleDateString('pt-PT')}`
+                            }
                           </span>
                         </div>
 

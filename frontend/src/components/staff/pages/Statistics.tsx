@@ -1,8 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Users, TrendingUp, UserCheck, Clock } from 'lucide-react';
+import { Users, TrendingUp, UserCheck, Clock, Loader2 } from 'lucide-react';
+import { apiFetch } from '../../../services/api';
 
 export function Statistics() {
   const [isMobile, setIsMobile] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [activeBarIndex, setActiveBarIndex] = useState<number | null>(null);
+  const [stats, setStats] = useState({
+    currentOccupancy: 0,
+    maxCapacity: 500,
+    occupancyPercentage: 0,
+    genderRatio: { male: 50, female: 50 },
+    entriesData: [] as { time: string; count: number }[],
+    totalEntries: 0,
+    avgEntryTime: '--:--',
+  });
 
   useEffect(() => {
     const checkMobile = () => {
@@ -14,31 +26,49 @@ export function Statistics() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Mock data
-  const currentOccupancy = 342;
-  const maxCapacity = 500;
-  const occupancyPercentage = (currentOccupancy / maxCapacity) * 100;
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await apiFetch('/staff/statistics');
+        if (response.status === 'success' && response.data) {
+          setStats(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch statistics', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const genderRatio = {
-    male: 58,
-    female: 42,
-  };
+    fetchStats();
+    
+    // Auto refresh every 30 seconds
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const entriesData = [
-    { time: '22:00', count: 45 },
-    { time: '23:00', count: 89 },
-    { time: '00:00', count: 142 },
-    { time: '01:00', count: 98 },
-    { time: '02:00', count: 67 },
-  ];
+  const {
+    currentOccupancy,
+    maxCapacity,
+    occupancyPercentage,
+    genderRatio,
+    entriesData,
+    totalEntries,
+    avgEntryTime
+  } = stats;
 
-  const totalEntries = 342;
-  const avgEntryTime = '23:45';
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[#D4AF37]" />
+      </div>
+    );
+  }
 
   if (isMobile) {
     // Mobile: Stacked vertical cards
     return (
-      <div className="h-full overflow-y-auto p-4 pb-24" style={{ background: '#0a0a0a' }}>
+      <div className="relative h-full overflow-y-auto p-4 pb-24 z-10">
         <h2 className="text-2xl text-white font-bold mb-6">Live Statistics</h2>
 
         <div className="space-y-4">
@@ -151,15 +181,18 @@ export function Statistics() {
               </div>
             </div>
 
-            {/* Mini Bar Chart */}
             <div className="flex items-end justify-between gap-2 h-32">
               {entriesData.map((entry, index) => {
                 const maxCount = Math.max(...entriesData.map(e => e.count));
-                const heightPercentage = (entry.count / maxCount) * 100;
+                const heightPercentage = entriesData.length > 0 && maxCount > 0 ? (entry.count / maxCount) * 100 : 0;
 
                 return (
                   <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="relative w-full" style={{ height: '100px' }}>
+                    <div 
+                      className="relative w-full cursor-pointer group" 
+                      style={{ height: '100px' }}
+                      onClick={() => setActiveBarIndex(activeBarIndex === index ? null : index)}
+                    >
                       <div
                         className="absolute bottom-0 w-full rounded-t-lg transition-all duration-500"
                         style={{
@@ -168,6 +201,23 @@ export function Statistics() {
                           boxShadow: '0 0 20px rgba(212, 175, 55, 0.3)',
                         }}
                       />
+                      
+                      {/* Tooltip */}
+                      <div 
+                        className={`absolute -top-10 left-1/2 -translate-x-1/2 transition-opacity duration-200 z-10 ${
+                          activeBarIndex === index ? 'opacity-100' : 'opacity-0'
+                        }`}
+                      >
+                        <div
+                          className="px-2 py-1 rounded-md whitespace-nowrap text-xs"
+                          style={{
+                            background: 'rgba(10, 10, 10, 0.95)',
+                            border: '1px solid rgba(212, 175, 55, 0.3)',
+                          }}
+                        >
+                          <p className="text-white font-bold">{entry.count}</p>
+                        </div>
+                      </div>
                     </div>
                     <span className="text-xs text-gray-500">{entry.time}</span>
                   </div>
@@ -182,7 +232,7 @@ export function Statistics() {
 
   // Desktop: Grid layout
   return (
-    <div className="h-full overflow-y-auto p-8" style={{ background: '#0a0a0a' }}>
+    <div className="relative h-full overflow-y-auto p-8 z-10">
       <h2 className="text-3xl text-white font-bold mb-8">Live Statistics</h2>
 
       {/* Top Row: Occupancy + Gender Ratio */}
@@ -313,9 +363,14 @@ export function Statistics() {
                       background: 'linear-gradient(180deg, #D4AF37 0%, rgba(212, 175, 55, 0.5) 100%)',
                       boxShadow: '0 0 20px rgba(212, 175, 55, 0.3)',
                     }}
+                    onClick={() => setActiveBarIndex(activeBarIndex === index ? null : index)}
                   >
-                    {/* Hover Tooltip */}
-                    <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    {/* Hover/Click Tooltip */}
+                    <div 
+                      className={`absolute -top-12 left-1/2 -translate-x-1/2 transition-opacity duration-200 ${
+                        activeBarIndex === index ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      }`}
+                    >
                       <div
                         className="px-3 py-2 rounded-lg whitespace-nowrap"
                         style={{
@@ -323,7 +378,7 @@ export function Statistics() {
                           border: '1px solid rgba(212, 175, 55, 0.3)',
                         }}
                       >
-                        <p className="text-white font-bold">{entry.count}</p>
+                        <p className="text-white font-bold">{entry.count} pessoas</p>
                       </div>
                     </div>
                   </div>
@@ -341,12 +396,12 @@ export function Statistics() {
 function GlassCard({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="p-6 rounded-3xl transition-all duration-300 hover:shadow-2xl"
+      className="p-6 md:p-8 rounded-[2rem] transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.6)] hover:border-[#D4AF37]/30"
       style={{
-        background: 'rgba(255, 255, 255, 0.05)',
+        background: 'rgba(25, 25, 25, 0.5)',
         backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
       }}
     >
       {children}

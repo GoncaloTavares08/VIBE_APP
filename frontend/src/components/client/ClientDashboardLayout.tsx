@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { LogOut, Home, KeySquare, Camera, ArrowLeft, MoreHorizontal, Settings, ScanLine, Wallet, Clock, User, QrCode, Menu, X, Bell, Zap, ChevronRight } from 'lucide-react';
 import { apiFetch } from '../../services/api';
 import { NotificationPanel } from '../NotificationPanel';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface ClientDashboardLayoutProps {
   children: React.ReactNode;
@@ -24,7 +25,69 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Logout modal structure
+  const logoutModal = showLogoutModal && (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in"
+      style={{
+        background: 'rgba(0, 0, 0, 0.8)',
+        backdropFilter: 'blur(10px)',
+      }}
+    >
+      <div
+        className="w-full max-w-sm rounded-3xl p-6 shadow-2xl border"
+        style={{
+          background: 'linear-gradient(180deg, rgba(30,30,30,0.95) 0%, rgba(15,15,15,0.98) 100%)',
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4 border border-red-500/30">
+            <LogOut className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">Terminar Sessão</h3>
+          <p className="text-gray-400 text-sm mb-6">
+            Pretendes sair totalmente da tua conta ou apenas voltar à seleção de clubes?
+          </p>
+          
+          <div className="w-full space-y-3">
+            <button
+              onClick={() => {
+                setShowLogoutModal(false);
+                window.history.pushState({}, '', '/');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-white transition-all duration-200"
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              Mudar de Clube
+            </button>
+            <button
+              onClick={() => {
+                setShowLogoutModal(false);
+                if (onLogout) onLogout();
+              }}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-white transition-all duration-200 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30"
+            >
+              Sair da Conta
+            </button>
+            <button
+              onClick={() => setShowLogoutModal(false)}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-gray-400 hover:text-white transition-all duration-200"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [newMatchData, setNewMatchData] = useState<any>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
   // Default Name if user is missing
@@ -83,6 +146,27 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
     loadProfilePhoto();
   }, [userId]);
 
+  // Poll for new matches (Passive Liker)
+  useEffect(() => {
+    if (!userId) return;
+
+    const pollMatches = async () => {
+      try {
+        const response = await apiFetch('/networking/check-updates');
+        if (response.status === 'success' && response.has_new_matches) {
+          setNewMatchData(response.match_data);
+          // Manually increment the unreadCount to make the bell react
+          setUnreadCount(prev => prev + 1);
+        }
+      } catch (err) {
+        console.error('Error polling matches:', err);
+      }
+    };
+
+    const interval = setInterval(pollMatches, 15000); // Poll every 15 seconds
+    return () => clearInterval(interval);
+  }, [userId]);
+
   const mainContentRef = useRef<HTMLElement>(null);
 
   // Scroll to Top on Page Change
@@ -124,7 +208,7 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
   };
 
   return (
-    <div className="flex h-screen w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
+    <div className="flex h-[100dvh] w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
       {/* Animated background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-[#D4AF37] opacity-10 blur-[150px] rounded-full"></div>
@@ -255,7 +339,7 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
                 <p className="text-xs text-gray-400 truncate">VIBE Guest</p>
               </div>
               <button
-                onClick={onLogout}
+                onClick={() => setShowLogoutModal(true)}
                 className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-red-400 transition-colors"
                 title="Sair"
               >
@@ -264,7 +348,7 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
             </>
           ) : (
             <button
-              onClick={onLogout}
+              onClick={() => setShowLogoutModal(true)}
               className="p-0 rounded-lg text-gray-400 hover:text-red-400 transition-colors"
               title="Sair"
             >
@@ -282,7 +366,7 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
       >
         {/* Header */}
         <header
-          className="sticky top-0 z-10 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between"
+          className="sticky top-0 z-40 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between"
           style={{
             background: 'rgba(10, 10, 10, 0.8)',
             backdropFilter: 'blur(20px)',
@@ -340,6 +424,8 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
         </div>
       </main>
 
+      {logoutModal}
+
       {/* Mobile Bottom Navigation Bar (Static Block) */}
       {isMobile && (
         <div
@@ -384,6 +470,64 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
           })}
         </div>
       )}
+      
+      {/* Global Match Notification Popup */}
+      <AnimatePresence>
+        {newMatchData && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 50 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 50 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            style={{ background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(15px)' }}
+            onClick={() => setNewMatchData(null)}
+          >
+            <div className="text-center space-y-6 max-w-sm mx-auto p-8 rounded-3xl relative overflow-hidden"
+              style={{
+                background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(212, 175, 55, 0.05) 100%)',
+                border: '2px solid rgba(212, 175, 55, 0.5)',
+                boxShadow: '0 0 50px rgba(212, 175, 55, 0.2)'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Background Glow */}
+              <div className="absolute inset-0 bg-[#D4AF37] opacity-20 blur-3xl rounded-full animate-pulse" style={{ animationDuration: '3s' }} />
+              
+              <div className="relative z-10">
+                <div className="text-7xl mb-4 animate-bounce" style={{ animationDuration: '2s' }}>🔥</div>
+                <h2
+                  className="text-4xl font-black mb-2"
+                  style={{
+                    background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                  }}
+                >
+                  IT'S A VIBE!
+                </h2>
+                <p className="text-gray-200 font-medium text-lg leading-relaxed">
+                  Alguém acabou de dar Match contigo! 🎉
+                </p>
+                <p className="text-sm text-[#D4AF37] font-semibold mt-4">
+                  Verifica a secção Networking.
+                </p>
+                
+                <button 
+                  onClick={() => setNewMatchData(null)}
+                  className="mt-8 w-full py-4 rounded-2xl font-black text-black text-lg transition-transform hover:scale-105 active:scale-95"
+                  style={{ 
+                    background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                    boxShadow: '0 10px 20px rgba(212, 175, 55, 0.3)'
+                  }}
+                >
+                  Incrível!
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

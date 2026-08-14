@@ -112,12 +112,14 @@ export default function App() {
     setShowDashboard(false);
     setShowRPDashboard(false);
     setShowStaffApp(false);
-    window.location.href = '/';
+    window.history.pushState({}, '', '/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
   const handleReturnHome = () => {
     // Only navigate, do not log out
-    window.location.href = '/';
+    window.history.pushState({}, '', '/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
 

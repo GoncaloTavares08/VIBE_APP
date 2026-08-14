@@ -44,6 +44,67 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Logout modal structure
+  const logoutModal = showLogoutModal && (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in"
+      style={{
+        background: 'rgba(0, 0, 0, 0.8)',
+        backdropFilter: 'blur(10px)',
+      }}
+    >
+      <div
+        className="w-full max-w-sm rounded-3xl p-6 shadow-2xl border"
+        style={{
+          background: 'linear-gradient(180deg, rgba(30,30,30,0.95) 0%, rgba(15,15,15,0.98) 100%)',
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4 border border-red-500/30">
+            <LogOut className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">Terminar Sessão</h3>
+          <p className="text-gray-400 text-sm mb-6">
+            Pretendes sair totalmente da tua conta ou apenas voltar à seleção de clubes?
+          </p>
+          
+          <div className="w-full space-y-3">
+            <button
+              onClick={() => {
+                setShowLogoutModal(false);
+                window.history.pushState({}, '', '/');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-white transition-all duration-200"
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              Mudar de Clube
+            </button>
+            <button
+              onClick={() => {
+                setShowLogoutModal(false);
+                if (onLogout) onLogout();
+              }}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-white transition-all duration-200 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30"
+            >
+              Sair da Conta
+            </button>
+            <button
+              onClick={() => setShowLogoutModal(false)}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-gray-400 hover:text-white transition-all duration-200"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const userId = user?.id;
 
@@ -145,7 +206,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
   };
 
   return (
-    <div className="flex h-screen w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
+    <div className="flex h-[100dvh] w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
       {/* Animated background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-[#D4AF37] opacity-10 blur-[150px] rounded-full"></div>
@@ -276,7 +337,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
                 <p className="text-xs text-gray-400 truncate">VIP Promoter</p>
               </div>
               <button
-                onClick={onLogout}
+                onClick={() => setShowLogoutModal(true)}
                 className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-red-400 transition-colors"
                 title="Sair"
               >
@@ -285,7 +346,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
             </>
           ) : (
             <button
-              onClick={onLogout}
+              onClick={() => setShowLogoutModal(true)}
               className="p-0 rounded-lg text-gray-400 hover:text-red-400 transition-colors"
               title="Sair"
             >
@@ -299,7 +360,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
       <main ref={mainContentRef} className="flex-1 overflow-y-auto overflow-x-hidden relative transition-all duration-300 w-full">
         {/* Header */}
         <header
-          className="sticky top-0 z-10 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between"
+          className="sticky top-0 z-40 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between"
           style={{
             background: 'rgba(10, 10, 10, 0.8)',
             backdropFilter: 'blur(20px)',
@@ -392,6 +453,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
           })}
         </div>
       )}
+      {logoutModal}
     </div>
   );
 }

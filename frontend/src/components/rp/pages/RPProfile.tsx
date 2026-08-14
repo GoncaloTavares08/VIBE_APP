@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ExternalLink, Edit, Share2, Instagram, Copy, CheckCircle2, Calendar, Music, Loader2, Clock, Users, Check, X, AlertCircle, Camera, Image as ImageIcon, Upload } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
+import { GlassCard } from '../../ui/GlassCard';
 
 interface Event {
   id: number;
@@ -294,7 +295,8 @@ export function RPProfile() {
 
   const handleViewLive = () => {
     if (formData.username) {
-      window.open(`/guest/${formData.username}`, '_blank');
+      window.history.pushState({}, '', `/guest/${formData.username}`);
+      window.dispatchEvent(new PopStateEvent('popstate'));
     }
   };
 
@@ -307,13 +309,7 @@ export function RPProfile() {
       </div>
 
       {/* Profile Preview Card */}
-      <div
-        className="p-6 lg:p-8 rounded-3xl backdrop-blur-xl"
-        style={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-        }}
-      >
+      <GlassCard className="p-6 lg:p-8">
         <div className="flex items-start justify-between mb-6">
           <h2 className="text-xl text-white">Public Landing Page</h2>
           <div className="flex gap-2">
@@ -347,20 +343,23 @@ export function RPProfile() {
 
         {/* Profile Header */}
         <div
-          className="p-6 lg:p-8 rounded-2xl mb-6"
+          className="p-6 lg:p-8 rounded-[2rem] mb-6 relative overflow-hidden group"
           style={{
             background: 'rgba(0, 0, 0, 0.4)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
           }}
         >
+          <div className="absolute inset-0 bg-gradient-to-tr from-[#D4AF37]/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
           <div className="flex flex-col lg:flex-row items-center lg:items-start gap-6">
             {/* Avatar with upload button */}
             <div className="relative">
+              <div className="absolute inset-0 bg-[#D4AF37] rounded-[2.5rem] blur-xl opacity-20 animate-pulse"></div>
               <div
-                className="w-24 h-24 lg:w-32 lg:h-32 rounded-3xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+                className="w-24 h-24 lg:w-32 lg:h-32 rounded-[2.5rem] flex items-center justify-center flex-shrink-0 overflow-hidden relative z-10"
                 style={{
                   background: formData.profile_image_url ? 'transparent' : 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-                  boxShadow: '0 0 40px rgba(212, 175, 55, 0.4)',
+                  boxShadow: '0 0 30px rgba(212, 175, 55, 0.3), inset 0 0 20px rgba(255,255,255,0.2)',
+                  border: formData.profile_image_url ? '2px solid rgba(212, 175, 55, 0.5)' : 'none'
                 }}
               >
                 {formData.profile_image_url ? (
@@ -370,7 +369,7 @@ export function RPProfile() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span className="text-5xl lg:text-6xl text-black font-black">{user.name?.charAt(0) || '?'}</span>
+                  <span className="text-5xl lg:text-6xl text-black font-black drop-shadow-sm">{user.name?.charAt(0) || '?'}</span>
                 )}
               </div>
             </div>
@@ -455,16 +454,10 @@ export function RPProfile() {
             </button>
           </div>
         </div>
-      </div>
+      </GlassCard>
 
       {/* Upcoming Events Section */}
-      <div
-        className="p-6 rounded-3xl backdrop-blur-xl"
-        style={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-        }}
-      >
+      <GlassCard className="p-6 lg:p-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl text-white">Your Upcoming Events</h2>
           <button
@@ -494,7 +487,7 @@ export function RPProfile() {
                   setSelectedEventDetail(event);
                   setShowDetailModal(true);
                 }}
-                className="p-5 rounded-2xl transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+                className="p-5 rounded-[1.5rem] transition-all duration-300 hover:scale-[1.02] cursor-pointer hover:bg-white/5"
                 style={{
                   background: 'rgba(0, 0, 0, 0.3)',
                   border: '1px solid rgba(212, 175, 55, 0.2)',
@@ -502,7 +495,7 @@ export function RPProfile() {
               >
                 <div className="flex items-start gap-4">
                   {event.image_url ? (
-                    <div className="w-16 h-16 rounded-xl flex-shrink-0 overflow-hidden">
+                    <div className="w-16 h-16 rounded-2xl flex-shrink-0 overflow-hidden shadow-lg border border-white/10">
                       <img
                         src={event.image_url}
                         alt={event.name}
@@ -511,7 +504,7 @@ export function RPProfile() {
                     </div>
                   ) : (
                     <div
-                      className="w-16 h-16 rounded-xl flex items-center justify-center flex-shrink-0"
+                      className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg"
                       style={{
                         background: 'rgba(212, 175, 55, 0.2)',
                         border: '1px solid rgba(212, 175, 55, 0.3)',
@@ -542,7 +535,7 @@ export function RPProfile() {
             Sem eventos disponíveis
           </div>
         )}
-      </div>
+      </GlassCard>
 
       {/* Edit Profile Modal */}
       {showEditModal && (
@@ -552,11 +545,11 @@ export function RPProfile() {
           onClick={() => setShowEditModal(false)}
         >
           <div
-            className="w-full max-w-2xl rounded-2xl backdrop-blur-xl overflow-hidden"
+            className="w-full max-w-2xl rounded-[2rem] backdrop-blur-xl overflow-hidden"
             style={{
-              background: 'rgba(10, 10, 10, 0.95)',
+              background: 'rgba(15, 15, 15, 0.95)',
               border: '1px solid rgba(212, 175, 55, 0.3)',
-              boxShadow: '0 0 60px rgba(212, 175, 55, 0.2)',
+              boxShadow: '0 0 80px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(212, 175, 55, 0.05)',
               maxHeight: '90vh',
               overflowY: 'auto'
             }}
@@ -747,11 +740,11 @@ export function RPProfile() {
           onClick={() => setShowManageModal(false)}
         >
           <div
-            className="w-full max-w-2xl rounded-2xl backdrop-blur-xl overflow-hidden"
+            className="w-full max-w-2xl rounded-[2rem] backdrop-blur-xl overflow-hidden"
             style={{
-              background: 'rgba(10, 10, 10, 0.95)',
+              background: 'rgba(15, 15, 15, 0.95)',
               border: '1px solid rgba(212, 175, 55, 0.3)',
-              boxShadow: '0 0 60px rgba(212, 175, 55, 0.2)',
+              boxShadow: '0 0 80px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(212, 175, 55, 0.05)',
               maxHeight: '90vh',
               overflowY: 'auto'
             }}
@@ -849,11 +842,11 @@ export function RPProfile() {
           onClick={() => setShowDetailModal(false)}
         >
           <div
-            className="w-full max-w-2xl rounded-2xl backdrop-blur-xl overflow-hidden"
+            className="w-full max-w-2xl rounded-[2rem] backdrop-blur-xl overflow-hidden"
             style={{
-              background: 'rgba(10, 10, 10, 0.95)',
+              background: 'rgba(15, 15, 15, 0.95)',
               border: '1px solid rgba(212, 175, 55, 0.3)',
-              boxShadow: '0 0 60px rgba(212, 175, 55, 0.2)',
+              boxShadow: '0 0 80px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(212, 175, 55, 0.05)',
               maxHeight: '90vh',
               overflowY: 'auto'
             }}

@@ -27,6 +27,8 @@ interface ProfileData {
   gender_preference: 'male' | 'female' | 'everyone';
   gallery_photos: GalleryPhoto[];
   party_history: PartyHistoryItem[];
+  points?: number;
+  global_rank?: number;
 }
 
 interface ClientProfileProps {
@@ -81,12 +83,11 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
       setLoading(true);
       const slug = getClubSlug();
       const data = await apiFetch(`/profile`, {
-        method: 'POST',
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'X-Client-ID': slug
-        },
-        body: JSON.stringify({ user_id: userId })
+        }
       });
 
       if (data.status === 'success' && data.data) {
@@ -312,14 +313,14 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}>
+      <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-[#D4AF37] animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-4 lg:p-8" style={{ background: '#0a0a0a' }}>
+    <div className="relative p-4 md:p-8">
       {/* Ambient background glow */}
       <div
         className="fixed inset-0 opacity-20 pointer-events-none"
@@ -375,13 +376,16 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
       <div className="relative z-10 max-w-4xl mx-auto space-y-6">
         {/* Profile Header */}
         <div
-          className="relative overflow-hidden rounded-3xl p-8"
+          className="relative overflow-hidden rounded-[2rem] p-8"
           style={{
-            background: 'rgba(255, 255, 255, 0.05)',
+            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(20, 20, 20, 0.95) 100%)',
             backdropFilter: 'blur(30px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(212, 175, 55, 0.3)',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
           }}
         >
+          {/* Ambient Glow */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-[#D4AF37] opacity-10 blur-[80px] rounded-full pointer-events-none" />
           <div className="flex flex-col md:flex-row items-center gap-6">
             {/* Avatar */}
             <div className="relative">
@@ -432,55 +436,66 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
 
               {/* Bio */}
               {isEditingBio ? (
-                <div className="space-y-2 max-w-md">
+                <div className="space-y-3 max-w-md mt-4 relative">
                   <textarea
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
                     maxLength={500}
-                    rows={3}
-                    className="w-full px-4 py-3 rounded-xl text-white resize-none"
+                    rows={4}
+                    className="w-full px-5 py-4 rounded-2xl text-white resize-none shadow-inner"
                     style={{
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(212, 175, 55, 0.3)',
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      border: '1px solid rgba(212, 175, 55, 0.4)',
                       outline: 'none',
                     }}
-                    placeholder="Fala sobre ti..."
+                    placeholder="Escreve uma bio cativante..."
                   />
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleSaveProfile}
-                      disabled={savingProfile}
-                      className="flex-1 py-2 rounded-xl transition-all"
-                      style={{
-                        background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-                        color: '#000',
-                      }}
-                    >
-                      {savingProfile ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Guardar'}
-                    </button>
+                  <div className="absolute top-2 right-3 text-[10px] text-gray-500 font-mono">
+                    {bio.length}/500
+                  </div>
+                  <div className="flex gap-3 mt-2">
                     <button
                       onClick={() => {
                         setIsEditingBio(false);
                         setBio(profileData?.bio || '');
                       }}
-                      className="px-6 py-2 rounded-xl"
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all"
                       style={{
                         background: 'rgba(255, 255, 255, 0.05)',
-                        color: '#888',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: '#999',
                       }}
                     >
                       Cancelar
                     </button>
+                    <button
+                      onClick={handleSaveProfile}
+                      disabled={savingProfile}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-black transition-transform active:scale-95"
+                      style={{
+                        background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                        color: '#000',
+                        boxShadow: '0 4px 15px rgba(212, 175, 55, 0.3)'
+                      }}
+                    >
+                      {savingProfile ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Guardar Bio'}
+                    </button>
                   </div>
                 </div>
               ) : (
-                <div className="flex items-start gap-2 max-w-md">
-                  <p className="text-sm text-gray-500 flex-1">
-                    {bio || 'Adiciona uma bio sobre ti...'}
+                <div className="flex items-center justify-between gap-3 max-w-md mt-2 p-4 rounded-2xl group transition-all mx-auto md:mx-0"
+                  style={{
+                    background: 'rgba(0, 0, 0, 0.2)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)'
+                  }}
+                >
+                  <p className="text-sm text-gray-300 italic text-left flex-1 break-words">
+                    {bio ? `"${bio}"` : 'Adiciona uma bio sobre ti...'}
                   </p>
                   <button
                     onClick={() => setIsEditingBio(true)}
-                    className="text-[#D4AF37] hover:scale-110 transition-transform"
+                    className="text-[#D4AF37] opacity-60 group-hover:opacity-100 hover:scale-110 transition-all p-2 rounded-full"
+                    style={{ background: 'rgba(212,175,55,0.1)' }}
                   >
                     <Edit className="w-4 h-4" />
                   </button>
@@ -488,18 +503,18 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
               )}
 
               {/* Stats */}
-              <div className="flex gap-6 pt-4 justify-center md:justify-start">
-                <div>
-                  <p className="text-2xl font-black text-[#D4AF37]">24</p>
-                  <p className="text-xs text-gray-400">Parties</p>
+              <div className="flex gap-4 md:gap-8 pt-6 justify-center md:justify-start">
+                <div className="text-center md:text-left">
+                  <p className="text-2xl md:text-3xl font-black text-[#D4AF37] drop-shadow-md">{partyHistory.length}</p>
+                  <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider font-bold">Festas</p>
                 </div>
-                <div>
-                  <p className="text-2xl font-black text-[#D4AF37]">5,420</p>
-                  <p className="text-xs text-gray-400">Total Points</p>
+                <div className="text-center md:text-left">
+                  <p className="text-2xl md:text-3xl font-black text-[#D4AF37] drop-shadow-md">{profileData?.points || 0}</p>
+                  <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider font-bold">Pontos</p>
                 </div>
-                <div>
-                  <p className="text-2xl font-black text-[#D4AF37]">#12</p>
-                  <p className="text-xs text-gray-400">Global Rank</p>
+                <div className="text-center md:text-left">
+                  <p className="text-2xl md:text-3xl font-black text-[#D4AF37] drop-shadow-md">#{profileData?.global_rank || '?'}</p>
+                  <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider font-bold">Top do Clube</p>
                 </div>
               </div>
             </div>
@@ -508,13 +523,16 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
 
         {/* Instagram Handle */}
         <div
-          className="p-6 rounded-2xl space-y-4"
+          className="p-6 rounded-[2rem] space-y-4 relative overflow-hidden"
           style={{
-            background: 'rgba(255, 255, 255, 0.05)',
+            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.05) 0%, rgba(20, 20, 20, 0.8) 100%)',
             backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(212, 175, 55, 0.2)',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4)',
           }}
         >
+          {/* Subtle glow effect */}
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37] opacity-5 blur-[40px] rounded-full pointer-events-none" />
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-black text-white flex items-center gap-2">
               <Instagram className="w-5 h-5 text-[#D4AF37]" />
@@ -595,13 +613,16 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
 
         {/* Photo Gallery */}
         <div
-          className="p-6 rounded-2xl space-y-4"
+          className="p-6 rounded-[2rem] space-y-4 relative overflow-hidden"
           style={{
-            background: 'rgba(255, 255, 255, 0.05)',
+            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.05) 0%, rgba(20, 20, 20, 0.8) 100%)',
             backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(212, 175, 55, 0.2)',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4)',
           }}
         >
+          {/* Subtle glow effect */}
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37] opacity-5 blur-[40px] rounded-full pointer-events-none" />
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-black text-white">My Photos</h2>
             <button
@@ -681,13 +702,16 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
 
         {/* Privacy Settings */}
         <div
-          className="p-6 rounded-2xl space-y-4"
+          className="p-6 rounded-[2rem] space-y-4 relative overflow-hidden"
           style={{
-            background: 'rgba(255, 255, 255, 0.05)',
+            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.05) 0%, rgba(20, 20, 20, 0.8) 100%)',
             backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(212, 175, 55, 0.2)',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4)',
           }}
         >
+          {/* Subtle glow effect */}
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37] opacity-5 blur-[40px] rounded-full pointer-events-none" />
           <h2 className="text-xl font-black text-white flex items-center gap-2">
             {ghostMode ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             Privacy Control
@@ -753,13 +777,16 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
 
         {/* Discovery Preference */}
         <div
-          className="p-6 rounded-2xl space-y-4"
+          className="p-6 rounded-[2rem] space-y-4 relative overflow-hidden"
           style={{
-            background: 'rgba(255, 255, 255, 0.05)',
+            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.05) 0%, rgba(20, 20, 20, 0.8) 100%)',
             backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(212, 175, 55, 0.2)',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4)',
           }}
         >
+          {/* Subtle glow effect */}
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37] opacity-5 blur-[40px] rounded-full pointer-events-none" />
           <h2 className="text-xl font-black text-white flex items-center gap-2">
             <Users className="w-5 h-5 text-[#D4AF37]" />
             Discovery Preference
@@ -789,13 +816,16 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
 
         {/* Achievements */}
         <div
-          className="p-6 rounded-2xl space-y-4"
+          className="p-6 rounded-[2rem] space-y-4 relative overflow-hidden"
           style={{
-            background: 'rgba(255, 255, 255, 0.05)',
+            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.05) 0%, rgba(20, 20, 20, 0.8) 100%)',
             backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(212, 175, 55, 0.2)',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4)',
           }}
         >
+          {/* Subtle glow effect */}
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37] opacity-5 blur-[40px] rounded-full pointer-events-none" />
           <h2 className="text-xl font-black text-white flex items-center gap-2">
             <Award className="w-5 h-5 text-[#D4AF37]" />
             Achievements
@@ -832,13 +862,16 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
 
         {/* Party History Timeline */}
         <div
-          className="p-6 rounded-2xl space-y-4"
+          className="p-6 rounded-[2rem] space-y-4 relative overflow-hidden"
           style={{
-            background: 'rgba(255, 255, 255, 0.05)',
+            background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.05) 0%, rgba(20, 20, 20, 0.8) 100%)',
             backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(212, 175, 55, 0.2)',
+            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4)',
           }}
         >
+          {/* Subtle glow effect */}
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37] opacity-5 blur-[40px] rounded-full pointer-events-none" />
           <h2 className="text-xl font-black text-white flex items-center gap-2">
             <Calendar className="w-5 h-5" />
             Party History
@@ -901,10 +934,10 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
                       <div className="flex items-start justify-between mb-2">
                         <div>
                           <h3 className="text-white font-black line-clamp-1">{party.name}</h3>
-                          <p className="text-sm text-gray-400">{party.venue}</p>
+                          <p className="text-sm text-gray-400">{party.venue || 'Clube Atual'}</p>
                         </div>
                         <p className="text-xs text-gray-500 whitespace-nowrap ml-2">
-                          {new Date(party.date).toLocaleDateString('en-US', {
+                          {new Date(party.date).toLocaleDateString('pt-PT', {
                             month: 'short',
                             day: 'numeric',
                           })}
@@ -914,7 +947,7 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-[#D4AF37]" />
                         <span className="text-sm text-[#D4AF37] font-black">
-                          {party.points_earned.toLocaleString()} pts
+                          {(party.points_earned || 0).toLocaleString()} pts
                         </span>
                       </div>
                     </div>

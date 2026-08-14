@@ -1,4 +1,5 @@
-import { motion } from 'motion/react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import {
     Calendar,
     Users,
@@ -6,10 +7,12 @@ import {
     Clock,
     MapPin,
     Instagram,
-    Sparkles,
     LogOut,
-    User as UserIcon, // Alias for user icon
-    Home
+    User as UserIcon,
+    Home,
+    Check,
+    ChevronRight,
+    ArrowRight
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
@@ -50,26 +53,23 @@ interface RPPublicProfileProps {
     data: RPProfileData;
 }
 
-// Helper to format date
 const formatEventDate = (dateStr: string) => {
     const date = new Date(dateStr);
     const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    return `${days[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`;
+    return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
 };
 
 export function RPPublicProfile({ data }: RPPublicProfileProps) {
-    const [hoveredEvent, setHoveredEvent] = useState<number | null>(null);
     const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
     const [showEventModal, setShowEventModal] = useState(false);
     const [currentUser, setCurrentUser] = useState<any>(null);
-    const [userGuestlists, setUserGuestlists] = useState<number[]>([]); // Array of event IDs
+    const [userGuestlists, setUserGuestlists] = useState<number[]>([]);
+    const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
 
-    // Get profile image (use URL or fallback to emoji)
     const profileImage = data.profile_image_url || '👨‍💼';
     const instagramHandle = data.instagram?.startsWith('@') ? data.instagram : `@${data.instagram}`;
 
-    // Check login status and fetch guestlists
     useEffect(() => {
         const checkLogin = async () => {
             const userStr = localStorage.getItem('user');
@@ -77,15 +77,22 @@ export function RPPublicProfile({ data }: RPPublicProfileProps) {
                 const user = JSON.parse(userStr);
                 setCurrentUser(user);
 
-                // Fetch user's guestlists to know join status
+                try {
+                    const profileResponse = await apiFetch('/profile', { method: 'GET' });
+                    if (profileResponse.status === 'success' && profileResponse.data?.profile_photo_path) {
+                        setProfilePhotoUrl(profileResponse.data.profile_photo_path);
+                    } else if (user.photo || user.profile_photo_path) {
+                        setProfilePhotoUrl(user.photo || user.profile_photo_path);
+                    }
+                } catch (e) {
+                    console.error("Error fetching profile photo", e);
+                }
+
                 if (user.id && data.events.length > 0) {
                     try {
-                        const data = await apiFetch('/guestlist', {
-                            method: 'GET'
-                        });
-                        if (data.status === 'success' && Array.isArray(data.data)) {
-                            // Store IDs of events user is already in
-                            const joinedEventIds = data.data.map((g: any) => g.event_id);
+                        const response = await apiFetch('/guestlist', { method: 'GET' });
+                        if (response.status === 'success' && Array.isArray(response.data)) {
+                            const joinedEventIds = response.data.map((g: any) => g.event_id);
                             setUserGuestlists(joinedEventIds);
                         }
                     } catch (error) {
@@ -97,460 +104,285 @@ export function RPPublicProfile({ data }: RPPublicProfileProps) {
         checkLogin();
     }, [data.events]);
 
-    const handleLogout = () => {
-        if (window.confirm('Tem a certeza que deseja sair?')) {
-            localStorage.removeItem('user');
-            setCurrentUser(null);
-            setUserGuestlists([]);
-            window.location.reload();
+    useEffect(() => {
+        if (showEventModal) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'unset';
         }
+
+        return () => {
+            document.body.style.overflow = 'unset';
+        };
+    }, [showEventModal]);
+
+    const handleLogout = () => {
+        localStorage.removeItem('user');
+        setCurrentUser(null);
+        setUserGuestlists([]);
+        
+        // Force full page reload to landing page to clear all React state (including App.tsx)
+        window.location.href = '/';
     };
 
     const isJoined = (eventId: number) => userGuestlists.includes(eventId);
 
     return (
-        <div
-            className="min-h-screen relative overflow-hidden"
-            style={{
-                background: 'linear-gradient(180deg, #0a0a0a 0%, #121212 100%)',
-            }}
-        >
-            {/* My Clubs Navigation Button (Top Left) */}
-            <div className="absolute top-0 left-0 p-4 z-50">
-                {currentUser && (
-                    <motion.button
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        onClick={() => window.location.href = '/'}
-                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-black/40 backdrop-blur-md border border-[#D4AF37]/50 text-[#D4AF37] hover:bg-[#D4AF37]/20 transition-all font-semibold text-sm"
-                        title="Voltar aos Meus Clubes"
-                    >
-                        <Home className="w-4 h-4" />
-                        <span className="hidden sm:inline">Meus Clubes</span>
-                    </motion.button>
-                )}
-            </div>
+        <div className="min-h-screen bg-[#050505] text-white relative font-sans selection:bg-[#D4AF37]/30 selection:text-white pb-24">
 
-            {/* User Login Feedback Header */}
-            <div className="absolute top-0 right-0 p-4 z-50">
-                {currentUser ? (
-                    <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="flex items-center gap-3 p-2 pr-4 rounded-full bg-black/40 backdrop-blur-md border border-white/10"
-                    >
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#D4AF37] to-[#FFD700] flex items-center justify-center text-black font-bold text-sm">
-                            {currentUser.photo ? (
-                                <img src={`/api/serve-image?file=${currentUser.photo}`} className="w-full h-full rounded-full object-cover" alt="" />
-                            ) : (
-                                (currentUser?.name || '?').charAt(0).toUpperCase()
-                            )}
-                        </div>
-                        <div className="flex flex-col items-start">
-                            <span className="text-xs text-[#D4AF37] font-medium leading-none mb-0.5">Logado como</span>
-                            <span className="text-sm text-white font-bold leading-none">{(currentUser?.name || 'User').split(' ')[0]}</span>
-                        </div>
-                        <button
-                            onClick={handleLogout}
-                            className="ml-2 p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-red-400 transition-colors"
-                            title="Sair"
-                        >
-                            <LogOut className="w-4 h-4" />
-                        </button>
-                    </motion.div>
-                ) : (
-                    <motion.button
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        onClick={() => window.location.href = '/'}
-                        className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#D4AF37]/10 border border-[#D4AF37]/50 text-[#D4AF37] hover:bg-[#D4AF37]/20 transition-all font-semibold text-sm backdrop-blur-md"
-                    >
-                        <UserIcon className="w-4 h-4" />
-                        Fazer Login
-                    </motion.button>
-                )}
-            </div>
-
-            {/* Animated Background Particles */}
+            {/* Ambient Background */}
             <div className="fixed inset-0 pointer-events-none overflow-hidden">
-                {[...Array(20)].map((_, i) => (
-                    <motion.div
-                        key={i}
-                        className="absolute w-1 h-1 rounded-full"
-                        style={{
-                            background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-                            left: `${Math.random() * 100}%`,
-                            top: `${Math.random() * 100}%`,
-                        }}
-                        animate={{
-                            y: [0, -30, 0],
-                            opacity: [0, 1, 0],
-                            scale: [0, 1, 0],
-                        }}
-                        transition={{
-                            duration: 3 + Math.random() * 2,
-                            repeat: Infinity,
-                            delay: Math.random() * 2,
-                        }}
-                    />
-                ))}
+                <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] rounded-full bg-[#D4AF37] opacity-5 blur-[120px]" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[30vw] h-[30vw] rounded-full bg-[#FFD700] opacity-[0.03] blur-[100px]" />
+                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.015] mix-blend-overlay"></div>
             </div>
 
-            {/* Ambient Golden Glows */}
-            <div className="fixed inset-0 pointer-events-none">
-                <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[#D4AF37] opacity-10 blur-[150px] rounded-full"></div>
-                <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] bg-[#FFD700] opacity-10 blur-[120px] rounded-full"></div>
-            </div>
-
-            {/* Content Container */}
-            <div className="relative z-10 max-w-5xl mx-auto px-4 py-12 md:py-20">
-                {/* HERO SECTION */}
-                <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6 }}
-                    className="text-center mb-16"
-                >
-                    {/* Profile Photo with Golden Ring Animation */}
-                    <div className="relative inline-block mb-6">
-                        {/* Animated Golden Ring */}
-                        <motion.div
-                            className="absolute inset-0 rounded-full"
-                            style={{
-                                background: 'conic-gradient(from 0deg, #D4AF37, #FFD700, #D4AF37)',
-                                padding: '4px',
-                            }}
-                            animate={{ rotate: 360 }}
-                            transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-                        >
-                            <div
-                                className="w-full h-full rounded-full"
-                                style={{ background: '#0a0a0a' }}
-                            />
-                        </motion.div>
-
-                        {/* Profile Image */}
-                        <motion.div
-                            className="relative w-48 h-48 md:w-56 md:h-56 rounded-full flex items-center justify-center text-7xl md:text-8xl"
-                            style={{
-                                background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(255, 215, 0, 0.2) 100%)',
-                                border: '3px solid transparent',
-                                boxShadow: '0 0 60px rgba(212, 175, 55, 0.4), inset 0 0 30px rgba(212, 175, 55, 0.1)',
-                            }}
-                            whileHover={{ scale: 1.05 }}
-                            transition={{ duration: 0.3 }}
-                        >
-                            {profileImage.startsWith('http') ? (
-                                <img src={profileImage} alt={data.name} className="w-full h-full rounded-full object-cover" />
-                            ) : profileImage.includes('/') ? (
-                                <img src={`/api/serve-image?file=${profileImage}`} alt={data.name} className="w-full h-full rounded-full object-cover" />
-                            ) : (
-                                <span>{profileImage}</span>
-                            )}
-                        </motion.div>
-
-                        {/* Decorative Sparkles */}
-                        <motion.div
-                            className="absolute -top-2 -right-2"
-                            animate={{ rotate: [0, 360], scale: [1, 1.2, 1] }}
-                            transition={{ duration: 2, repeat: Infinity }}
-                        >
-                            <Sparkles className="w-8 h-8 text-[#D4AF37]" fill="#D4AF37" />
-                        </motion.div>
-                        <motion.div
-                            className="absolute -bottom-2 -left-2"
-                            animate={{ rotate: [360, 0], scale: [1, 1.2, 1] }}
-                            transition={{ duration: 2, repeat: Infinity, delay: 1 }}
-                        >
-                            <Sparkles className="w-6 h-6 text-[#FFD700]" fill="#FFD700" />
-                        </motion.div>
+            {/* Navigation Header */}
+            <header className="fixed top-0 left-0 w-full z-50 bg-[#050505]/60 backdrop-blur-xl border-b border-white/5">
+                <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+                    <div>
+                        {currentUser && (
+                            <button
+                                onClick={() => {
+                                    window.history.pushState({}, '', '/');
+                                    window.dispatchEvent(new PopStateEvent('popstate'));
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors text-sm font-medium text-gray-300 hover:text-white"
+                            >
+                                <Home className="w-4 h-4" />
+                                <span className="hidden sm:inline">Meus Clubes</span>
+                            </button>
+                        )}
                     </div>
 
-                    {/* RP Name */}
-                    <motion.h1
-                        className="text-4xl md:text-5xl font-black mb-2"
-                        style={{
-                            background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent',
-                        }}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.2 }}
-                    >
-                        {data.name}
-                    </motion.h1>
-
-                    {/* Subtitle */}
-                    <motion.p
-                        className="text-xl md:text-2xl mb-4"
-                        style={{ color: '#D4AF37' }}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.6, delay: 0.3 }}
-                    >
-                        VIP Promoter
-                    </motion.p>
-
-                    {/* Instagram Handle */}
-                    <motion.a
-                        href={`https://instagram.com/${data.instagram?.replace('@', '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full transition-all duration-300"
-                        style={{
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            border: '1px solid rgba(212, 175, 55, 0.3)',
-                            color: '#D4AF37',
-                        }}
-                        whileHover={{
-                            scale: 1.05,
-                            background: 'rgba(212, 175, 55, 0.1)',
-                            boxShadow: '0 0 30px rgba(212, 175, 55, 0.3)',
-                        }}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.6, delay: 0.4 }}
-                    >
-                        <Instagram className="w-5 h-5" />
-                        <span className="font-semibold">{instagramHandle}</span>
-                    </motion.a>
-                </motion.div>
-
-                {/* BIO SECTION */}
-                <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.5 }}
-                    className="mb-12"
-                >
-                    <div
-                        className="p-6 md:p-8 rounded-3xl"
-                        style={{
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            backdropFilter: 'blur(20px)',
-                            border: '1px solid rgba(212, 175, 55, 0.3)',
-                            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-                        }}
-                    >
-                        <h2
-                            className="text-2xl font-black mb-4"
-                            style={{ color: '#D4AF37' }}
-                        >
-                            About Me
-                        </h2>
-                        <p
-                            className="text-base md:text-lg leading-relaxed"
-                            style={{ color: '#9ca3af' }}
-                        >
-                            {data.bio || 'Premium nightlife curator. Join my guestlist for exclusive access to the hottest events.'}
-                        </p>
-                    </div>
-                </motion.div>
-
-                {/* STATS SECTION */}
-                <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.6 }}
-                    className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-16"
-                >
-                    {/* Total Events */}
-                    <motion.div
-                        className="p-6 rounded-2xl text-center"
-                        style={{
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            backdropFilter: 'blur(20px)',
-                            border: '1px solid rgba(212, 175, 55, 0.3)',
-                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-                        }}
-                        whileHover={{
-                            scale: 1.05,
-                            boxShadow: '0 8px 40px rgba(212, 175, 55, 0.2)',
-                        }}
-                    >
-                        <Calendar className="w-10 h-10 mx-auto mb-3" style={{ color: '#D4AF37' }} />
-                        <div className="text-4xl font-black text-white mb-1">{data.stats.totalEvents}</div>
-                        <div className="text-sm" style={{ color: '#6b7280' }}>Total Events</div>
-                    </motion.div>
-
-                    {/* Total Guests */}
-                    <motion.div
-                        className="p-6 rounded-2xl text-center"
-                        style={{
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            backdropFilter: 'blur(20px)',
-                            border: '1px solid rgba(212, 175, 55, 0.3)',
-                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-                        }}
-                        whileHover={{
-                            scale: 1.05,
-                            boxShadow: '0 8px 40px rgba(212, 175, 55, 0.2)',
-                        }}
-                    >
-                        <Users className="w-10 h-10 mx-auto mb-3" style={{ color: '#D4AF37' }} />
-                        <div className="text-4xl font-black text-white mb-1">{data.stats.totalGuests.toLocaleString()}</div>
-                        <div className="text-sm" style={{ color: '#6b7280' }}>Total Guests</div>
-                    </motion.div>
-
-                    {/* Rating */}
-                    <motion.div
-                        className="p-6 rounded-2xl text-center"
-                        style={{
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            backdropFilter: 'blur(20px)',
-                            border: '1px solid rgba(212, 175, 55, 0.3)',
-                            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-                        }}
-                        whileHover={{
-                            scale: 1.05,
-                            boxShadow: '0 8px 40px rgba(212, 175, 55, 0.2)',
-                        }}
-                    >
-                        <Star className="w-10 h-10 mx-auto mb-3" style={{ color: '#D4AF37' }} fill="#D4AF37" />
-                        <div className="text-4xl font-black text-white mb-1">{data.stats.rating > 0 ? data.stats.rating.toFixed(1) : '-'}</div>
-                        <div className="text-sm" style={{ color: '#6b7280' }}>{data.stats.reviewCount} Reviews</div>
-                    </motion.div>
-                </motion.div>
-
-                {/* EVENTS SECTION */}
-                <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.7 }}
-                    className="mb-16"
-                >
-                    <h2
-                        className="text-3xl md:text-4xl font-black mb-8 text-center"
-                        style={{ color: '#D4AF37' }}
-                    >
-                        Available Events
-                    </h2>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {data.events.length === 0 ? (
-                            <div className="col-span-full text-center py-12">
-                                <p className="text-gray-400 text-lg">Sem eventos disponíveis no momento.</p>
+                    <div>
+                        {currentUser ? (
+                            <div className="flex items-center gap-3">
+                                <div className="flex flex-col items-end">
+                                    <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">Logado</span>
+                                    <span className="text-sm font-semibold text-white">{(currentUser?.name || 'User').split(' ')[0]}</span>
+                                </div>
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#D4AF37] to-[#FFD700] p-[2px]">
+                                    <div className="w-full h-full rounded-full bg-[#050505] flex items-center justify-center overflow-hidden">
+                                        {profilePhotoUrl ? (
+                                            <img src={profilePhotoUrl.startsWith('http') ? profilePhotoUrl : `/api/serve-image?file=${profilePhotoUrl}`} className="w-full h-full object-cover" alt="" />
+                                        ) : (
+                                            <span className="text-xs text-[#D4AF37] font-bold">{(currentUser?.name || '?').charAt(0).toUpperCase()}</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleLogout}
+                                    className="p-2 ml-1 rounded-full text-gray-500 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                                    title="Terminar sessão"
+                                >
+                                    <LogOut className="w-4 h-4" />
+                                </button>
                             </div>
                         ) : (
-                            data.events.map((event, index) => {
+                            <button
+                                onClick={() => {
+                                    window.history.pushState({}, '', '/');
+                                    window.dispatchEvent(new PopStateEvent('popstate'));
+                                }}
+                                className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#D4AF37] text-black hover:bg-[#FFD700] transition-colors text-sm font-bold shadow-[0_0_20px_rgba(212,175,55,0.3)]"
+                            >
+                                <UserIcon className="w-4 h-4" />
+                                Entrar
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </header>
+
+            <main className="relative z-10 max-w-5xl mx-auto px-4 pt-16 md:pt-24">
+
+                {/* Hero Section */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                    className="flex flex-col items-center text-center mb-16"
+                >
+                    {/* Profile Picture */}
+                    <div className="relative mb-6 group">
+                        <div className="absolute inset-0 bg-[#D4AF37] blur-3xl opacity-20 rounded-full group-hover:opacity-30 transition-opacity duration-700" />
+                        <div className="relative w-32 h-32 md:w-40 md:h-40 rounded-[2.5rem] p-1 bg-gradient-to-b from-white/10 to-transparent shadow-2xl">
+                            <div className="w-full h-full rounded-[2.3rem] overflow-hidden bg-[#111]">
+                                {profileImage.startsWith('http') ? (
+                                    <img src={profileImage} alt={data.name} className="w-full h-full object-cover" />
+                                ) : profileImage.includes('/') ? (
+                                    <img src={`/api/serve-image?file=${profileImage}`} alt={data.name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-5xl bg-gradient-to-br from-[#111] to-[#222]">
+                                        {profileImage}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <h1 className="text-4xl md:text-6xl font-black mb-3 tracking-tight">
+                        {data.name}
+                    </h1>
+
+                    <p className="text-lg md:text-xl text-[#D4AF37] font-medium mb-6">
+                        VIP Promoter
+                    </p>
+
+                    <p className="text-gray-400 text-base md:text-lg max-w-2xl mx-auto leading-relaxed mb-8">
+                        {data.bio || 'Criador de experiências noturnas premium. Junta-te à minha guestlist para garantires entrada nos melhores eventos da cidade com acesso exclusivo.'}
+                    </p>
+
+                    {data.instagram && (
+                        <a
+                            href={`https://instagram.com/${data.instagram.replace('@', '')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all text-sm font-semibold"
+                        >
+                            <Instagram className="w-4 h-4 text-[#D4AF37]" />
+                            {instagramHandle}
+                        </a>
+                    )}
+                </motion.div>
+
+                {/* Stats Bar */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.7, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+                    className="max-w-3xl mx-auto bg-white/[0.02] backdrop-blur-3xl border border-white/5 rounded-3xl p-6 md:p-8 flex flex-wrap sm:flex-nowrap items-center justify-around gap-6 mb-24 shadow-2xl"
+                >
+                    <div className="flex flex-col items-center gap-1 w-full sm:w-auto">
+                        <div className="flex items-center gap-2 text-gray-500 mb-1">
+                            <Calendar className="w-4 h-4" />
+                            <span className="text-xs font-semibold uppercase tracking-wider">Eventos</span>
+                        </div>
+                        <span className="text-3xl md:text-4xl font-bold text-white">{data.stats.totalEvents}</span>
+                    </div>
+
+                    <div className="hidden sm:block w-px h-12 bg-white/10"></div>
+
+                    <div className="flex flex-col items-center gap-1 w-full sm:w-auto">
+                        <div className="flex items-center gap-2 text-gray-500 mb-1">
+                            <Users className="w-4 h-4" />
+                            <span className="text-xs font-semibold uppercase tracking-wider">Convidados</span>
+                        </div>
+                        <span className="text-3xl md:text-4xl font-bold text-white">{data.stats.totalGuests.toLocaleString()}</span>
+                    </div>
+
+                    <div className="hidden sm:block w-px h-12 bg-white/10"></div>
+
+                    <div className="flex flex-col items-center gap-1 w-full sm:w-auto">
+                        <div className="flex items-center gap-2 text-gray-500 mb-1">
+                            <Star className="w-4 h-4" />
+                            <span className="text-xs font-semibold uppercase tracking-wider">Rating</span>
+                        </div>
+                        <div className="flex items-end gap-1">
+                            <span className="text-3xl md:text-4xl font-bold text-white">{data.stats.rating > 0 ? data.stats.rating.toFixed(1) : '-'}</span>
+                            {data.stats.rating > 0 && <span className="text-sm text-gray-500 mb-1">/5</span>}
+                        </div>
+                    </div>
+                </motion.div>
+
+                {/* Events Section */}
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.7, delay: 0.2 }}
+                >
+                    <div className="flex items-center justify-between mb-8">
+                        <h2 className="text-2xl md:text-3xl font-black tracking-tight">
+                            Eventos <span className="text-[#D4AF37]">Exclusivos</span>
+                        </h2>
+                    </div>
+
+                    {data.events.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center p-12 bg-white/[0.02] border border-white/5 rounded-3xl">
+                            <Calendar className="w-12 h-12 text-gray-600 mb-4" />
+                            <p className="text-gray-400 font-medium">Não há eventos disponíveis neste momento.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {data.events.map((event, index) => {
                                 const userIsJoined = isJoined(event.id);
 
                                 return (
                                     <motion.div
                                         key={event.id}
-                                        initial={{ opacity: 0, y: 30 }}
+                                        initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.5, delay: 0.8 + index * 0.1 }}
-                                        onHoverStart={() => setHoveredEvent(event.id)}
-                                        onHoverEnd={() => setHoveredEvent(null)}
+                                        transition={{ duration: 0.5, delay: 0.2 + index * 0.1 }}
                                         onClick={() => {
                                             setSelectedEvent(event);
                                             setShowEventModal(true);
                                         }}
-                                        className="rounded-2xl overflow-hidden cursor-pointer"
-                                        style={{
-                                            background: 'rgba(26, 26, 46, 0.6)',
-                                            backdropFilter: 'blur(20px)',
-                                            border: hoveredEvent === event.id
-                                                ? '1px solid rgba(212, 175, 55, 0.6)'
-                                                : '1px solid rgba(212, 175, 55, 0.2)',
-                                            boxShadow: hoveredEvent === event.id
-                                                ? '0 20px 60px rgba(212, 175, 55, 0.3)'
-                                                : '0 8px 32px rgba(0, 0, 0, 0.4)',
-                                            transform: hoveredEvent === event.id ? 'translateY(-8px)' : 'translateY(0)',
-                                            transition: 'all 0.3s ease',
-                                        }}
+                                        className="group cursor-pointer rounded-[2rem] bg-white/[0.02] border border-white/5 overflow-hidden hover:bg-white/[0.04] transition-all duration-300 hover:border-white/10 hover:-translate-y-1"
                                     >
-                                        {/* Event Image with Gradient Overlay */}
-                                        <div
-                                            className="relative h-48 flex items-end p-4"
-                                            style={{
-                                                backgroundImage: event.image_url
-                                                    ? `linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.8)), url(${event.image_url})`
-                                                    : 'linear-gradient(135deg, #D4AF37 0%, #1a1a2e 100%)',
-                                                backgroundSize: 'cover',
-                                                backgroundPosition: 'center',
-                                            }}
-                                        >
+                                        {/* Image Header */}
+                                        <div className="relative h-48 w-full overflow-hidden">
+                                            <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] to-transparent z-10" />
+                                            <img
+                                                src={event.image_url || 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?q=80&w=1000&auto=format&fit=crop'}
+                                                alt={event.name}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                            />
                                             {/* Club Badge */}
-                                            <div
-                                                className="absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-black"
-                                                style={{
-                                                    background: 'rgba(0, 0, 0, 0.7)',
-                                                    backdropFilter: 'blur(10px)',
-                                                    border: '1px solid rgba(212, 175, 55, 0.5)',
-                                                    color: '#D4AF37',
-                                                }}
-                                            >
-                                                {event.club}
+                                            <div className="absolute top-4 left-4 z-20">
+                                                <div className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-xs font-bold text-white uppercase tracking-wider">
+                                                    {event.club}
+                                                </div>
                                             </div>
-
-                                            {/* Event Name */}
-                                            <h3 className="text-xl font-black text-white">{event.name}</h3>
                                         </div>
 
-                                        {/* Event Details */}
-                                        <div className="p-5 space-y-3">
-                                            {/* Date & Time */}
-                                            <div className="flex items-center gap-2 text-gray-400">
-                                                <Clock className="w-4 h-4" style={{ color: '#D4AF37' }} />
-                                                <span className="text-sm">{formatEventDate(event.date)} • {event.start_time.substring(0, 5)}</span>
+                                        {/* Content */}
+                                        <div className="p-6 pt-2">
+                                            <h3 className="text-xl font-bold text-white mb-4 line-clamp-1 group-hover:text-[#D4AF37] transition-colors">{event.name}</h3>
+
+                                            <div className="space-y-3 mb-6">
+                                                <div className="flex items-center gap-3 text-sm text-gray-400">
+                                                    <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center shrink-0 text-[#D4AF37]">
+                                                        <Calendar className="w-4 h-4" />
+                                                    </div>
+                                                    <span>{formatEventDate(event.date)} • {event.start_time.substring(0, 5)}</span>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm text-gray-400">
+                                                    <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center shrink-0 text-[#D4AF37]">
+                                                        <MapPin className="w-4 h-4" />
+                                                    </div>
+                                                    <span className="truncate">{event.location}</span>
+                                                </div>
                                             </div>
 
-                                            {/* Location */}
-                                            <div className="flex items-center gap-2 text-gray-400">
-                                                <MapPin className="w-4 h-4" style={{ color: '#D4AF37' }} />
-                                                <span className="text-sm">{event.location}</span>
-                                            </div>
-
-                                            {/* Join Button */}
-                                            <motion.button
-                                                className="w-full py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2"
-                                                style={{
-                                                    background: userIsJoined
-                                                        ? 'rgba(34, 197, 94, 0.2)'
-                                                        : (hoveredEvent === event.id
-                                                            ? 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)'
-                                                            : 'rgba(212, 175, 55, 0.2)'),
-                                                    color: userIsJoined
-                                                        ? '#4ade80'
-                                                        : (hoveredEvent === event.id ? '#000000' : '#D4AF37'),
-                                                    border: userIsJoined
-                                                        ? '1px solid rgba(34, 197, 94, 0.4)'
-                                                        : '1px solid rgba(212, 175, 55, 0.4)',
-                                                    cursor: userIsJoined ? 'default' : 'pointer',
-                                                }}
-                                                whileHover={!userIsJoined ? {
-                                                    scale: 1.02,
-                                                    boxShadow: '0 0 30px rgba(212, 175, 55, 0.4)',
-                                                } : {}}
-                                                whileTap={!userIsJoined ? { scale: 0.98 } : {}}
+                                            <button
+                                                className={`w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all duration-300 ${userIsJoined
+                                                        ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                                                        : 'bg-white/5 text-white border border-white/10 hover:bg-[#D4AF37] hover:text-black hover:border-[#D4AF37]'
+                                                    }`}
                                                 onClick={async (e) => {
                                                     e.stopPropagation();
 
                                                     if (userIsJoined) return;
 
                                                     try {
-                                                        // Check if user is logged in
                                                         const userStr = localStorage.getItem('user');
                                                         if (!userStr) {
                                                             alert('Por favor, faça login primeiro para entrar na guestlist');
-                                                            // Redirect to login page
-                                                            window.location.href = '/';
+                                                            window.history.pushState({}, '', '/');
+                                                            window.dispatchEvent(new PopStateEvent('popstate'));
                                                             return;
                                                         }
 
                                                         const user = JSON.parse(userStr);
 
-                                                        // Check if user is guest (not authenticated)
                                                         if (!user.id || user.id === 0) {
                                                             alert('Por favor, crie uma conta para entrar na guestlist');
-                                                            window.location.href = '/';
+                                                            window.history.pushState({}, '', '/');
+                                                            window.dispatchEvent(new PopStateEvent('popstate'));
                                                             return;
                                                         }
 
-                                                        // Get RP ID from profile data
                                                         const rpId = data.id;
 
                                                         const result = await apiFetch('/guestlist/join', {
@@ -566,12 +398,7 @@ export function RPPublicProfile({ data }: RPPublicProfileProps) {
                                                         });
 
                                                         if (result.status === 'success') {
-                                                            // Update joined status locally
                                                             setUserGuestlists(prev => [...prev, event.id]);
-
-                                                            // Check-in logic handled by backend message, but we can't easily know here without extra check
-                                                            // Simplified success message for better UX
-                                                            alert('✅ Adicionado à guestlist com sucesso!');
                                                         } else {
                                                             alert(result.message || 'Erro ao entrar na guestlist');
                                                         }
@@ -583,116 +410,118 @@ export function RPPublicProfile({ data }: RPPublicProfileProps) {
                                             >
                                                 {userIsJoined ? (
                                                     <>
-                                                        <span className="text-lg">✓</span> Já na Guestlist
+                                                        <Check className="w-4 h-4" /> Adicionado
                                                     </>
                                                 ) : (
-                                                    'Join Guestlist'
+                                                    <>
+                                                        Participar <ArrowRight className="w-4 h-4" />
+                                                    </>
                                                 )}
-                                            </motion.button>
+                                            </button>
                                         </div>
                                     </motion.div>
-                                )
-                            })
-                        )}
-                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </motion.div>
+            </main>
 
-                {/* Event Detail Modal */}
-                {showEventModal && selectedEvent && (
-                    <div
-                        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-                        style={{ background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(10px)' }}
-                        onClick={() => setShowEventModal(false)}
-                    >
+            {/* Event Detail Modal */}
+            {typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    {showEventModal && selectedEvent && (
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="w-full max-w-2xl rounded-2xl backdrop-blur-xl overflow-hidden"
-                            style={{
-                                background: 'rgba(10, 10, 10, 0.95)',
-                                border: '1px solid rgba(212, 175, 55, 0.3)',
-                                boxShadow: '0 0 60px rgba(212, 175, 55, 0.2)',
-                                maxHeight: '90vh',
-                                overflowY: 'auto'
-                            }}
-                            onClick={(e) => e.stopPropagation()}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+                            onClick={() => setShowEventModal(false)}
                         >
-                            {/* Event Image */}
-                            {selectedEvent.image_url && (
-                                <div style={{ height: '300px', overflow: 'hidden' }}>
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                                transition={{ type: "spring", duration: 0.5 }}
+                                className="w-full max-w-lg bg-[#0a0a0a] border border-white/10 rounded-[2rem] overflow-y-auto shadow-2xl relative max-h-[90vh]"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {/* Header Image */}
+                                <div className="relative h-56 w-full shrink-0">
+                                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] to-transparent z-10" />
                                     <img
-                                        src={selectedEvent.image_url}
+                                        src={selectedEvent.image_url || 'https://images.unsplash.com/photo-1566737236500-c8ac43014a67?q=80&w=1000&auto=format&fit=crop'}
                                         alt={selectedEvent.name}
                                         className="w-full h-full object-cover"
                                     />
+                                    <button
+                                        onClick={() => setShowEventModal(false)}
+                                        className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-black/50 backdrop-blur-md border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+                                    >
+                                        ✕
+                                    </button>
                                 </div>
-                            )}
 
-                            <div className="p-8">
-                                <h2 className="text-3xl text-white font-bold mb-2">{selectedEvent.name}</h2>
-                                {selectedEvent.description && <p className="text-gray-400 mb-6" style={{ whiteSpace: 'pre-wrap' }}>{selectedEvent.description}</p>}
+                                <div className="p-6 md:p-8 pt-0 relative z-20 -mt-6">
+                                    <div className="inline-block px-3 py-1 bg-[#D4AF37] text-black text-xs font-bold rounded-full uppercase tracking-wider mb-3">
+                                        {selectedEvent.club}
+                                    </div>
 
-                                <div className="grid grid-cols-2 gap-4 mb-6">
-                                    <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
-                                        <div className="flex items-center gap-2 text-gray-400 mb-2">
-                                            <Calendar className="w-5 h-5" />
-                                            <span className="text-sm">Data</span>
-                                        </div>
-                                        <div className="text-white text-lg font-semibold">
-                                            {new Date(selectedEvent.date).toLocaleDateString('pt-PT', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                                        </div>
-                                    </div>
-                                    <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
-                                        <div className="flex items-center gap-2 text-gray-400 mb-2">
-                                            <Clock className="w-5 h-5" />
-                                            <span className="text-sm">Horário</span>
-                                        </div>
-                                        <div className="text-white text-lg font-semibold">
-                                            {selectedEvent.start_time} - {selectedEvent.end_time}
-                                        </div>
-                                    </div>
-                                    {selectedEvent.capacity && (
-                                        <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
-                                            <div className="flex items-center gap-2 text-gray-400 mb-2">
-                                                <Users className="w-5 h-5" />
-                                                <span className="text-sm">Capacidade</span>
+                                    <h2 className="text-2xl md:text-3xl font-black text-white mb-2 leading-tight">
+                                        {selectedEvent.name}
+                                    </h2>
+
+                                    {selectedEvent.description && (
+                                        <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                                            {selectedEvent.description}
+                                        </p>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-3 mb-8">
+                                        <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                                            <div className="flex items-center gap-2 text-[#D4AF37] mb-1">
+                                                <Calendar className="w-4 h-4" />
+                                                <span className="text-xs font-semibold uppercase">Data</span>
                                             </div>
-                                            <div className="text-white text-lg font-semibold">{selectedEvent.capacity} pessoas</div>
+                                            <div className="text-sm font-medium text-white">
+                                                {formatEventDate(selectedEvent.date)}
+                                            </div>
                                         </div>
-                                    )}
-                                    {selectedEvent.organizer_name && (
-                                        <div className="p-4 rounded-xl" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
-                                            <div className="text-gray-400 mb-2 text-sm">Organizador</div>
-                                            <div className="text-white text-lg font-semibold">{selectedEvent.organizer_name}</div>
+                                        <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
+                                            <div className="flex items-center gap-2 text-[#D4AF37] mb-1">
+                                                <Clock className="w-4 h-4" />
+                                                <span className="text-xs font-semibold uppercase">Horário</span>
+                                            </div>
+                                            <div className="text-sm font-medium text-white">
+                                                {selectedEvent.start_time.substring(0, 5)} - {selectedEvent.end_time.substring(0, 5)}
+                                            </div>
                                         </div>
-                                    )}
-                                    <div className="p-4 rounded-xl col-span-2" style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
-                                        <div className="flex items-center gap-2 text-gray-400 mb-2">
-                                            <MapPin className="w-5 h-5" />
-                                            <span className="text-sm">Local</span>
+                                        <div className="bg-white/5 rounded-2xl p-4 border border-white/5 col-span-2">
+                                            <div className="flex items-center gap-2 text-[#D4AF37] mb-1">
+                                                <MapPin className="w-4 h-4" />
+                                                <span className="text-xs font-semibold uppercase">Localização</span>
+                                            </div>
+                                            <div className="text-sm font-medium text-white">
+                                                {selectedEvent.location}
+                                            </div>
                                         </div>
-                                        <div className="text-white text-lg font-semibold">{selectedEvent.location}</div>
                                     </div>
+
+                                    <button
+                                        onClick={() => {
+                                            setShowEventModal(false);
+                                        }}
+                                        className="w-full py-4 rounded-xl font-bold bg-[#D4AF37] text-black hover:bg-[#FFD700] transition-colors shadow-[0_0_20px_rgba(212,175,55,0.2)]"
+                                    >
+                                        Entendido
+                                    </button>
                                 </div>
-
-                                <button
-                                    onClick={() => setShowEventModal(false)}
-                                    className="w-full px-6 py-3 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-colors"
-                                >
-                                    Fechar
-                                </button>
-                            </div>
+                            </motion.div>
                         </motion.div>
-                    </div>
-                )}
-
-                {/* Footer */}
-                <div className="relative z-10 text-center py-8 border-t" style={{ borderColor: 'rgba(255, 255, 255, 0.05)' }}>
-                    <p className="text-gray-600 text-sm">
-                        Powered by <span style={{ color: '#D4AF37' }}>VIBE</span> • Premium Nightlife Platform
-                    </p>
-                </div>
-            </div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
         </div>
     );
 }

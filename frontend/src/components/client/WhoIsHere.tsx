@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion, useMotionValue, useTransform, useAnimation, PanInfo } from 'motion/react';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { apiFetch } from '../../services/api';
-import { X, Heart, Sparkles } from 'lucide-react';
+import { X, Heart, Sparkles, Info } from 'lucide-react';
 
 interface Person {
   id: number;
@@ -28,8 +29,19 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
   const [showMatchAnimation, setShowMatchAnimation] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dragX, setDragX] = useState(0);
   const dragStart = useRef<number | null>(null);
+  
+  // Framer Motion Drag values
+  const x = useMotionValue(0);
+  // When swiping left (negative x), rotate counter-clockwise. Right, clockwise.
+  const rotate = useTransform(x, [-200, 200], [-15, 15]);
+  // Opacity decreases as card is swiped far
+  const opacity = useTransform(x, [-300, 0, 300], [0.3, 1, 0.3]);
+  // Visual indicators (red overlay for pass, green/gold for like)
+  const passOpacity = useTransform(x, [-150, -50], [1, 0]);
+  const likeOpacity = useTransform(x, [50, 150], [0, 1]);
+
+  const controls = useAnimation();
 
   const currentPerson = people[currentIndex];
 
@@ -138,7 +150,28 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
     });
   };
 
+  const handleDragEnd = async (event: any, info: PanInfo) => {
+    const swipeThreshold = 100;
+    if (info.offset.x > swipeThreshold || info.velocity.x > 800) {
+      await controls.start({ x: window.innerWidth, transition: { duration: 0.2 } });
+      handleSwipe('right');
+      x.set(0);
+    } else if (info.offset.x < -swipeThreshold || info.velocity.x < -800) {
+      await controls.start({ x: -window.innerWidth, transition: { duration: 0.2 } });
+      handleSwipe('left');
+      x.set(0);
+    } else {
+      // Snap back
+      controls.start({ x: 0, transition: { type: "spring", stiffness: 300, damping: 20 } });
+    }
+  };
 
+  const triggerButtonSwipe = async (direction: 'left' | 'right') => {
+    const targetX = direction === 'right' ? window.innerWidth : -window.innerWidth;
+    await controls.start({ x: targetX, transition: { duration: 0.3 } });
+    handleSwipe(direction);
+    x.set(0);
+  };
   const nextPhoto = () => {
     if (currentPerson && currentPhotoIndex < currentPerson.photos.length - 1) {
       setCurrentPhotoIndex(currentPhotoIndex + 1);
@@ -151,28 +184,7 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
     }
   };
 
-  const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
-    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
-    dragStart.current = clientX;
-  };
 
-  const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
-    if (dragStart.current === null) return;
-    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
-    const diff = clientX - dragStart.current;
-    setDragX(diff);
-  };
-
-  const handleTouchEnd = () => {
-    if (dragStart.current === null) return;
-    if (dragX > 100) {
-      handleSwipe('right');
-    } else if (dragX < -100) {
-      handleSwipe('left');
-    }
-    setDragX(0);
-    dragStart.current = null;
-  };
 
   if (loading) {
     return (
@@ -192,14 +204,33 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
 
   if (!currentPerson || people.length === 0) {
     return (
-      <div className="text-center text-gray-400 py-8">
-        Não há mais ninguém visível na festa... 👻
-      </div>
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="flex flex-col items-center justify-center text-center py-16 px-4 space-y-6"
+      >
+        <div className="relative w-24 h-24 flex items-center justify-center">
+          <motion.div 
+            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute inset-0 bg-[#D4AF37] rounded-full blur-xl"
+          />
+          <div className="relative z-10 w-20 h-20 rounded-full bg-black/50 border border-[#D4AF37]/30 flex items-center justify-center backdrop-blur-md">
+            <span className="text-4xl">👻</span>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-xl font-bold text-white tracking-wide">A procurar VIBEs...</h3>
+          <p className="text-sm text-gray-400 max-w-[250px] mx-auto leading-relaxed">
+            Não há mais ninguém visível na festa. Tenta novamente mais tarde ou vai beber um copo ao bar! 🥂
+          </p>
+        </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="relative max-w-md mx-auto">
+    <div className="relative max-w-md mx-auto flex flex-col h-[77dvh] min-h-[500px] max-h-[750px]">
       {/* Match Animation */}
       {showMatchAnimation && currentPerson && (
         <div
@@ -261,37 +292,48 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
       )}
 
       {/* Swipeable Card */}
-      <div
-        className="relative transition-all duration-300 touch-none select-none"
-        style={{
-          transform: swipeDirection === 'left' 
-            ? 'translateX(-150%) rotate(-20deg)' 
-            : swipeDirection === 'right' 
-              ? 'translateX(150%) rotate(20deg)' 
-              : `translateX(${dragX}px) rotate(${dragX * 0.05}deg)`,
-          opacity: swipeDirection ? 0 : 1 - Math.abs(dragX) / 500,
-        }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onMouseDown={handleTouchStart}
-        onMouseMove={handleTouchMove}
-        onMouseUp={handleTouchEnd}
-        onMouseLeave={handleTouchEnd}
+      <motion.div
+        key={currentPerson.id}
+        className="relative touch-none select-none cursor-grab active:cursor-grabbing z-10 flex-1 min-h-0"
+        style={{ x, rotate, opacity }}
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.8}
+        onDragEnd={handleDragEnd}
+        animate={controls}
       >
         <div
-          className="relative overflow-hidden rounded-3xl"
+          className="relative overflow-hidden rounded-[2rem] w-full h-full"
           style={{
-            height: '480px',
             border: '1px solid rgba(255, 255, 255, 0.1)',
-            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+            boxShadow: '0 30px 60px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
           }}
         >
+          {/* Action Overlays */}
+          <motion.div 
+            className="absolute inset-0 z-20 pointer-events-none"
+            style={{ 
+              background: 'linear-gradient(to right, rgba(239, 68, 68, 0.4), transparent)',
+              opacity: passOpacity 
+            }}
+          >
+            <div className="absolute top-10 right-10 border-4 border-red-500 text-red-500 font-black text-4xl px-4 py-1 rounded-xl rotate-12">PASS</div>
+          </motion.div>
+          <motion.div 
+            className="absolute inset-0 z-20 pointer-events-none"
+            style={{ 
+              background: 'linear-gradient(to left, rgba(212, 175, 55, 0.4), transparent)',
+              opacity: likeOpacity 
+            }}
+          >
+            <div className="absolute top-10 left-10 border-4 border-[#D4AF37] text-[#D4AF37] font-black text-4xl px-4 py-1 rounded-xl -rotate-12">VIBE</div>
+          </motion.div>
+
           {/* Photo with click zones */}
           <div className="relative w-full h-full" onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            if (x < rect.width / 2) {
+            const posX = e.clientX - rect.left;
+            if (posX < rect.width / 2) {
               prevPhoto();
             } else {
               nextPhoto();
@@ -305,22 +347,23 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
 
             {/* Gradient Overlay */}
             <div
-              className="absolute inset-0"
+              className="absolute inset-0 pointer-events-none"
               style={{
-                background: 'linear-gradient(to bottom, transparent 0%, transparent 50%, rgba(0,0,0,0.9) 100%)',
+                background: 'linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, transparent 20%, transparent 50%, rgba(0,0,0,0.95) 100%)',
               }}
             />
 
             {/* Photo Indicators */}
-            <div className="absolute top-4 left-0 right-0 flex gap-2 px-4">
+            <div className="absolute top-4 left-0 right-0 flex gap-1.5 px-4 z-30 pointer-events-none">
               {currentPerson.photos.map((_, i) => (
                 <div
                   key={i}
-                  className="flex-1 h-1 rounded-full transition-all"
+                  className="flex-1 h-1 rounded-full transition-all duration-300"
                   style={{
                     background: i === currentPhotoIndex
-                      ? 'rgba(212, 175, 55, 0.9)'
+                      ? 'rgba(255, 255, 255, 1)'
                       : 'rgba(255, 255, 255, 0.3)',
+                    boxShadow: i === currentPhotoIndex ? '0 0 10px rgba(255,255,255,0.5)' : 'none'
                   }}
                 />
               ))}
@@ -329,74 +372,81 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
 
           {/* Info Overlay */}
           <div
-            className="absolute bottom-0 left-0 right-0 p-6 space-y-3 cursor-pointer transition-colors hover:bg-black/20"
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent photo navigation
-              onPersonClick?.(currentPerson);
-            }}
+            className="absolute bottom-0 left-0 right-0 p-6 space-y-3 cursor-pointer z-30"
+            onPointerDown={(e) => e.stopPropagation()} // Stop drag when clicking info
+            onClick={() => onPersonClick?.(currentPerson)}
           >
             {/* Name & Age */}
-            <div>
-              <h2
-                className="text-4xl font-black"
-                style={{
-                  background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }}
-              >
-                {currentPerson.name}, {currentPerson.age}
+            <div className="flex items-end gap-2">
+              <h2 className="text-4xl font-black text-white leading-none drop-shadow-lg">
+                {currentPerson.name}
               </h2>
+              <span className="text-3xl font-light text-gray-200 leading-none drop-shadow-md">
+                {currentPerson.age}
+              </span>
             </div>
 
             {/* Stats */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
                 <Sparkles className="w-4 h-4 text-[#D4AF37]" />
-                <span className="text-sm text-[#D4AF37]">{currentPerson.vibes} VIBES</span>
+                <span className="text-xs font-bold text-[#D4AF37] tracking-wider">{currentPerson.vibes} VIBES</span>
               </div>
+              {currentPerson.distance && (
+                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
+                   <span className="text-xs font-bold text-gray-300 tracking-wider">{currentPerson.distance}</span>
+                 </div>
+              )}
             </div>
 
             {/* Bio */}
-            <p className="text-white text-sm">{currentPerson.bio}</p>
+            {currentPerson.bio && (
+              <p className="text-gray-300 text-sm line-clamp-2 leading-relaxed drop-shadow-md">{currentPerson.bio}</p>
+            )}
+            
+            <div className="pt-2 flex justify-center">
+              <div className="flex flex-col items-center">
+                <Info className="w-5 h-5 text-gray-400 opacity-50" />
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Action Buttons */}
-      <div className="flex justify-center gap-6 mt-6">
+      <div className="flex justify-center items-center gap-6 mt-auto pt-4 z-10 relative shrink-0">
         {/* Pass Button */}
-        <button
-          onClick={() => handleSwipe('left')}
-          className="w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110"
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => triggerButtonSwipe('left')}
+          className="w-16 h-16 rounded-full flex items-center justify-center shadow-2xl relative overflow-hidden group"
           style={{
-            background: 'rgba(239, 68, 68, 0.2)',
-            border: '2px solid rgba(239, 68, 68, 0.5)',
-            boxShadow: '0 4px 20px rgba(239, 68, 68, 0.3)',
+            background: 'linear-gradient(135deg, #222 0%, #111 100%)',
+            border: '2px solid rgba(239, 68, 68, 0.2)',
           }}
         >
-          <X className="w-8 h-8 text-red-400" strokeWidth={3} />
-        </button>
+          <div className="absolute inset-0 bg-red-500 opacity-0 group-hover:opacity-20 transition-opacity" />
+          <X className="w-7 h-7 text-red-500" strokeWidth={3} />
+        </motion.button>
 
         {/* Like Button */}
-        <button
-          onClick={() => handleSwipe('right')}
-          className="w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110"
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => triggerButtonSwipe('right')}
+          className="w-20 h-20 rounded-full flex items-center justify-center shadow-2xl relative overflow-hidden group"
           style={{
             background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-            boxShadow: '0 8px 30px rgba(212, 175, 55, 0.5)',
+            boxShadow: '0 10px 40px rgba(212, 175, 55, 0.4)',
           }}
         >
-          <Heart className="w-10 h-10 text-black" fill="black" strokeWidth={0} />
-        </button>
+          <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-30 transition-opacity" />
+          <Heart className="w-10 h-10 text-black" fill="black" strokeWidth={1} />
+        </motion.button>
       </div>
 
-      {/* Counter */}
-      <div className="text-center mt-4">
-        <p className="text-sm text-gray-400">
-          {currentIndex + 1} / {people.length}
-        </p>
-      </div>
+
     </div>
   );
 }
