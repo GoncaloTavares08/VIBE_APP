@@ -24,6 +24,12 @@ class ClientProfileController extends Controller
         $clubSlug = $rawSlug ? strtolower($rawSlug) : null;
         
         $profileData = $profile->toArray();
+        if (!$profile->profile_photo_path) {
+            $rp = \App\Models\RpProfile::where('user_id', $user->id)->first();
+            if ($rp && $rp->profile_image_url) {
+                $profileData['profile_photo_path'] = $rp->profile_image_url;
+            }
+        }
         $profileData['points'] = 0;
         $profileData['weekly_points'] = 0;
         $profileData['role'] = null;
@@ -55,7 +61,16 @@ class ClientProfileController extends Controller
                         ->count() + 1;
                     $profileData['global_rank'] = $globalRank;
                     
-                    // Party History (last 4 checked in events)
+                    // Total Parties Count (all checked-in events in this club)
+                    $totalParties = \Illuminate\Support\Facades\DB::table('guestlist as g')
+                        ->join('events as e', 'g.event_id', '=', 'e.id')
+                        ->where('g.client_id', $user->id)
+                        ->where('e.club_id', $club->id)
+                        ->where('g.status', 'checked_in')
+                        ->count();
+                    $profileData['total_parties'] = $totalParties;
+
+                    // Party History (last 4 checked in events for thumbnails)
                     $partyHistory = \Illuminate\Support\Facades\DB::table('guestlist as g')
                         ->join('events as e', 'g.event_id', '=', 'e.id')
                         ->where('g.client_id', $user->id)
@@ -108,8 +123,8 @@ class ClientProfileController extends Controller
             Storage::disk('public')->put($fullPath, (string) $encoded);
 
             $validated['profile_photo_path'] = 'storage/' . $fullPath;
-            unset($validated['photo']);
         }
+        unset($validated['photo']);
 
         if (isset($validated['name'])) {
             $user->update(['name' => $validated['name']]);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, TrendingUp, UserCheck, Clock, Loader2 } from 'lucide-react';
+import { Users, TrendingUp, UserCheck, Loader2 } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
 
 export function Statistics() {
@@ -181,48 +181,44 @@ export function Statistics() {
               </div>
             </div>
 
-            <div className="flex items-end justify-between gap-2 h-32">
-              {entriesData.map((entry, index) => {
-                const maxCount = Math.max(...entriesData.map(e => e.count));
-                const heightPercentage = entriesData.length > 0 && maxCount > 0 ? (entry.count / maxCount) * 100 : 0;
+            <div className="overflow-x-auto custom-scrollbar pb-2 pt-4">
+              <div className="flex items-end justify-between gap-2.5 h-36 min-w-[340px]">
+                {entriesData.map((entry, index) => {
+                  const maxCount = Math.max(...entriesData.map(e => e.count), 1);
+                  const heightPercentage = entry.count > 0 ? Math.min(85, (entry.count / maxCount) * 75 + 10) : 4;
 
-                return (
-                  <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                    <div 
-                      className="relative w-full cursor-pointer group" 
-                      style={{ height: '100px' }}
-                      onClick={() => setActiveBarIndex(activeBarIndex === index ? null : index)}
-                    >
-                      <div
-                        className="absolute bottom-0 w-full rounded-t-lg transition-all duration-500"
-                        style={{
-                          height: `${heightPercentage}%`,
-                          background: 'linear-gradient(180deg, #D4AF37 0%, rgba(212, 175, 55, 0.5) 100%)',
-                          boxShadow: '0 0 20px rgba(212, 175, 55, 0.3)',
-                        }}
-                      />
-                      
-                      {/* Tooltip */}
+                  return (
+                    <div key={index} className="flex-1 flex flex-col items-center gap-1.5 min-w-[32px]">
                       <div 
-                        className={`absolute -top-10 left-1/2 -translate-x-1/2 transition-opacity duration-200 z-10 ${
-                          activeBarIndex === index ? 'opacity-100' : 'opacity-0'
-                        }`}
+                        className="relative w-full cursor-pointer group flex flex-col justify-end" 
+                        style={{ height: '110px' }}
+                        onClick={() => setActiveBarIndex(activeBarIndex === index ? null : index)}
                       >
-                        <div
-                          className="px-2 py-1 rounded-md whitespace-nowrap text-xs"
-                          style={{
-                            background: 'rgba(10, 10, 10, 0.95)',
-                            border: '1px solid rgba(212, 175, 55, 0.3)',
-                          }}
+                        {/* Static/Active Count badge */}
+                        <div 
+                          className={`text-[10px] font-black text-center transition-all duration-200 mb-1 ${
+                            entry.count > 0 || activeBarIndex === index ? 'opacity-100 text-[#D4AF37]' : 'opacity-0 text-transparent'
+                          }`}
                         >
-                          <p className="text-white font-bold">{entry.count}</p>
+                          {entry.count}
                         </div>
+
+                        <div
+                          className="w-full rounded-t-lg transition-all duration-500"
+                          style={{
+                            height: `${heightPercentage}%`,
+                            background: entry.count > 0 
+                              ? 'linear-gradient(180deg, #D4AF37 0%, rgba(212, 175, 55, 0.5) 100%)' 
+                              : 'rgba(255, 255, 255, 0.08)',
+                            boxShadow: entry.count > 0 ? '0 0 15px rgba(212, 175, 55, 0.3)' : 'none',
+                          }}
+                        />
                       </div>
+                      <span className="text-[10px] font-semibold text-gray-400">{entry.time}</span>
                     </div>
-                    <span className="text-xs text-gray-500">{entry.time}</span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </GlassCard>
         </div>
@@ -348,45 +344,44 @@ export function Statistics() {
         </div>
 
         {/* Bar Chart */}
-        <div className="flex items-end justify-between gap-4 h-64">
-          {entriesData.map((entry, index) => {
-            const maxCount = Math.max(...entriesData.map(e => e.count));
-            const heightPercentage = (entry.count / maxCount) * 100;
+        <div className="overflow-x-auto custom-scrollbar pb-2 pt-4">
+          <div className="flex items-end justify-between gap-4 h-64 min-w-[500px]">
+            {entriesData.map((entry, index) => {
+              const maxCount = Math.max(...entriesData.map(e => e.count), 1);
+              const heightPercentage = entry.count > 0 ? Math.min(85, (entry.count / maxCount) * 75 + 10) : 4;
 
-            return (
-              <div key={index} className="flex-1 flex flex-col items-center gap-3">
-                <div className="relative w-full" style={{ height: '200px' }}>
-                  <div
-                    className="absolute bottom-0 w-full rounded-t-xl transition-all duration-500 group cursor-pointer"
-                    style={{
-                      height: `${heightPercentage}%`,
-                      background: 'linear-gradient(180deg, #D4AF37 0%, rgba(212, 175, 55, 0.5) 100%)',
-                      boxShadow: '0 0 20px rgba(212, 175, 55, 0.3)',
-                    }}
+              return (
+                <div key={index} className="flex-1 flex flex-col items-center gap-2 min-w-[40px]">
+                  <div 
+                    className="relative w-full cursor-pointer group flex flex-col justify-end" 
+                    style={{ height: '180px' }}
                     onClick={() => setActiveBarIndex(activeBarIndex === index ? null : index)}
                   >
-                    {/* Hover/Click Tooltip */}
+                    {/* Hover/Click Tooltip / Value Badge */}
                     <div 
-                      className={`absolute -top-12 left-1/2 -translate-x-1/2 transition-opacity duration-200 ${
-                        activeBarIndex === index ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      className={`text-xs font-black text-center transition-all duration-200 mb-1.5 ${
+                        entry.count > 0 || activeBarIndex === index ? 'opacity-100 text-[#D4AF37]' : 'opacity-0 text-transparent'
                       }`}
                     >
-                      <div
-                        className="px-3 py-2 rounded-lg whitespace-nowrap"
-                        style={{
-                          background: 'rgba(10, 10, 10, 0.95)',
-                          border: '1px solid rgba(212, 175, 55, 0.3)',
-                        }}
-                      >
-                        <p className="text-white font-bold">{entry.count} pessoas</p>
-                      </div>
+                      {entry.count}
                     </div>
+
+                    <div
+                      className="w-full rounded-t-xl transition-all duration-500"
+                      style={{
+                        height: `${heightPercentage}%`,
+                        background: entry.count > 0 
+                          ? 'linear-gradient(180deg, #D4AF37 0%, rgba(212, 175, 55, 0.5) 100%)' 
+                          : 'rgba(255, 255, 255, 0.08)',
+                        boxShadow: entry.count > 0 ? '0 0 20px rgba(212, 175, 55, 0.3)' : 'none',
+                      }}
+                    />
                   </div>
+                  <span className="text-sm text-gray-400 font-medium">{entry.time}</span>
                 </div>
-                <span className="text-sm text-gray-400 font-medium">{entry.time}</span>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </GlassCard>
     </div>

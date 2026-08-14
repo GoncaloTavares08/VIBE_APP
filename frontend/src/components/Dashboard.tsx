@@ -14,15 +14,34 @@ interface DashboardProps {
 
 export function Dashboard({ user, onLogout }: DashboardProps) {
   const [currentPage, setCurrentPage] = useState('dashboard');
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+
+  const handleNavigateToEvent = (eventId: number) => {
+    setSelectedEventId(eventId);
+    setCurrentPage('dashboard');
+  };
+
+  const handlePageChange = (page: string) => {
+    // Whenever leaving or switching back to dashboard from the menu, reset to latest event
+    if (page === 'dashboard') {
+      setSelectedEventId(null);
+    }
+    setCurrentPage(page);
+  };
 
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <GeneralDashboard />;
+        return (
+          <GeneralDashboard
+            initialEventId={selectedEventId}
+            onSelectEvent={setSelectedEventId}
+          />
+        );
       case 'rps':
         return <RPManagement />;
       case 'history':
-        return <NightMetrics />;
+        return <NightMetrics onSelectEvent={handleNavigateToEvent} />;
       case 'events':
         return <Events />;
       case 'rewards':
@@ -30,7 +49,12 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
       case 'settings':
         return <Settings />;
       default:
-        return <GeneralDashboard />;
+        return (
+          <GeneralDashboard
+            initialEventId={selectedEventId}
+            onSelectEvent={setSelectedEventId}
+          />
+        );
     }
   };
 
@@ -38,7 +62,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     <div style={{ background: '#0a0a0a', minHeight: '100vh', width: '100%' }}>
       <DashboardLayout
         currentPage={currentPage}
-        onPageChange={setCurrentPage}
+        onPageChange={handlePageChange}
         user={user}
         onLogout={onLogout}
       >

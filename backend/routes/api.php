@@ -45,6 +45,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/password', [AuthController::class, 'changePassword']);
     
     // Protected Event Routes
+    Route::post('/events/upload-banner', [EventController::class, 'uploadBanner']);
     Route::post('/events', [EventController::class, 'store']);
     Route::put('/events/{id}', [EventController::class, 'update']);
     Route::delete('/events/{id}', [EventController::class, 'destroy']);
@@ -75,6 +76,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/staff/scan/manual-checkin', [StaffScanController::class, 'manualCheckin']);
     Route::get('/staff/statistics', [StaffScanController::class, 'getStatistics']);
 
+    Route::get('/rp/overview', [RpController::class, 'getOverview']);
+    Route::get('/rp/challenges', [RpController::class, 'getChallenges']);
+    Route::post('/rp/challenges', [RpController::class, 'createChallenge']);
+    Route::delete('/rp/challenges/{id}', [RpController::class, 'deleteChallenge']);
     Route::get('/rp/profile', [RpController::class, 'showProfile']);
     Route::post('/rp/profile/check-username', [RpController::class, 'checkUsername']);
     Route::post('/rp/profile', [RpController::class, 'updateProfile']);
@@ -86,6 +91,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/rp/leaderboard', [RpController::class, 'getLeaderboard']);
     Route::get('/rp/team', [RpController::class, 'getTeam']);
     Route::put('/rp/team/goal', [RpController::class, 'setTeamGoal']);
+    Route::post('/rp/team/message', [RpController::class, 'sendTeamMessage']);
 
     // Notifications
     Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index']);
@@ -104,8 +110,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Phase 4: Admin Management
     Route::get('/admin/night-metrics', [AdminController::class, 'getNightMetrics']);
+    Route::get('/admin/nights-history', [AdminController::class, 'getNightsHistory']);
     Route::get('/admin/settings', [AdminController::class, 'getSettings']);
-    Route::put('/admin/settings', [AdminController::class, 'updateSettings']);
+    Route::match(['put', 'post'], '/admin/settings', [AdminController::class, 'updateSettings']);
     
     Route::get('/admin/rps', [AdminController::class, 'listRps']);
     Route::post('/admin/rps/search', [AdminController::class, 'searchClient']);
@@ -116,7 +123,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/rewards', [AdminController::class, 'createReward']);
     Route::post('/admin/rewards/update', [AdminController::class, 'updateReward']);
     Route::post('/admin/rewards/delete', [AdminController::class, 'deleteReward']);
-    Route::post('/admin/rewards/toggle-availability', [AdminController::class, 'toggleRewardAvailability']);
+    // Phase 5: SuperAdmin Management (Global Platform & Multi-Club)
+    Route::get('/superadmin/overview', [\App\Http\Controllers\SuperAdminController::class, 'overview']);
+    Route::get('/superadmin/clubs', [\App\Http\Controllers\SuperAdminController::class, 'getClubs']);
+    Route::post('/superadmin/clubs', [\App\Http\Controllers\SuperAdminController::class, 'createClub']);
+    Route::match(['put', 'post'], '/superadmin/clubs/{id}', [\App\Http\Controllers\SuperAdminController::class, 'updateClub']);
+    Route::post('/superadmin/clubs/{id}/toggle-status', [\App\Http\Controllers\SuperAdminController::class, 'toggleClubStatus']);
+    Route::get('/superadmin/users', [\App\Http\Controllers\SuperAdminController::class, 'getUsers']);
+    Route::post('/superadmin/users/assign-role', [\App\Http\Controllers\SuperAdminController::class, 'assignRole']);
+    Route::post('/superadmin/users/remove-access', [\App\Http\Controllers\SuperAdminController::class, 'removeClubAccess']);
+    Route::post('/superadmin/users/toggle-superadmin', [\App\Http\Controllers\SuperAdminController::class, 'toggleSuperAdmin']);
+    Route::post('/superadmin/users/create-admin', [\App\Http\Controllers\SuperAdminController::class, 'createAdminUser']);
 });
 
 // Public Endpoints

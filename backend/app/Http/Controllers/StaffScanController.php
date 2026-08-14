@@ -417,16 +417,21 @@ class StaffScanController extends Controller
 
         // Get today's active event for this club
         $today = Carbon::today('Europe/Lisbon')->toDateString();
-        // Sometimes events pass midnight, so we also check yesterday if time is early morning.
         $now = Carbon::now('Europe/Lisbon');
         $searchDate = $now->hour < 10 ? $now->copy()->subDay()->toDateString() : $today;
 
         $event = Event::where('club_id', $clubId)
-                      ->where('date', $searchDate)
+                      ->where(function($q) use ($searchDate, $today) {
+                          $q->where('date', $searchDate)
+                            ->orWhere('date', $today)
+                            ->orWhere('status', 'ongoing');
+                      })
+                      ->orderByRaw("CASE WHEN status = 'ongoing' THEN 1 ELSE 2 END")
+                      ->orderBy('date', 'asc')
                       ->first();
 
         $currentOccupancy = 0;
-        $maxCapacity = $club->max_capacity ?? 500;
+        $maxCapacity = ($event && $event->capacity > 0) ? (int)$event->capacity : ($club->max_capacity ?? 800);
         $genderRatio = ['male' => 50, 'female' => 50];
         $entriesData = [];
         $totalEntries = 0;
@@ -478,13 +483,32 @@ class StaffScanController extends Controller
                     $genderRatio['female'] = 100 - $genderRatio['male'];
                 }
 
-                // Format entriesData
-                ksort($entriesByHour);
-                foreach ($entriesByHour as $time => $count) {
+                // Build party chronological timeline (from start_time to end_time)
+                $startHour = (int)substr($event->start_time ?? '23:00:00', 0, 2);
+                $endHour = (int)substr($event->end_time ?? '06:00:00', 0, 2);
+                $hourOrder = [];
+                $curr = $startHour;
+                for ($step = 0; $step <= 12; $step++) {
+                    $hourOrder[] = sprintf('%02d:00', $curr);
+                    if ($curr === $endHour) break;
+                    $curr = ($curr + 1) % 24;
+                }
+
+                foreach ($hourOrder as $timeStr) {
                     $entriesData[] = [
-                        'time' => $time,
-                        'count' => $count
+                        'time' => $timeStr,
+                        'count' => $entriesByHour[$timeStr] ?? 0
                     ];
+                }
+
+                // Append any entries outside the standard range
+                foreach ($entriesByHour as $timeStr => $cnt) {
+                    if (!in_array($timeStr, array_column($entriesData, 'time'))) {
+                        $entriesData[] = [
+                            'time' => $timeStr,
+                            'count' => $cnt
+                        ];
+                    }
                 }
 
                 // Average entry time
@@ -500,7 +524,9 @@ class StaffScanController extends Controller
             $entriesData = [
                 ['time' => '23:00', 'count' => 0],
                 ['time' => '00:00', 'count' => 0],
-                ['time' => '01:00', 'count' => 0]
+                ['time' => '01:00', 'count' => 0],
+                ['time' => '02:00', 'count' => 0],
+                ['time' => '03:00', 'count' => 0]
             ];
         }
         

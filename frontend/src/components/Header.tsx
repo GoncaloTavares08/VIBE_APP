@@ -1,31 +1,45 @@
-import { Zap, LogOut } from 'lucide-react';
+import { Zap, LogOut, Crown } from 'lucide-react';
 import { useClubInfo } from '../hooks/useClubInfo';
 
 interface HeaderProps {
   onLoginClick?: () => void;
   isLoggedIn?: boolean;
   userName?: string;
+  isSuperAdmin?: boolean;
+  onSuperAdminClick?: () => void;
 }
 
-export function Header({ onLoginClick, isLoggedIn = false, userName }: HeaderProps) {
+export function Header({ onLoginClick, isLoggedIn = false, userName, isSuperAdmin = false, onSuperAdminClick }: HeaderProps) {
   const { clubInfo, isLoading } = useClubInfo();
 
   // Display "VIBE" or "VIBE - Club Name from DB"
   const displayName = clubInfo ? `VIBE - ${clubInfo.name}` : 'VIBE';
 
   return (
-    <header className="container mx-auto px-4 py-6">
-      <nav className="flex items-center justify-between">
+    <header className="fixed top-0 left-0 right-0 z-50 w-full px-4 sm:px-8 py-3.5 backdrop-blur-2xl bg-[#0a0a0a]/95 border-b border-white/10 shadow-2xl transition-all duration-300">
+      <nav className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Logo and brand */}
         <div className="flex items-center gap-3">
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center relative overflow-hidden"
+            className="w-10 h-10 rounded-xl flex items-center justify-center relative overflow-hidden bg-black"
             style={{
-              background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+              background: clubInfo?.logo_url ? '#000000' : 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+              border: clubInfo?.logo_url ? '1px solid rgba(212, 175, 55, 0.3)' : 'none',
               boxShadow: '0 0 20px rgba(212, 175, 55, 0.3)',
             }}
           >
-            <Zap className="w-6 h-6 text-black" fill="black" />
+            {clubInfo?.logo_url ? (
+              <img
+                src={clubInfo.logo_url}
+                alt={clubInfo.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+            ) : (
+              <Zap className="w-6 h-6 text-black" fill="black" />
+            )}
           </div>
           <span
             className="text-2xl font-black tracking-tight"
@@ -41,7 +55,7 @@ export function Header({ onLoginClick, isLoggedIn = false, userName }: HeaderPro
         </div>
 
         {/* Navigation */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {isLoggedIn ? (
             <>
               {userName && (
@@ -49,9 +63,23 @@ export function Header({ onLoginClick, isLoggedIn = false, userName }: HeaderPro
                   Olá, <span className="text-[#D4AF37] font-semibold">{userName}</span>
                 </span>
               )}
+              {isSuperAdmin && (
+                <button
+                  onClick={onSuperAdminClick}
+                  className="px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 flex items-center gap-2 font-black text-xs shadow-lg cursor-pointer"
+                  style={{
+                    background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                    color: '#000000',
+                    boxShadow: '0 0 20px rgba(212, 175, 55, 0.4)',
+                  }}
+                >
+                  <Crown className="w-4 h-4 text-black fill-black" />
+                  <span>Painel SuperAdmin</span>
+                </button>
+              )}
               <button
                 onClick={onLoginClick}
-                className="px-6 py-2 rounded-lg transition-all duration-300 hover:scale-105 flex items-center gap-2"
+                className="px-5 py-2 rounded-xl transition-all duration-300 hover:scale-105 flex items-center gap-2"
                 style={{
                   background: 'rgba(255, 255, 255, 0.05)',
                   border: '1px solid rgba(212, 175, 55, 0.5)',

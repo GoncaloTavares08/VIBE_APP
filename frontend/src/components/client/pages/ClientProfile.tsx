@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Camera, Image as ImageIcon, X, Edit2, Check, Star, Settings, Key, Trash2, Ghost, User, Eye, EyeOff, Calendar, TrendingUp, Award, Edit, Instagram, Plus, Loader2, AlertCircle, Users } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Camera, X, Check, User, Eye, EyeOff, Calendar, TrendingUp, Award, Edit, Instagram, Plus, Loader2, AlertCircle, Users } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
 
 interface PartyHistoryItem {
@@ -27,6 +26,7 @@ interface ProfileData {
   gender_preference: 'male' | 'female' | 'everyone';
   gallery_photos: GalleryPhoto[];
   party_history: PartyHistoryItem[];
+  total_parties?: number;
   points?: number;
   global_rank?: number;
 }
@@ -65,9 +65,6 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
     if (user?.club_slug) return user.club_slug;
     const stored = localStorage.getItem('clubSlug');
     if (stored) return stored;
-
-    // Check URL but ignore obvious non-slugs
-    const pathSegments = window.location.pathname.split('/').filter(Boolean);
     return '';
   };
 
@@ -505,7 +502,7 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
               {/* Stats */}
               <div className="flex gap-4 md:gap-8 pt-6 justify-center md:justify-start">
                 <div className="text-center md:text-left">
-                  <p className="text-2xl md:text-3xl font-black text-[#D4AF37] drop-shadow-md">{partyHistory.length}</p>
+                  <p className="text-2xl md:text-3xl font-black text-[#D4AF37] drop-shadow-md">{profileData?.total_parties ?? partyHistory.length}</p>
                   <p className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider font-bold">Festas</p>
                 </div>
                 <div className="text-center md:text-left">

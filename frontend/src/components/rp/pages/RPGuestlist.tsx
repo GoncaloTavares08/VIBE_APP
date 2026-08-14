@@ -22,6 +22,7 @@ export function RPGuestlist() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [copiedLink, setCopiedLink] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const [clicksCount, setClicksCount] = useState<number>(0);
 
   // Get user info
   const userStr = localStorage.getItem('user');
@@ -34,13 +35,13 @@ export function RPGuestlist() {
   };
 
   const rpLink = username
-    ? `http://localhost:3000/guest/${username}`
+    ? `${window.location.origin}/guest/${username}`
     : 'A carregar...';
 
   // Generate QR Code once when username is available
   useEffect(() => {
     if (username && username !== 'A carregar...') {
-      const link = `http://localhost:3000/guest/${username}`;
+      const link = `${window.location.origin}/guest/${username}`;
       QRCode.toDataURL(link, {
         width: 250,
         margin: 2,
@@ -77,13 +78,18 @@ export function RPGuestlist() {
           console.error("API returned error (Guestlist):", guestResult.message);
         }
 
-        // Fetch RP Profile to get correct username
+        // Fetch RP Profile to get correct username and clicks count
         const profileResult = await apiFetch('/rp/profile', {
           method: 'GET'
         });
 
-        if (profileResult.status === 'success' && profileResult.data?.username) {
-          setUsername(profileResult.data.username);
+        if (profileResult.status === 'success' && profileResult.data) {
+          if (profileResult.data.username) {
+            setUsername(profileResult.data.username);
+          }
+          if (typeof profileResult.data.clicks_count === 'number') {
+            setClicksCount(profileResult.data.clicks_count);
+          }
         }
 
       } catch (error) {
@@ -110,6 +116,24 @@ export function RPGuestlist() {
     navigator.clipboard.writeText(rpLink);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleShareLink = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Guestlist • VIBE',
+          text: `Entra na minha guestlist no VIBE!`,
+          url: rpLink,
+        });
+      } catch (err) {
+        if ((err as any)?.name !== 'AbortError') {
+          handleCopyLink();
+        }
+      }
+    } else {
+      handleCopyLink();
+    }
   };
 
   const handleDownloadQR = () => {
@@ -265,6 +289,7 @@ export function RPGuestlist() {
               )}
             </button>
             <button
+              onClick={handleShareLink}
               className="px-4 py-3.5 rounded-2xl font-bold transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] flex items-center justify-center gap-2"
               style={{
                 background: 'linear-gradient(135deg, #D4AF37 0%, #AA8C2C 100%)',
@@ -276,21 +301,21 @@ export function RPGuestlist() {
             </button>
           </div>
 
-          {/* Stats */}
+          {/* Link Stats */}
           <div className="grid grid-cols-3 gap-4 mt-8 pt-6 border-t border-white/10">
             <div className="text-center p-3 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
-              <div className="text-2xl font-bold text-white mb-1">{guests.length}</div>
-              <div className="text-xs font-medium text-gray-400">Total</div>
+              <div className="text-2xl font-bold text-white mb-1">{clicksCount}</div>
+              <div className="text-xs font-medium text-gray-400">Cliques</div>
             </div>
             <div className="text-center p-3 rounded-2xl bg-[#D4AF37]/5 border border-[#D4AF37]/20 hover:bg-[#D4AF37]/10 transition-colors">
               <div className="text-2xl font-bold text-[#D4AF37] mb-1">
-                {guests.filter(g => g.status === 'checked_in').length}
+                {guests.length}
               </div>
-              <div className="text-xs font-medium text-[#D4AF37] opacity-80">Entradas</div>
+              <div className="text-xs font-medium text-[#D4AF37] opacity-80">Guestlist</div>
             </div>
             <div className="text-center p-3 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors">
               <div className="text-2xl font-bold text-white mb-1">
-                {guests.length > 0 ? Math.round((guests.filter(g => g.status === 'checked_in').length / guests.length) * 100) : 0}%
+                {clicksCount > 0 ? Math.min(100, Math.round((guests.length / clicksCount) * 100)) : (guests.length > 0 ? 100 : 0)}%
               </div>
               <div className="text-xs font-medium text-gray-400">Conversão</div>
             </div>

@@ -45,6 +45,7 @@ class AdminController extends Controller
         $settings = [
             'id' => $club->id,
             'name' => $club->name,
+            'logo_url' => $club->logo_url,
             'slug' => $club->slug,
             'location' => $club->location,
             'address' => $club->address,
@@ -78,6 +79,8 @@ class AdminController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:100',
+            'logo_url' => 'nullable|string|max:1000',
+            'logo_file' => 'nullable|file|mimes:jpeg,png,jpg,webp,svg,gif|max:10240',
             'city' => 'nullable|string|max:100',
             'address' => 'nullable|string|max:255',
             'max_capacity' => 'required|integer|min:1',
@@ -86,8 +89,19 @@ class AdminController extends Controller
             'contact_phone' => 'nullable|string|max:20'
         ]);
 
+        $logoUrl = $club->logo_url;
+        if ($request->hasFile('logo_file')) {
+            $file = $request->file('logo_file');
+            $filename = 'club_' . $club->id . '_logo_' . time() . '.' . $file->getClientOriginalExtension();
+            $path = $file->storeAs('clubs/logos', $filename, 'public');
+            $logoUrl = '/storage/' . $path;
+        } elseif ($request->has('logo_url')) {
+            $logoUrl = $request->input('logo_url');
+        }
+
         $club->update([
             'name' => $validated['name'],
+            'logo_url' => $logoUrl,
             'location' => $validated['city'] ?? $club->location,
             'address' => $validated['address'],
             'max_capacity' => $validated['max_capacity'],
@@ -98,42 +112,119 @@ class AdminController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Configurações atualizadas com sucesso!'
+            'message' => 'Configurações atualizadas com sucesso!',
+            'data' => [
+                'logo_url' => $logoUrl
+            ]
         ]);
     }
 
     public function getNightMetrics(Request $request)
     {
         $club = $this->checkAdminAccess($request);
-        $today = \Carbon\Carbon::today('Europe/Lisbon');
+        $now = \Carbon\Carbon::now('Europe/Lisbon');
+        $today = $now->copy()->startOfDay();
 
-        // Find today's event
-        $event = DB::table('events')
+        $selectedEventId = $request->query('event_id');
+
+        // Available events for this club (for quick selector)
+        $availableEvents = DB::table('events')
             ->where('club_id', $club->id)
-            ->whereDate('date', $today)
-            ->first();
+            ->orderBy('date', 'desc')
+            ->select('id', 'name', 'date', 'start_time', 'end_time', 'status', 'capacity')
+            ->get();
+
+        $event = null;
+        if ($selectedEventId) {
+            $event = DB::table('events')
+                ->where('club_id', $club->id)
+                ->where('id', $selectedEventId)
+                ->first();
+        }
+
+        if (!$event) {
+            // Priority 1: Ongoing event
+            $event = DB::table('events')
+                ->where('club_id', $club->id)
+                ->where('status', 'ongoing')
+                ->first();
+
+            // Priority 2: Event today or most recent past event
+            if (!$event) {
+                $event = DB::table('events')
+                    ->where('club_id', $club->id)
+                    ->whereDate('date', '<=', $today)
+                    ->orderBy('date', 'desc')
+                    ->orderBy('start_time', 'desc')
+                    ->first();
+            }
+
+            // Priority 3: Upcoming event
+            if (!$event) {
+                $event = DB::table('events')
+                    ->where('club_id', $club->id)
+                    ->orderBy('date', 'asc')
+                    ->first();
+            }
+        }
 
         $capacity = $club->max_capacity ?: 1000;
         $totalEntries = 0;
         $totalRevenue = 0;
         $hourlyFlow = [];
         $demographics = ['male' => 0, 'female' => 0];
-        $recentActivity = [];
+        $entriesLast30Min = 0;
+        $lastEventEntries = 0;
+        $lastEventName = null;
+        $vsLastEventPercent = null;
 
         if ($event) {
             $capacity = $event->capacity ?: $capacity;
 
-            // Total Entries (check-ins)
+            // Total Entries (check-ins) for this event
             $totalEntries = DB::table('guestlist')
                 ->where('event_id', $event->id)
                 ->where('status', 'checked_in')
                 ->count();
 
-            // Total Revenue (purchases)
+            // Total Bar Revenue (purchases)
             $totalRevenue = DB::table('points_transactions')
                 ->where('event_id', $event->id)
                 ->where('transaction_type', 'purchase')
                 ->sum('amount_spent');
+
+            // Entries in the last 30 minutes
+            $thirtyMinAgo = $now->copy()->subMinutes(30);
+            $entriesLast30Min = DB::table('guestlist')
+                ->where('event_id', $event->id)
+                ->where('status', 'checked_in')
+                ->where('checked_in_at', '>=', $thirtyMinAgo)
+                ->count();
+
+            // Previous event of this club to compare (the event immediately before this one)
+            $lastEvent = DB::table('events')
+                ->where('club_id', $club->id)
+                ->where('id', '!=', $event->id)
+                ->where('date', '<=', $event->date)
+                ->orderBy('date', 'desc')
+                ->first();
+
+            if ($lastEvent) {
+                $lastEventName = $lastEvent->name;
+                $lastEventEntries = DB::table('guestlist')
+                    ->where('event_id', $lastEvent->id)
+                    ->where('status', 'checked_in')
+                    ->count();
+
+                if ($lastEventEntries > 0) {
+                    $diff = $totalEntries - $lastEventEntries;
+                    $vsLastEventPercent = (int) round(($diff / $lastEventEntries) * 100);
+                } elseif ($totalEntries > 0) {
+                    $vsLastEventPercent = 100;
+                } else {
+                    $vsLastEventPercent = 0;
+                }
+            }
 
             // Hourly Flow
             $flowData = DB::table('guestlist')
@@ -168,6 +259,161 @@ class AdminController extends Controller
             }
         }
 
+        // Dynamic Flow Status relative to maximum capacity percentage in last 30 minutes
+        $capacityPercent30m = $capacity > 0 ? ($entriesLast30Min / $capacity) * 100 : 0;
+        
+        $flowState = 'slow';
+        $flowLabel = 'Calmo';
+        $flowEmoji = '❄️';
+        $flowDescription = 'Estável';
+
+        if ($capacityPercent30m >= 25) {
+            $flowState = 'fire';
+            $flowLabel = 'Ao Rubro';
+            $flowEmoji = '💥';
+            $flowDescription = 'Pico Máximo';
+        } elseif ($capacityPercent30m >= 15) {
+            $flowState = 'hot';
+            $flowLabel = 'Intenso';
+            $flowEmoji = '🔥';
+            $flowDescription = 'Acelerado';
+        } elseif ($capacityPercent30m >= 5) {
+            $flowState = 'moderate';
+            $flowLabel = 'Moderado';
+            $flowEmoji = '⚡';
+            $flowDescription = 'Constante';
+        } else {
+            $flowState = 'slow';
+            $flowLabel = 'Calmo';
+            $flowEmoji = '❄️';
+            $flowDescription = 'Estável';
+        }
+
+        // Live Activity Feed (Check-ins, Bar purchases, Reward Redemptions)
+        $recentActivity = [];
+        if ($event) {
+            $checkInActivities = DB::table('guestlist as g')
+                ->join('users as u', 'g.client_id', '=', 'u.id')
+                ->leftJoin('client_profiles as cp', 'u.id', '=', 'cp.user_id')
+                ->leftJoin('rp_profiles as rp', 'u.id', '=', 'rp.user_id')
+                ->leftJoin('users as rpu', 'g.rp_id', '=', 'rpu.id')
+                ->where('g.event_id', $event->id)
+                ->where('g.status', 'checked_in')
+                ->whereNotNull('g.checked_in_at')
+                ->select(
+                    'g.id',
+                    'u.id as user_id',
+                    'u.name as user_name',
+                    'cp.profile_photo_path',
+                    'rp.profile_image_url',
+                    'rpu.name as rp_name',
+                    'g.checked_in_at as timestamp',
+                    DB::raw("'check_in' as type")
+                )
+                ->orderBy('g.checked_in_at', 'desc')
+                ->limit(10)
+                ->get();
+
+            $purchaseActivities = DB::table('points_transactions as pt')
+                ->join('users as u', 'pt.user_id', '=', 'u.id')
+                ->leftJoin('client_profiles as cp', 'u.id', '=', 'cp.user_id')
+                ->leftJoin('rp_profiles as rp', 'u.id', '=', 'rp.user_id')
+                ->where('pt.event_id', $event->id)
+                ->where('pt.transaction_type', 'purchase')
+                ->select(
+                    'pt.id',
+                    'u.id as user_id',
+                    'u.name as user_name',
+                    'cp.profile_photo_path',
+                    'rp.profile_image_url',
+                    'pt.amount_spent',
+                    'pt.points as points_earned',
+                    'pt.created_at as timestamp',
+                    DB::raw("'purchase' as type")
+                )
+                ->orderBy('pt.created_at', 'desc')
+                ->limit(10)
+                ->get();
+
+            $redemptionActivities = DB::table('reward_redemptions as rr')
+                ->join('users as u', 'rr.user_id', '=', 'u.id')
+                ->join('rewards as rw', 'rr.reward_id', '=', 'rw.id')
+                ->leftJoin('client_profiles as cp', 'u.id', '=', 'cp.user_id')
+                ->leftJoin('rp_profiles as rp', 'u.id', '=', 'rp.user_id')
+                ->where('rw.club_id', $club->id)
+                ->where('rr.status', 'completed')
+                ->select(
+                    'rr.id',
+                    'u.id as user_id',
+                    'u.name as user_name',
+                    'cp.profile_photo_path',
+                    'rp.profile_image_url',
+                    'rr.reward_name',
+                    'rr.points_spent',
+                    'rr.redeemed_at as timestamp',
+                    DB::raw("'reward_redemption' as type")
+                )
+                ->orderBy('rr.redeemed_at', 'desc')
+                ->limit(5)
+                ->get();
+
+            $allActivities = collect([])
+                ->concat($checkInActivities)
+                ->concat($purchaseActivities)
+                ->concat($redemptionActivities)
+                ->sortByDesc(fn($a) => $a->timestamp)
+                ->values()
+                ->take(15);
+
+            $recentActivity = $allActivities->map(function ($act) {
+                $nameParts = explode(' ', trim($act->user_name ?? 'Cliente'));
+                $avatar = mb_strtoupper(mb_substr($nameParts[0], 0, 1, 'UTF-8') . (isset($nameParts[1]) ? mb_substr($nameParts[1], 0, 1, 'UTF-8') : ''), 'UTF-8');
+
+                $photo = $act->profile_image_url ?: $act->profile_photo_path;
+                $profilePhoto = null;
+                if ($photo) {
+                    if (str_contains($photo, 'pravatar.cc') || str_contains($photo, 'placeholder')) {
+                        $profilePhoto = null;
+                    } elseif (str_starts_with($photo, 'http://') || str_starts_with($photo, 'https://')) {
+                        $profilePhoto = $photo;
+                    } else {
+                        $cleanPath = ltrim(str_replace('storage/', '', $photo), '/');
+                        $profilePhoto = '/api/serve-image?file=' . urlencode($cleanPath);
+                    }
+                }
+
+                $timeStr = \Carbon\Carbon::parse($act->timestamp, 'Europe/Lisbon')->format('H:i');
+
+                $title = '';
+                $subtitle = '';
+                if ($act->type === 'check_in') {
+                    $title = "Entrou no clube";
+                    $subtitle = !empty($act->rp_name) ? "Promotor: {$act->rp_name}" : "Check-in na porta";
+                } elseif ($act->type === 'purchase') {
+                    $amountFormatted = number_format((float) ($act->amount_spent ?? 0), 2);
+                    $title = "Consumiu €{$amountFormatted} no bar";
+                    $subtitle = "+{$act->points_earned} pontos acumulados";
+                } elseif ($act->type === 'reward_redemption') {
+                    $title = "Resgatou prémio";
+                    $subtitle = "{$act->reward_name} (-{$act->points_spent} pts)";
+                }
+
+                return [
+                    'id' => $act->id . '-' . $act->type,
+                    'type' => $act->type,
+                    'user_name' => $act->user_name,
+                    'avatar' => $avatar,
+                    'profile_photo' => $profilePhoto,
+                    'title' => $title,
+                    'subtitle' => $subtitle,
+                    'amount' => $act->amount_spent ?? null,
+                    'points' => $act->points_earned ?? $act->points_spent ?? null,
+                    'time' => $timeStr,
+                    'raw_timestamp' => $act->timestamp
+                ];
+            })->all();
+        }
+
         // Default empty state for hourly flow if no data
         if (empty($hourlyFlow)) {
             $hourlyFlow = [
@@ -180,16 +426,134 @@ class AdminController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => [
+                'event_id' => $event ? $event->id : null,
+                'event_name' => $event ? $event->name : 'Nenhum Evento',
+                'event_date' => $event ? $event->date : null,
+                'event_start_time' => $event ? $event->start_time : null,
+                'event_end_time' => $event ? $event->end_time : null,
+                'event_status' => $event ? $event->status : 'none',
                 'capacity' => $capacity,
                 'total_entries' => $totalEntries,
-                'total_revenue' => $totalRevenue,
+                'last_event_entries' => $lastEventEntries,
+                'last_event_name' => $lastEventName,
+                'vs_last_event_percent' => $vsLastEventPercent,
+                'entries_last_30_min' => $entriesLast30Min,
+                'flow_state' => $flowState,
+                'flow_label' => $flowLabel,
+                'flow_emoji' => $flowEmoji,
+                'flow_description' => $flowDescription,
+                'capacity_percent_30m' => round($capacityPercent30m, 1),
+                'total_revenue' => round((float) $totalRevenue, 2),
                 'hourly_flow' => $hourlyFlow,
                 'demographics' => [
                     ['name' => 'Feminino', 'value' => $demographics['female']],
                     ['name' => 'Masculino', 'value' => $demographics['male']]
                 ],
-                'recent_activity' => [] // Optional: implement real activity stream if needed
+                'recent_activity' => $recentActivity,
+                'available_events' => $availableEvents
             ]
+        ]);
+    }
+
+    public function getNightsHistory(Request $request)
+    {
+        $club = $this->checkAdminAccess($request);
+
+        $events = DB::table('events')
+            ->where('club_id', $club->id)
+            ->orderBy('date', 'desc')
+            ->get();
+
+        $eventsWithStats = $events->map(function ($event) use ($club) {
+            // Real Total Pax (Checked-in clients at this event)
+            $totalPax = DB::table('guestlist')
+                ->where('event_id', $event->id)
+                ->where('status', 'checked_in')
+                ->count();
+
+            // Real Bar Revenue (Sum of purchases from points_transactions for this event)
+            $totalRevenue = (float) DB::table('points_transactions')
+                ->where('event_id', $event->id)
+                ->where('transaction_type', 'purchase')
+                ->sum('amount_spent');
+
+            // Top Performers for this specific night
+            $rps = DB::table('guestlist as g')
+                ->join('users as u', 'g.rp_id', '=', 'u.id')
+                ->leftJoin('client_profiles as cp', 'u.id', '=', 'cp.user_id')
+                ->leftJoin('rp_profiles as rp', 'u.id', '=', 'rp.user_id')
+                ->where('g.event_id', $event->id)
+                ->select(
+                    'u.id',
+                    'u.name',
+                    'cp.profile_photo_path',
+                    'rp.profile_image_url',
+                    DB::raw('count(g.id) as guest_count'),
+                    DB::raw("sum(case when g.status = 'checked_in' then 1 else 0 end) as checked_in_count")
+                )
+                ->groupBy('u.id', 'u.name', 'cp.profile_photo_path', 'rp.profile_image_url')
+                ->get();
+
+            $topPerformers = $rps->map(function ($rpUser) use ($event) {
+                // Bar spend by this RP's guests in this event
+                $barSpend = (float) DB::table('points_transactions as pt')
+                    ->join('guestlist as g', function ($join) use ($rpUser, $event) {
+                        $join->on('pt.user_id', '=', 'g.client_id')
+                             ->where('g.event_id', '=', $event->id)
+                             ->where('g.rp_id', '=', $rpUser->id);
+                    })
+                    ->where('pt.event_id', $event->id)
+                    ->where('pt.transaction_type', 'purchase')
+                    ->sum('pt.amount_spent');
+
+                $nameParts = explode(' ', trim($rpUser->name));
+                $avatar = mb_strtoupper(mb_substr($nameParts[0], 0, 1, 'UTF-8') . (isset($nameParts[1]) ? mb_substr($nameParts[1], 0, 1, 'UTF-8') : ''), 'UTF-8');
+
+                $photo = $rpUser->profile_image_url ?: $rpUser->profile_photo_path;
+                $profilePhoto = null;
+                if ($photo) {
+                    $profilePhoto = (str_starts_with($photo, 'http://') || str_starts_with($photo, 'https://'))
+                        ? $photo
+                        : '/api/serve-image?file=' . urlencode(ltrim(str_replace('storage/', '', $photo), '/'));
+                }
+
+                return [
+                    'id' => $rpUser->id,
+                    'name' => $rpUser->name,
+                    'avatar' => $avatar,
+                    'profile_photo' => $profilePhoto,
+                    'points' => (int) $rpUser->checked_in_count,
+                    'guest_count' => (int) $rpUser->guest_count,
+                    'revenue' => round($barSpend, 2)
+                ];
+            })
+            ->sortByDesc('revenue')
+            ->values()
+            ->map(function ($item, $idx) {
+                $item['rank'] = $idx + 1;
+                return $item;
+            })
+            ->take(5);
+
+            return [
+                'id' => $event->id,
+                'name' => $event->name,
+                'date' => $event->date,
+                'start_time' => $event->start_time,
+                'end_time' => $event->end_time,
+                'capacity' => $event->capacity,
+                'organizer_name' => $event->organizer_name,
+                'status' => $event->status,
+                'image_url' => $event->image_url,
+                'totalPax' => $totalPax,
+                'totalRevenue' => round($totalRevenue, 2),
+                'topPerformers' => $topPerformers
+            ];
+        });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $eventsWithStats
         ]);
     }
 
@@ -201,59 +565,201 @@ class AdminController extends Controller
         $users = DB::table('users as u')
             ->join('user_club_access as uca', 'u.id', '=', 'uca.user_id')
             ->leftJoin('users as tl', 'uca.team_leader_id', '=', 'tl.id')
+            ->leftJoin('client_profiles as cp', 'u.id', '=', 'cp.user_id')
+            ->leftJoin('rp_profiles as rp', 'u.id', '=', 'rp.user_id')
             ->where('uca.club_id', $club->id)
             ->whereIn('uca.role', ['RP', 'TEAM_LEADER'])
-            ->select('u.id', 'u.name', 'u.email', 'uca.role', 'uca.team_leader_id', 'tl.name as team_leader_name')
+            ->select(
+                'u.id',
+                'u.name',
+                'u.email',
+                'uca.role',
+                'uca.points',
+                'uca.team_leader_id',
+                'tl.name as team_leader_name',
+                'cp.profile_photo_path',
+                'rp.profile_image_url',
+                'rp.username'
+            )
             ->orderBy('u.name')
             ->get();
 
-        // Sort PHP-side: TEAM_LEADER first, then RP (avoids MySQL-specific CASE)
+        // Sort PHP-side: TEAM_LEADER first, then RP
         $users = $users->sortBy(fn($u) => $u->role === 'TEAM_LEADER' ? 0 : 1)->values();
 
-        $users = $users->map(function ($u) use ($club) {
-            $nameParts = explode(' ', $u->name);
+        $now = \Carbon\Carbon::now('Europe/Lisbon');
+        $today = $now->copy()->startOfDay();
+
+        // Detect latest or ongoing event of this club
+        $latestEvent = DB::table('events')
+            ->where('club_id', $club->id)
+            ->where('status', 'ongoing')
+            ->first() ?: DB::table('events')
+            ->where('club_id', $club->id)
+            ->whereDate('date', '<=', $today)
+            ->orderBy('date', 'desc')
+            ->orderBy('start_time', 'desc')
+            ->first() ?: DB::table('events')
+            ->where('club_id', $club->id)
+            ->orderBy('date', 'desc')
+            ->first();
+
+        $users = $users->map(function ($u) use ($club, $latestEvent) {
+            $nameParts = explode(' ', trim($u->name));
             $u->avatar = mb_strtoupper(mb_substr($nameParts[0], 0, 1, 'UTF-8') . (isset($nameParts[1]) ? mb_substr($nameParts[1], 0, 1, 'UTF-8') : ''), 'UTF-8');
             
-            // Calculate real guests for tonight
-            $guestsTonight = DB::table('guestlist as g')
+            // Real Profile Photo URL
+            $photo = $u->profile_image_url ?: $u->profile_photo_path;
+            if ($photo) {
+                if (str_contains($photo, 'pravatar.cc') || str_contains($photo, 'placeholder')) {
+                    $u->profile_photo = null;
+                } elseif (str_starts_with($photo, 'http://') || str_starts_with($photo, 'https://')) {
+                    $u->profile_photo = $photo;
+                } else {
+                    $cleanPath = ltrim(str_replace('storage/', '', $photo), '/');
+                    $u->profile_photo = '/api/serve-image?file=' . urlencode($cleanPath);
+                }
+            } else {
+                $u->profile_photo = null;
+            }
+
+            // Real Guests in Last / Ongoing Event
+            $guestsLastEvent = 0;
+            $checkedInLastEvent = 0;
+            $revenueLastEvent = 0.0;
+
+            if ($latestEvent) {
+                $guestsLastEvent = DB::table('guestlist')
+                    ->where('event_id', $latestEvent->id)
+                    ->where('rp_id', $u->id)
+                    ->count();
+
+                $checkedInLastEvent = DB::table('guestlist')
+                    ->where('event_id', $latestEvent->id)
+                    ->where('rp_id', $u->id)
+                    ->where('status', 'checked_in')
+                    ->count();
+
+                $revenueLastEvent = (float) DB::table('points_transactions as pt')
+                    ->join('guestlist as g', function($join) use ($u) {
+                        $join->on('pt.user_id', '=', 'g.client_id')
+                             ->where('g.rp_id', '=', $u->id);
+                    })
+                    ->where('pt.event_id', $latestEvent->id)
+                    ->where('pt.transaction_type', 'purchase')
+                    ->sum('pt.amount_spent');
+            }
+
+            // Real All-Time Stats for this Club
+            $totalGuests = DB::table('guestlist as g')
                 ->join('events as e', 'g.event_id', '=', 'e.id')
                 ->where('e.club_id', $club->id)
                 ->where('g.rp_id', $u->id)
-                ->whereDate('e.date', \Carbon\Carbon::today('Europe/Lisbon'))
                 ->count();
-            
-            $u->guestsTonight = $guestsTonight;
-            $u->totalRevenue = $guestsTonight * 20;
+
+            $totalCheckedIn = DB::table('guestlist as g')
+                ->join('events as e', 'g.event_id', '=', 'e.id')
+                ->where('e.club_id', $club->id)
+                ->where('g.rp_id', $u->id)
+                ->where('g.status', 'checked_in')
+                ->count();
+
+            // Real Bar Revenue generated by this RP's guests (all-time)
+            $totalRevenueAllTime = (float) DB::table('points_transactions as pt')
+                ->join('guestlist as g', function($join) use ($u) {
+                    $join->on('pt.user_id', '=', 'g.client_id')
+                         ->where('g.rp_id', '=', $u->id);
+                })
+                ->join('events as e', 'pt.event_id', '=', 'e.id')
+                ->where('e.club_id', $club->id)
+                ->where('pt.transaction_type', 'purchase')
+                ->sum('pt.amount_spent');
+
+            $u->guestsTonight = $guestsLastEvent;
+            $u->guestsLastEvent = $guestsLastEvent;
+            $u->checkedInLastEvent = $checkedInLastEvent;
+            $u->checkedInTonight = $checkedInLastEvent;
+            $u->totalGuests = $totalGuests;
+            $u->totalCheckedIn = $totalCheckedIn;
+            $u->totalRevenue = round($totalRevenueAllTime, 2);
+            $u->revenueLastEvent = round($revenueLastEvent, 2);
+            $u->last_event_name = $latestEvent ? $latestEvent->name : null;
+
             return $u;
         });
 
-        return response()->json(['status' => 'success', 'data' => $users]);
+        return response()->json([
+            'status' => 'success',
+            'data' => $users,
+            'last_event' => $latestEvent ? [
+                'id' => $latestEvent->id,
+                'name' => $latestEvent->name,
+                'date' => $latestEvent->date,
+                'status' => $latestEvent->status
+            ] : null
+        ]);
     }
 
     public function searchClient(Request $request)
     {
         $club = $this->checkAdminAccess($request);
-        $email = $request->input('email');
+        $query = $request->input('query') ?: $request->input('email');
 
-        if (!$email) {
-            return response()->json(['status' => 'error', 'message' => 'Email é obrigatório.'], 400);
+        if (!$query) {
+            return response()->json(['status' => 'error', 'message' => 'Termo de pesquisa é obrigatório.'], 400);
         }
 
-        $user = DB::table('users as u')
+        $users = DB::table('users as u')
             ->join('user_club_access as uca', 'u.id', '=', 'uca.user_id')
+            ->leftJoin('client_profiles as cp', 'u.id', '=', 'cp.user_id')
+            ->leftJoin('rp_profiles as rp', 'u.id', '=', 'rp.user_id')
             ->where('uca.club_id', $club->id)
-            ->where('u.email', $email)
+            ->where(function ($q) use ($query) {
+                $q->where('u.email', 'like', "%{$query}%")
+                  ->orWhere('u.name', 'like', "%{$query}%");
+            })
             ->where('uca.role', 'CLIENT')
-            ->select('u.id', 'u.name', 'u.email', 'uca.role')
-            ->first();
+            ->select(
+                'u.id',
+                'u.name',
+                'u.email',
+                'uca.role',
+                'cp.profile_photo_path',
+                'rp.profile_image_url'
+            )
+            ->limit(10)
+            ->get();
 
-        if ($user) {
-            $nameParts = explode(' ', $user->name);
-            $user->avatar = strtoupper(substr($nameParts[0], 0, 1) . (isset($nameParts[1]) ? substr($nameParts[1], 0, 1) : ''));
-            return response()->json(['status' => 'success', 'data' => $user]);
+        $formattedUsers = $users->map(function ($user) {
+            $nameParts = explode(' ', trim($user->name));
+            $user->avatar = mb_strtoupper(mb_substr($nameParts[0], 0, 1, 'UTF-8') . (isset($nameParts[1]) ? mb_substr($nameParts[1], 0, 1, 'UTF-8') : ''), 'UTF-8');
+            
+            $photo = $user->profile_image_url ?: $user->profile_photo_path;
+            if ($photo) {
+                if (str_contains($photo, 'pravatar.cc') || str_contains($photo, 'placeholder')) {
+                    $user->profile_photo = null;
+                } elseif (str_starts_with($photo, 'http://') || str_starts_with($photo, 'https://')) {
+                    $user->profile_photo = $photo;
+                } else {
+                    $cleanPath = ltrim(str_replace('storage/', '', $photo), '/');
+                    $user->profile_photo = '/api/serve-image?file=' . urlencode($cleanPath);
+                }
+            } else {
+                $user->profile_photo = null;
+            }
+
+            return $user;
+        });
+
+        if ($formattedUsers->isNotEmpty()) {
+            return response()->json([
+                'status' => 'success',
+                'data' => $formattedUsers->first(),
+                'results' => $formattedUsers
+            ]);
         }
 
-        return response()->json(['status' => 'error', 'message' => 'Cliente não encontrado com esse email.'], 404);
+        return response()->json(['status' => 'error', 'message' => 'Nenhum cliente encontrado com esse nome ou email.'], 404);
     }
 
     public function updateRole(Request $request)

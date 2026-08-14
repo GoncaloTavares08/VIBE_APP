@@ -3,7 +3,7 @@ import { ClientDashboardLayout } from './client/ClientDashboardLayout';
 import { ClientHome } from './client/pages/ClientHome';
 import { ClientWallet } from './client/pages/ClientWallet';
 import { ClientProfile } from './client/pages/ClientProfile';
-import { QrCode, Calendar, Gift, Wine, CreditCard, Star, X, MapPin, TrendingUp, TrendingDown } from 'lucide-react';
+import { QrCode, Calendar, Gift, Wine, CreditCard, Star, X, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { apiFetch } from '../services/api';
 
@@ -45,7 +45,7 @@ export function ClientDashboard({ user, onLogout }: ClientDashboardProps) {
 }
 
 // QR Code Screen - Guestlist Carousel
-function ClientQRCode() {
+export function ClientQRCode() {
   const [guestlists, setGuestlists] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -59,7 +59,6 @@ function ClientQRCode() {
           return;
         }
 
-        const user = JSON.parse(userStr);
         const data = await apiFetch('/guestlist', {
           method: 'GET'
         });

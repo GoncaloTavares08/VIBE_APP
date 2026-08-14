@@ -342,17 +342,22 @@ export function ClientWallet({ user }: ClientWalletProps) {
             {/* Top Row */}
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm font-medium tracking-widest uppercase mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>VIBE Balance</p>
-                <p
-                  className="text-5xl md:text-6xl font-black tracking-tight flex items-center gap-2"
-                  style={{
-                    background: `linear-gradient(135deg, #FFF 0%, ${currentRank.color} 100%)`,
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                  }}
-                >
-                  {userPoints.toLocaleString()}
-                </p>
+                <p className="text-xs sm:text-sm font-semibold tracking-widest uppercase mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>VIBE Balance</p>
+                <div className="flex items-baseline gap-2">
+                  <span
+                    className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight"
+                    style={{
+                      backgroundImage: `linear-gradient(135deg, #FFFFFF 0%, ${currentRank.color} 100%)`,
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                      display: 'inline-block'
+                    }}
+                  >
+                    {userPoints.toLocaleString()}
+                  </span>
+                  <span className="text-xs sm:text-sm font-bold text-gray-400">PTS</span>
+                </div>
               </div>
               <div className="p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
                 <CreditCard className="w-8 h-8" style={{ color: currentRank.color }} />

@@ -11,6 +11,11 @@ class RpPublicController extends Controller
 {
     public function getPublicProfile(Request $request, $username)
     {
+        // Increment real clicks on the RP profile
+        DB::table('rp_profiles')
+            ->where('username', $username)
+            ->increment('clicks_count');
+
         $cacheKey = "rp_public_profile_{$username}";
 
         $profileData = \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, function () use ($username) {

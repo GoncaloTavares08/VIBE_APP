@@ -60,9 +60,21 @@ class LeaderboardController extends Controller
                     return str_starts_with($p->photo_path, 'http') ? $p->photo_path : url('storage/' . str_replace('storage/', '', $p->photo_path));
                 })->toArray();
 
-                $profilePhoto = $profile->profile_photo_path
-                    ? (str_starts_with($profile->profile_photo_path, 'http') ? $profile->profile_photo_path : url('storage/' . str_replace('storage/', '', $profile->profile_photo_path)))
-                    : null;
+                $profilePhoto = null;
+                if ($profile->profile_photo_path) {
+                    $profilePhoto = str_starts_with($profile->profile_photo_path, 'http') 
+                        ? $profile->profile_photo_path 
+                        : url('storage/' . str_replace('storage/', '', $profile->profile_photo_path));
+                }
+
+                if (!$profilePhoto) {
+                    $rp = DB::table('rp_profiles')->where('user_id', $uid)->first();
+                    if ($rp && $rp->profile_image_url) {
+                        $profilePhoto = str_starts_with($rp->profile_image_url, 'http') 
+                            ? $rp->profile_image_url 
+                            : url('storage/' . str_replace('storage/', '', $rp->profile_image_url));
+                    }
+                }
 
                 $age = 18;
                 if ($profile->birthdate) {
@@ -98,45 +110,7 @@ class LeaderboardController extends Controller
             return $lb;
         });
 
-        // Add the user to the leaderboard if they have ghost mode enabled but want to see themselves
-        if (!in_array($user->id, array_column($leaderboard, 'id'))) {
-            $myProfile = ClientProfile::with(['user', 'gallery_photos' => function ($q) {
-                $q->orderBy('photo_order');
-            }])->where('user_id', $user->id)->first();
-            
-            if ($myProfile) {
-                $photos = $myProfile->gallery_photos->map(function ($p) {
-                    return str_starts_with($p->photo_path, 'http') ? $p->photo_path : url('storage/' . str_replace('storage/', '', $p->photo_path));
-                })->toArray();
-
-                $profilePhoto = $myProfile->profile_photo_path
-                    ? (str_starts_with($myProfile->profile_photo_path, 'http') ? $myProfile->profile_photo_path : url('storage/' . str_replace('storage/', '', $myProfile->profile_photo_path)))
-                    : null;
-
-                $vibes = DB::table('event_likes')->where('event_id', $eventId)->where('liked_id', $user->id)->where('action', 'like')->count();
-                $points = DB::table('user_club_access')->where('user_id', $user->id)->where('club_id', $clubId)->value('points') ?? 0;
-                
-                $leaderboard[] = [
-                    'id' => $user->id,
-                    'name' => $myProfile->user->name ?? 'Unknown',
-                    'points' => (int) $points,
-                    'vibes' => (int) $vibes,
-                    'instagram' => $myProfile->instagram ?? '',
-                    'bio' => $myProfile->bio ?? '',
-                    'age' => $myProfile->birthdate ? Carbon::parse($myProfile->birthdate)->age : 18,
-                    'photo' => $profilePhoto ?? ($photos[0] ?? null),
-                    'photos' => $photos,
-                    'rank' => 0,
-                    'is_me' => true
-                ];
-            }
-        }
-
-        // Set is_me dynamically
-        foreach ($leaderboard as &$entry) {
-            $entry['is_me'] = ($entry['id'] == $user->id);
-        }
-
+        // Sort public leaderboard (strictly visible users)
         usort($leaderboard, function ($a, $b) use ($sort) {
             if ($sort === 'vibes') {
                 $cmp = $b['vibes'] <=> $a['vibes'];
@@ -149,12 +123,60 @@ class LeaderboardController extends Controller
         $myEntry = null;
         foreach ($leaderboard as $i => &$p) {
             $p['rank'] = $i + 1;
-            if ($p['id'] == $user->id) {
+            $p['is_me'] = ($p['id'] == $user->id);
+            if ($p['is_me']) {
                 $myEntry = $p;
             }
         }
 
         $top10 = array_slice($leaderboard, 0, 10);
+
+        // If current user is in Ghost Mode, they won't be in the public leaderboard table
+        if (!$myEntry) {
+            $myProfile = ClientProfile::with(['user', 'gallery_photos' => function ($q) {
+                $q->orderBy('photo_order');
+            }])->where('user_id', $user->id)->first();
+
+            if ($myProfile) {
+                $photos = $myProfile->gallery_photos->map(function ($p) {
+                    return str_starts_with($p->photo_path, 'http') ? $p->photo_path : url('storage/' . str_replace('storage/', '', $p->photo_path));
+                })->toArray();
+
+                $profilePhoto = null;
+                if ($myProfile->profile_photo_path) {
+                    $profilePhoto = str_starts_with($myProfile->profile_photo_path, 'http') 
+                        ? $myProfile->profile_photo_path 
+                        : url('storage/' . str_replace('storage/', '', $myProfile->profile_photo_path));
+                }
+
+                if (!$profilePhoto) {
+                    $rp = DB::table('rp_profiles')->where('user_id', $user->id)->first();
+                    if ($rp && $rp->profile_image_url) {
+                        $profilePhoto = str_starts_with($rp->profile_image_url, 'http') 
+                            ? $rp->profile_image_url 
+                            : url('storage/' . str_replace('storage/', '', $rp->profile_image_url));
+                    }
+                }
+
+                $vibes = DB::table('event_likes')->where('event_id', $eventId)->where('liked_id', $user->id)->where('action', 'like')->count();
+                $points = DB::table('user_club_access')->where('user_id', $user->id)->where('club_id', $clubId)->value('points') ?? 0;
+
+                $myEntry = [
+                    'id' => $user->id,
+                    'name' => $myProfile->user->name ?? 'Unknown',
+                    'points' => (int) $points,
+                    'vibes' => (int) $vibes,
+                    'instagram' => $myProfile->instagram ?? '',
+                    'bio' => $myProfile->bio ?? '',
+                    'age' => $myProfile->birthdate ? Carbon::parse($myProfile->birthdate)->age : 18,
+                    'photo' => $profilePhoto ?? ($photos[0] ?? null),
+                    'photos' => $photos,
+                    'rank' => '-',
+                    'is_me' => true,
+                    'ghost_mode' => true
+                ];
+            }
+        }
 
         return response()->json([
             'status' => 'success',

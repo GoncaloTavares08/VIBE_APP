@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\Club;
+use App\Models\User;
 
 class ClubController extends Controller
 {
@@ -38,6 +39,7 @@ class ClubController extends Controller
             'club' => [
                 'id' => $club->id,
                 'name' => $club->name,
+                'logo_url' => $club->logo_url,
                 'slug' => $club->slug,
                 'location' => $club->location
             ]
@@ -60,6 +62,30 @@ class ClubController extends Controller
     // Replaces user_clubs.php
     public function getUserClubs(Request $request, $userId)
     {
+        $user = User::find($userId);
+        if ($user && $user->is_superadmin) {
+            $clubs = Club::where('is_active', 1)
+                ->select('id', 'name', 'logo_url', 'slug', 'location', 'created_at as joined_at')
+                ->get()
+                ->map(function ($c) {
+                    return [
+                        'id' => $c->id,
+                        'name' => $c->name,
+                        'logo_url' => $c->logo_url,
+                        'slug' => $c->slug,
+                        'location' => $c->location,
+                        'role' => 'ADMIN',
+                        'points' => 0,
+                        'joined_at' => $c->joined_at,
+                    ];
+                });
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $clubs
+            ]);
+        }
+
         $clubs = DB::table('clubs as c')
             ->join('user_club_access as uca', 'c.id', '=', 'uca.club_id')
             ->where('uca.user_id', $userId)
@@ -67,6 +93,7 @@ class ClubController extends Controller
             ->select(
                 'c.id',
                 'c.name',
+                'c.logo_url',
                 'c.slug',
                 'c.location',
                 'uca.role',
@@ -103,10 +130,24 @@ class ClubController extends Controller
             ]);
         }
 
+        $user = \App\Models\User::find($userId);
+        $isSuperAdmin = $user && $user->is_superadmin;
+
         $access = DB::table('user_club_access')
             ->where('user_id', $userId)
             ->where('club_id', $club->id)
             ->first();
+
+        if ($isSuperAdmin) {
+            return response()->json([
+                'has_access' => true,
+                'club' => ['name' => $club->name],
+                'role' => 'ADMIN',
+                'is_superadmin' => true,
+                'points' => $access ? $access->points : 0,
+                'joined_at' => $access ? $access->joined_at : $user->created_at
+            ]);
+        }
 
         if (!$access) {
             return response()->json([
@@ -120,6 +161,7 @@ class ClubController extends Controller
             'has_access' => true,
             'club' => ['name' => $club->name],
             'role' => $access->role,
+            'is_superadmin' => false,
             'points' => $access->points,
             'joined_at' => $access->joined_at
         ]);

@@ -10,6 +10,7 @@ import { ClientDashboard } from './components/ClientDashboard';
 import { DoorOpsApp } from './components/staff/StaffApp';
 import { AccessDenied } from './components/AccessDenied';
 import { RPPublicProfilePage } from './pages/RPPublicProfilePage';
+import { SuperAdminPortal } from './components/superadmin/SuperAdminPortal';
 import { useClubAccess } from './hooks/useClubAccess';
 import { clearAllAccessCache } from './utils/clearAccessCache';
 import { useState, useEffect } from 'react';
@@ -29,14 +30,18 @@ export default function App() {
   const [showAuth, setShowAuth] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Initialize view states based on user role immediately
-  const [showDashboard, setShowDashboard] = useState(() => user?.role === 'ADMIN');
+  // SuperAdmin flag
+  const isSuperAdmin = Boolean(user?.is_superadmin || user?.role === 'SUPERADMIN');
+
+  // Initialize view states based on user role (SuperAdmin uses separate portal)
+  const [showDashboard, setShowDashboard] = useState(() => !isSuperAdmin && user?.role === 'ADMIN');
   const [showRPDashboard, setShowRPDashboard] = useState<false | 'rp' | 'team_leader'>(() => {
+    if (isSuperAdmin) return false;
     if (user?.role === 'RP') return 'rp';
     if (user?.role === 'TEAM_LEADER') return 'team_leader';
     return false;
   });
-  const [showStaffApp, setShowStaffApp] = useState(() => user?.role === 'STAFF');
+  const [showStaffApp, setShowStaffApp] = useState(() => !isSuperAdmin && user?.role === 'STAFF');
 
   // State to force re-render on navigation (must be before useClubAccess)
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -78,7 +83,12 @@ export default function App() {
   // Effect to sync states if user changes (e.g. login/logout)
   useEffect(() => {
     if (user) {
-      // Use verifiedRole if available, otherwise fallback to user.role
+      if (isSuperAdmin) {
+        setShowDashboard(false);
+        setShowRPDashboard(false);
+        setShowStaffApp(false);
+        return;
+      }
       const effectiveRole = verifiedRole || user.role;
       if (effectiveRole === 'ADMIN') setShowDashboard(true);
       else if (effectiveRole === 'RP') setShowRPDashboard('rp');
@@ -89,23 +99,27 @@ export default function App() {
       setShowRPDashboard(false);
       setShowStaffApp(false);
     }
-  }, [user, verifiedRole]);
+  }, [user, verifiedRole, isSuperAdmin]);
 
   const handleLoginSuccess = (userData: any) => {
     setUser(userData);
     setShowAuth(false); // Close auth modal
-    if (userData.role === 'ADMIN') {
+    if (userData.is_superadmin || userData.role === 'SUPERADMIN') {
+      setShowDashboard(false);
+      setShowRPDashboard(false);
+      setShowStaffApp(false);
+    } else if (userData.role === 'ADMIN') {
       setShowDashboard(true);
     } else if (userData.role === 'RP' || userData.role === 'TEAM_LEADER') {
       setShowRPDashboard(userData.role === 'TEAM_LEADER' ? 'team_leader' : 'rp');
     } else if (userData.role === 'STAFF') {
       setShowStaffApp(true);
-    } else if (userData.role === 'CLIENT') {
-      // Logic handled by render condition
     }
   };
 
   const handleLogout = () => {
+    setIsLoggingOut(true);
+    localStorage.removeItem('authToken');
     localStorage.removeItem('user');
     clearAllAccessCache(); // Clear all access cache on logout
     setUser(null);
@@ -114,6 +128,7 @@ export default function App() {
     setShowStaffApp(false);
     window.history.pushState({}, '', '/');
     window.dispatchEvent(new PopStateEvent('popstate'));
+    setTimeout(() => setIsLoggingOut(false), 500);
   };
 
   const handleReturnHome = () => {
@@ -122,13 +137,9 @@ export default function App() {
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-
-
-
   const handleNavigate = (path: string) => {
     window.history.pushState({}, '', path);
     setCurrentPath(path);
-    // Also update useClubAccess if needed (it polls, so it should catch up, but we can force it if we want)
   };
 
   // Listen to popstate (back/forward browser buttons)
@@ -137,6 +148,11 @@ export default function App() {
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  // Show SuperAdmin Portal when navigating to /superadmin or for superadmin
+  if (user && isSuperAdmin && currentPath === '/superadmin') {
+    return <SuperAdminPortal user={user} onLogout={handleLogout} onBack={handleReturnHome} />;
+  }
 
   // Detect if we have a club in the URL (using currentPath state to ensure reactivity)
   const pathSegments = currentPath.split('/').filter(Boolean);
@@ -161,17 +177,13 @@ export default function App() {
   }
 
   // Show access denied if no access
-  // Pass error to AccessDenied for debugging
   if (user && !hasAccess && !isLoading && hasClubInUrl && !isLoggingOut) {
     return <AccessDenied clubName={clubName || 'Unknown Club'} onGoBack={handleReturnHome} />;
-    // Note: You might want to update AccessDenied to show the error prop if you haven't yet, 
-    // but the user said they aren't seeing this screen, so priority is navigation.
   }
 
   // IMPORTANT: Prevent dashboard access without club in URL
   // If user is logged in but URL has no club (e.g., just "/"), stay on landing page
   if (user && !hasClubInUrl) {
-    // Logged in but no club selected - show landing page with logout
     return (
       <div className="min-h-screen bg-[#0a0a0a] relative overflow-hidden">
         <InteractiveBackground />
@@ -183,16 +195,18 @@ export default function App() {
           <div className="absolute top-1/2 right-1/3 w-[350px] h-[350px] bg-[#DAA520] opacity-8 blur-[100px] rounded-full"></div>
         </div>
 
-        <div className="relative z-10">
-          {/* Modified Header with Logout */}
-          <Header onLoginClick={handleLogout} isLoggedIn={true} userName={user.name} />
+        <div className="relative z-10 pt-20">
+          {/* Modified Header with SuperAdmin Button & Logout */}
+          <Header
+            onLoginClick={handleLogout}
+            isLoggedIn={true}
+            userName={user.name}
+            isSuperAdmin={isSuperAdmin}
+            onSuperAdminClick={() => handleNavigate('/superadmin')}
+          />
 
           {/* Show My Clubs instead of Hero for logged in users */}
           <MyClubs user={user} onNavigate={handleNavigate} />
-
-          {/* Optional: still show features or maybe less prominent */}
-          {/* <HeroSection onLoginClick={() => { }} /> */}
-          {/* Keeping HeroSection might be confusing, MyClubs is the main action now */}
         </div>
       </div>
     );
@@ -203,8 +217,8 @@ export default function App() {
     return <DoorOpsApp onLogout={handleLogout} />;
   }
 
-  // Show dashboard - admin (does NOT strictly need club in URL - has global access)
-  if (showDashboard && hasAccess && hasClubInUrl) {
+  // Show dashboard - admin or superadmin (entering any club with full permissions)
+  if ((showDashboard || isSuperAdmin) && hasAccess && hasClubInUrl) {
     return <Dashboard user={user} onLogout={handleLogout} />;
   }
 
@@ -230,7 +244,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#050505] relative overflow-hidden">
       <InteractiveBackground />
-      <div className="relative z-10 flex flex-col min-h-screen">
+      <div className="relative z-10 flex flex-col min-h-screen pt-20">
         <Header onLoginClick={() => setShowAuth(true)} />
         <HeroSection onLoginClick={() => setShowAuth(true)} />
         <Marquee />

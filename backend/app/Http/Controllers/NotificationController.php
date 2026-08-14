@@ -15,10 +15,11 @@ class NotificationController extends Controller
             return [
                 'id' => $notification->id,
                 'type' => $notification->data['type'] ?? 'system',
-                'title' => $this->getTitle($notification->data),
+                'title' => $notification->data['title'] ?? $this->getTitle($notification->data),
                 'description' => $notification->data['message'] ?? 'Notificação de Sistema',
                 'timestamp' => $notification->created_at->diffForHumans(),
                 'isRead' => !is_null($notification->read_at),
+                'avatar' => $notification->data['avatar'] ?? null,
                 'data' => $notification->data
             ];
         });

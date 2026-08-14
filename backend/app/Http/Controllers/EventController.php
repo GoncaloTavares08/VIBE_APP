@@ -43,28 +43,134 @@ class EventController extends Controller
 
         $rawSlug = $request->header('X-Client-ID');
         $clubSlug = $rawSlug ? strtolower($rawSlug) : 'all';
-        $statusStr = $request->status ?? 'all';
-        $cacheKey = "events_{$clubSlug}_{$statusStr}";
 
-        $events = \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, function () use ($request, $clubSlug) {
-            $query = Event::with('club')->orderBy('date', 'desc')->orderBy('start_time', 'desc');
+        $query = Event::with('club')->orderBy('date', 'desc')->orderBy('start_time', 'desc');
 
-            if ($clubSlug !== 'all') {
-                $query->whereHas('club', function ($q) use ($clubSlug) {
-                    $q->where('slug', $clubSlug);
-                });
+        if ($clubSlug !== 'all') {
+            $query->whereHas('club', function ($q) use ($clubSlug) {
+                $q->where('slug', $clubSlug);
+            });
+        }
+
+        if ($request->has('status')) {
+            $query->where('status', $request->status);
+        }
+
+        $events = $query->get();
+
+        // Calculate real per-event stats
+        $totalEntriesClub = 0;
+        $totalGuestlistClub = 0;
+        $totalBarRevenueClub = 0.0;
+        $occupancySum = 0;
+        $occupancyCount = 0;
+        $ongoingCount = 0;
+        $upcomingCount = 0;
+        $completedCount = 0;
+
+        $enrichedEvents = $events->map(function ($event) use (
+            &$totalEntriesClub,
+            &$totalGuestlistClub,
+            &$totalBarRevenueClub,
+            &$occupancySum,
+            &$occupancyCount,
+            &$ongoingCount,
+            &$upcomingCount,
+            &$completedCount
+        ) {
+            if ($event->status === 'ongoing') $ongoingCount++;
+            elseif ($event->status === 'upcoming') $upcomingCount++;
+            elseif ($event->status === 'completed') $completedCount++;
+
+            $guestlistCount = \Illuminate\Support\Facades\DB::table('guestlist')
+                ->where('event_id', $event->id)
+                ->count();
+
+            $checkedInCount = \Illuminate\Support\Facades\DB::table('guestlist')
+                ->where('event_id', $event->id)
+                ->where('status', 'checked_in')
+                ->count();
+
+            $barRevenue = (float) \Illuminate\Support\Facades\DB::table('points_transactions')
+                ->where('event_id', $event->id)
+                ->where('transaction_type', 'purchase')
+                ->sum('amount_spent');
+
+            $occupancyPercent = $event->capacity > 0 ? (int) round(($checkedInCount / $event->capacity) * 100) : 0;
+
+            $totalEntriesClub += $checkedInCount;
+            $totalGuestlistClub += $guestlistCount;
+            $totalBarRevenueClub += $barRevenue;
+
+            if ($event->capacity > 0 && in_array($event->status, ['completed', 'ongoing'])) {
+                $occupancySum += $occupancyPercent;
+                $occupancyCount++;
             }
 
-            if ($request->has('status')) {
-                $query->where('status', $request->status);
-            }
+            $arr = $event->toArray();
+            $arr['guestlist_count'] = $guestlistCount;
+            $arr['checked_in_count'] = $checkedInCount;
+            $arr['bar_revenue'] = round($barRevenue, 2);
+            $arr['occupancy_percent'] = min($occupancyPercent, 100);
 
-            return $query->get()->toArray();
+            return $arr;
         });
+
+        $now = Carbon::now('Europe/Lisbon');
+        $today = $now->copy()->startOfDay();
+
+        // Identify most recent past or ongoing event
+        $latestEvent = $events->first(fn($e) => $e->status === 'ongoing')
+            ?: $events->filter(fn($e) => Carbon::parse($e->date)->lte($today))->sortByDesc('date')->first()
+            ?: $events->first();
+
+        // Identify next upcoming event
+        $nextEvent = $events->filter(fn($e) => $e->status === 'upcoming' && Carbon::parse($e->date)->gte($today))
+            ->sortBy('date')
+            ->first();
+
+        $lastEventEntries = 0;
+        $lastEventRevenue = 0.0;
+        $lastEventOccupancy = 0;
+
+        if ($latestEvent) {
+            $lastEventEntries = (int) \Illuminate\Support\Facades\DB::table('guestlist')
+                ->where('event_id', $latestEvent->id)
+                ->where('status', 'checked_in')
+                ->count();
+
+            $lastEventRevenue = (float) \Illuminate\Support\Facades\DB::table('points_transactions')
+                ->where('event_id', $latestEvent->id)
+                ->where('transaction_type', 'purchase')
+                ->sum('amount_spent');
+
+            $lastEventOccupancy = $latestEvent->capacity > 0 ? (int) round(($lastEventEntries / $latestEvent->capacity) * 100) : 0;
+        }
+
+        $avgOccupancy = $occupancyCount > 0 ? (int) round($occupancySum / $occupancyCount) : 0;
+        $avgEntriesPerEvent = $occupancyCount > 0 ? (int) round($totalEntriesClub / $occupancyCount) : 0;
 
         return response()->json([
             'status' => 'success',
-            'data' => $events
+            'data' => $enrichedEvents,
+            'stats' => [
+                'upcoming_count' => $upcomingCount,
+                'ongoing_count' => $ongoingCount,
+                'completed_count' => $completedCount,
+                'total_events' => $events->count(),
+                'total_entries' => $totalEntriesClub,
+                'total_guestlist' => $totalGuestlistClub,
+                'total_bar_revenue' => round($totalBarRevenueClub, 2),
+                'average_occupancy' => $avgOccupancy,
+                'avg_entries_per_event' => $avgEntriesPerEvent,
+                'last_event_name' => $latestEvent ? $latestEvent->name : null,
+                'last_event_date' => $latestEvent ? $latestEvent->date : null,
+                'last_event_entries' => $lastEventEntries,
+                'last_event_bar_revenue' => round($lastEventRevenue, 2),
+                'last_event_occupancy' => $lastEventOccupancy,
+                'next_event_name' => $nextEvent ? $nextEvent->name : null,
+                'next_event_date' => $nextEvent ? $nextEvent->date : null,
+            ]
         ]);
     }
 
@@ -142,18 +248,21 @@ class EventController extends Controller
             ->whereIn('status', ['confirmed', 'checked_in'])
             ->count();
 
-        // Get up to 5 random profile photos of attendees
-        // To do this, we join guestlists with client_profiles and client_profile_photos
-        $attendeePhotos = \Illuminate\Support\Facades\DB::table('guestlists as g')
-            ->join('client_profile_photos as cpp', 'g.client_id', '=', 'cpp.user_id')
+        // Get up to 5 random profile photos of attendees (excluding ghost mode)
+        $attendeePhotos = \Illuminate\Support\Facades\DB::table('guestlist as g')
+            ->join('client_profiles as cp', 'g.client_id', '=', 'cp.user_id')
+            ->join('client_profile_photos as cpp', 'cp.id', '=', 'cpp.client_profile_id')
             ->where('g.event_id', $event->id)
             ->whereIn('g.status', ['confirmed', 'checked_in'])
-            ->where('cpp.photo_order', 0) // get their primary photo
+            ->where(function($q) {
+                $q->where('cp.ghost_mode', 0)->orWhereNull('cp.ghost_mode');
+            })
+            ->where('cpp.photo_order', 0)
             ->inRandomOrder()
             ->limit(5)
             ->pluck('cpp.photo_path')
             ->map(function ($path) {
-                return url('storage/' . str_replace('storage/', '', $path));
+                return str_starts_with($path, 'http') ? $path : url('storage/' . str_replace('storage/', '', $path));
             })
             ->toArray();
 
@@ -177,6 +286,28 @@ class EventController extends Controller
         ]);
     }
 
+    public function uploadBanner(Request $request)
+    {
+        $request->validate([
+            'banner' => 'required|image|max:10240' // up to 10MB
+        ]);
+
+        $file = $request->file('banner');
+        $datePath = date('Y/m/d');
+        $ext = $file->getClientOriginalExtension() ?: 'jpg';
+        $filename = uniqid('event_banner_') . '.' . $ext;
+        $fullPath = "events/banners/{$datePath}/{$filename}";
+
+        \Illuminate\Support\Facades\Storage::disk('public')->put($fullPath, file_get_contents($file->getRealPath()));
+        $webPath = 'storage/' . $fullPath;
+
+        return response()->json([
+            'status' => 'success',
+            'image_url' => $webPath,
+            'full_url' => url($webPath)
+        ]);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -188,7 +319,7 @@ class EventController extends Controller
             'capacity' => 'required|integer',
             'organizer_name' => 'nullable|string',
             'status' => 'nullable|in:upcoming,ongoing,completed,cancelled',
-            'image_url' => 'nullable|string|url'
+            'image_url' => 'nullable|string'
         ]);
 
         $validated['created_by'] = $request->user()->id ?? null;
@@ -238,7 +369,7 @@ class EventController extends Controller
             'capacity' => 'sometimes|integer',
             'organizer_name' => 'nullable|string',
             'status' => 'nullable|in:upcoming,ongoing,completed,cancelled',
-            'image_url' => 'nullable|string|url'
+            'image_url' => 'nullable|string'
         ]);
 
         $event->update($validated);

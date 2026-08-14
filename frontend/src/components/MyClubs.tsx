@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { ArrowRight, MapPin, Calendar, Star } from 'lucide-react';
+import { ArrowRight, MapPin, Calendar, Star, Crown } from 'lucide-react';
 import { apiFetch } from '../services/api';
 import { DiscoverEvents } from './DiscoverEvents';
 
 interface Club {
     id: number;
     name: string;
+    logo_url?: string;
     slug: string;
     location: string;
     joined_at: string;
@@ -100,6 +101,47 @@ export function MyClubs({ user, onNavigate }: MyClubsProps) {
 
     return (
         <div className="space-y-4">
+            {/* SuperAdmin Global Portal Banner */}
+            {user?.is_superadmin && (
+                <section className="pt-20 pb-6 relative z-10">
+                    <div className="max-w-4xl mx-auto px-4">
+                        <div
+                            className="p-6 sm:p-8 rounded-[2rem] border border-[#D4AF37]/30 text-center relative overflow-hidden"
+                            style={{
+                                background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.12) 0%, rgba(255, 215, 0, 0.05) 100%)',
+                                backdropFilter: 'blur(25px)',
+                                boxShadow: '0 20px 50px rgba(0, 0, 0, 0.6), 0 0 40px rgba(212, 175, 55, 0.15)',
+                            }}
+                        >
+                            <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center bg-gradient-to-br from-[#D4AF37] to-[#FFD700] text-black shadow-lg">
+                                <Crown className="w-7 h-7 fill-black" />
+                            </div>
+                            <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30 mb-3 inline-block">
+                                Administrador Global
+                            </span>
+                            <h2 className="text-2xl sm:text-3xl font-black text-white mb-2">
+                                Painel de Controlo SuperAdmin
+                            </h2>
+                            <p className="text-xs sm:text-sm text-gray-300 max-w-xl mx-auto mb-6">
+                                Como SuperAdmin, tens gestão centralizada sobre todos os clubes da plataforma, criação de novos estabelecimentos e atribuição de permissões de administradores.
+                            </p>
+                            <button
+                                onClick={() => onNavigate('/superadmin')}
+                                className="px-8 py-3.5 rounded-xl font-black text-sm transition-all duration-300 hover:scale-105 active:scale-95 shadow-xl cursor-pointer inline-flex items-center gap-2"
+                                style={{
+                                    background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                                    color: '#000000',
+                                }}
+                            >
+                                <Crown className="w-4 h-4 fill-black" />
+                                <span>Abrir Painel SuperAdmin</span>
+                                <ArrowRight className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            )}
+
             {clubs.length > 0 && (
                 <section className="pt-20 pb-10 relative z-10">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -137,55 +179,87 @@ export function MyClubs({ user, onNavigate }: MyClubsProps) {
                                             border: '1px solid rgba(255, 255, 255, 0.1)',
                                         }}
                                     >
-                                        <div className="relative h-full bg-[#0a0a0a]/80 rounded-[22px] p-6 flex flex-col">
-                                            {/* Header */}
-                                            <div className="flex justify-between items-start mb-6">
-                                                <div>
-                                                    <h3 className="text-2xl font-black text-white mb-1 group-hover:text-[#D4AF37] transition-colors">
-                                                        {club.name}
-                                                    </h3>
-                                                    <div className="flex items-center gap-2 text-gray-400 text-sm">
-                                                        <MapPin className="w-4 h-4 text-[#D4AF37]" />
-                                                        {club.location}
-                                                    </div>
-                                                </div>
-                                                <div className="px-3 py-1 rounded-full text-xs font-bold bg-[#D4AF37]/10 text-[#D4AF37] border border-[#D4AF37]/20 uppercase">
-                                                    {formatRole(club.role)}
-                                                </div>
-                                            </div>
+                                         <div className="relative h-full bg-[#111111] rounded-[22px] overflow-hidden flex flex-col justify-between">
+                                             {/* Full Bleed Top Cover Banner */}
+                                             <div className="relative h-44 sm:h-48 w-full overflow-hidden bg-black border-b border-white/5">
+                                                 {club.logo_url ? (
+                                                     <>
+                                                         <img
+                                                             src={club.logo_url}
+                                                             alt={club.name}
+                                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                                             onError={(e) => {
+                                                                 (e.target as HTMLElement).style.display = 'none';
+                                                             }}
+                                                         />
+                                                         {/* Bottom gradient overlay for seamless blending */}
+                                                         <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-[#111111]/30 to-black/30 pointer-events-none" />
+                                                     </>
+                                                 ) : (
+                                                     <div className="w-full h-full bg-gradient-to-br from-[#1c1c1c] via-[#141414] to-[#0a0a0a] flex items-center justify-center relative overflow-hidden">
+                                                         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.15)_0%,transparent_70%)] pointer-events-none" />
+                                                         <div className="w-20 h-20 rounded-3xl bg-[#D4AF37]/10 border border-[#D4AF37]/30 flex items-center justify-center shadow-2xl">
+                                                             <span className="text-3xl font-black text-[#D4AF37]">
+                                                                 {club.name.charAt(0).toUpperCase()}
+                                                             </span>
+                                                         </div>
+                                                     </div>
+                                                 )}
 
-                                            {/* Stats */}
-                                            <div className="grid grid-cols-2 gap-4 mb-8">
-                                                <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-                                                    <p className="text-xs text-gray-400 mb-1">Pontos</p>
-                                                    <p className="text-xl font-bold text-white flex items-center gap-2">
-                                                        {club.points}
-                                                        <Star className="w-4 h-4 text-[#D4AF37] fill-[#D4AF37]" />
-                                                    </p>
-                                                </div>
-                                                <div className="p-3 rounded-xl bg-white/5 border border-white/5">
-                                                    <p className="text-xs text-gray-400 mb-1">Membro desde</p>
-                                                    <p className="text-sm font-bold text-white flex items-center gap-2">
-                                                        <Calendar className="w-4 h-4 text-gray-400" />
-                                                        {new Date(club.joined_at).toLocaleDateString('pt-PT', { month: 'short', year: 'numeric' })}
-                                                    </p>
-                                                </div>
-                                            </div>
+                                                 {/* Role Badge floating top right */}
+                                                 <div className="absolute top-3 right-3 z-10">
+                                                     <span className="px-3 py-1 rounded-full text-[10px] font-extrabold bg-black/80 backdrop-blur-md text-[#D4AF37] border border-[#D4AF37]/30 uppercase tracking-wider shadow-lg">
+                                                         {formatRole(club.role)}
+                                                     </span>
+                                                 </div>
+                                             </div>
 
-                                            {/* Action */}
-                                            <div className="mt-auto">
-                                                <button
-                                                    onClick={() => onNavigate(`/${club.slug}`)}
-                                                    className="w-full py-4 rounded-xl flex items-center justify-center gap-2 font-bold text-black transition-all group-hover:scale-[1.02] cursor-pointer"
-                                                    style={{
-                                                        background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-                                                    }}
-                                                >
-                                                    Entrar no Clube
-                                                    <ArrowRight className="w-5 h-5" />
-                                                </button>
-                                            </div>
-                                        </div>
+                                             {/* Card Body */}
+                                             <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                                                 <div>
+                                                     <div className="flex items-baseline justify-between gap-2">
+                                                         <h3 className="text-xl font-bold text-white group-hover:text-[#D4AF37] transition-colors truncate">
+                                                             {club.name}
+                                                         </h3>
+                                                         <span className="text-[11px] font-mono text-[#D4AF37]/70 shrink-0 font-medium">/{club.slug}</span>
+                                                     </div>
+                                                     <div className="flex items-center gap-1.5 text-gray-400 text-xs mt-1">
+                                                         <MapPin className="w-3.5 h-3.5 text-[#D4AF37]" />
+                                                         <span>{club.location}</span>
+                                                     </div>
+                                                 </div>
+
+                                                 {/* Stats Grid */}
+                                                 <div className="grid grid-cols-2 gap-2.5">
+                                                     <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                                                         <p className="text-[10px] text-gray-400 font-medium">Pontos</p>
+                                                         <p className="text-base font-bold text-white flex items-center gap-1.5 mt-0.5">
+                                                             {club.points}
+                                                             <Star className="w-3.5 h-3.5 text-[#D4AF37] fill-[#D4AF37]" />
+                                                         </p>
+                                                     </div>
+                                                     <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+                                                         <p className="text-[10px] text-gray-400 font-medium">Membro desde</p>
+                                                         <p className="text-xs font-semibold text-white flex items-center gap-1.5 mt-1">
+                                                             <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                                                             {new Date(club.joined_at).toLocaleDateString('pt-PT', { month: 'short', year: 'numeric' })}
+                                                         </p>
+                                                     </div>
+                                                 </div>
+
+                                                 {/* Action Button */}
+                                                 <button
+                                                     onClick={() => onNavigate(`/${club.slug}`)}
+                                                     className="w-full py-3.5 rounded-xl flex items-center justify-center gap-2 font-bold text-xs text-black transition-all group-hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] group-hover:scale-[1.02] cursor-pointer"
+                                                     style={{
+                                                         background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                                                     }}
+                                                 >
+                                                     <span>Entrar no Clube</span>
+                                                     <ArrowRight className="w-3.5 h-3.5" />
+                                                 </button>
+                                             </div>
+                                         </div>
                                     </div>
                                 </motion.div>
                             ))}
@@ -194,7 +268,7 @@ export function MyClubs({ user, onNavigate }: MyClubsProps) {
                 </section>
             )}
 
-            <DiscoverEvents />
+            {!user?.is_superadmin && <DiscoverEvents />}
         </div>
     );
 }

@@ -16,29 +16,96 @@ class GuestlistController extends Controller
     {
         $rawSlug = $request->header('X-Client-ID');
         $slug = $rawSlug ? strtolower($rawSlug) : null;
-        if (!$slug) return null;
+        if ($slug) {
+            $club = Club::where('slug', $slug)->first();
+            if ($club) return $club->id;
+        }
+
+        $user = $request->user();
+        if ($user) {
+            $userClub = \Illuminate\Support\Facades\DB::table('user_club_access')
+                ->where('user_id', $user->id)
+                ->first();
+            if ($userClub) return $userClub->club_id;
+        }
         
-        $club = Club::where('slug', $slug)->first();
-        return $club ? $club->id : null;
+        return null;
+    }
+
+    private function ensureRpOnGuestlist($user, $clubId)
+    {
+        if (!$user) return;
+
+        $isRp = \Illuminate\Support\Facades\DB::table('user_club_access')
+            ->where('user_id', $user->id)
+            ->whereIn('role', ['RP', 'TEAM_LEADER', 'STAFF', 'rp', 'team_leader', 'staff'])
+            ->exists() || in_array(strtolower($user->role ?? ''), ['rp', 'team_leader', 'staff']);
+
+        if ($isRp) {
+            $today = Carbon::now('Europe/Lisbon')->format('Y-m-d');
+            $yesterday = Carbon::now('Europe/Lisbon')->subDay()->format('Y-m-d');
+
+            $eventsQuery = Event::where('status', '!=', 'cancelled')
+                ->where(function($q) use ($today, $yesterday) {
+                    $q->where('date', '>=', $today)
+                      ->orWhere('status', 'ongoing')
+                      ->orWhere(function($sub) use ($yesterday) {
+                          $sub->where('date', $yesterday)
+                              ->where('end_time', '<', '12:00:00');
+                      });
+                });
+
+            if ($clubId) {
+                $eventsQuery->where('club_id', $clubId);
+            }
+            $events = $eventsQuery->get();
+            foreach ($events as $ev) {
+                $exists = Guestlist::where('event_id', $ev->id)->where('client_id', $user->id)->first();
+                if (!$exists) {
+                    Guestlist::create([
+                        'event_id' => $ev->id,
+                        'client_id' => $user->id,
+                        'rp_id' => $user->id,
+                        'status' => 'confirmed',
+                        'qr_code' => (string) Str::uuid()
+                    ]);
+                }
+            }
+        }
     }
 
     public function index(Request $request)
     {
         $user = $request->user();
-        
         $clubId = $this->getClubId($request);
+        $this->ensureRpOnGuestlist($user, $clubId);
+
+        $today = Carbon::now('Europe/Lisbon')->format('Y-m-d');
+        $yesterday = Carbon::now('Europe/Lisbon')->subDay()->format('Y-m-d');
         
-        // Return guestlists for upcoming or ongoing events in the current club
+        // Return guestlists for events happening now or in the future in the current club
         $guestlists = Guestlist::with('event')
             ->where('client_id', $user->id)
             ->whereIn('status', ['confirmed', 'checked_in'])
-            ->whereHas('event', function ($query) use ($clubId) {
-                $query->whereIn('status', ['upcoming', 'ongoing']);
+            ->whereHas('event', function ($query) use ($clubId, $today, $yesterday) {
+                $query->where('status', '!=', 'cancelled')
+                      ->where(function($q) use ($today, $yesterday) {
+                          $q->where('date', '>=', $today)
+                            ->orWhere('status', 'ongoing')
+                            ->orWhere(function($sub) use ($yesterday) {
+                                $sub->where('date', $yesterday)
+                                    ->where('end_time', '<', '12:00:00');
+                            });
+                      });
                 if ($clubId) {
                     $query->where('club_id', $clubId);
                 }
             })
-            ->get();
+            ->get()
+            ->sortBy(function ($gl) {
+                return $gl->event ? ($gl->event->date . ' ' . $gl->event->start_time) : '9999';
+            })
+            ->values();
 
         $formatted = $guestlists->map(function ($gl) {
             $prefix = $gl->status === 'checked_in' ? 'BAR:' : 'ENTRY:';
@@ -120,6 +187,7 @@ class GuestlistController extends Controller
     {
         $user = $request->user();
         $clubId = $this->getClubId($request);
+        $this->ensureRpOnGuestlist($user, $clubId);
         
         $now = Carbon::now('Europe/Lisbon');
 
@@ -163,16 +231,9 @@ class GuestlistController extends Controller
             $nextEventQuery->where('club_id', $clubId);
         }
 
-        // Simple future logic (find next event happening today or later)
-        // Ignoring the complex yesterday logic for simplicity here, just looking for upcoming/ongoing
         $nextEvent = $nextEventQuery->where(function($q) use ($now) {
             $dateOnly = $now->format('Y-m-d');
-            $timeOnly = $now->format('H:i:s');
-            
-            $q->where('date', '>', $dateOnly)
-              ->orWhere(function($sub) use ($dateOnly, $timeOnly) {
-                  $sub->where('date', $dateOnly)->where('start_time', '>', $timeOnly);
-              })
+            $q->where('date', '>=', $dateOnly)
               ->orWhere('status', 'ongoing');
         })->first();
 

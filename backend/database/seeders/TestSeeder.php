@@ -50,6 +50,7 @@ class TestSeeder extends Seeder
 
         // 2. Base Accounts for Vibe Club
         $roles = [
+            'SUPERADMIN' => 'superadmin@vibe.com',
             'ADMIN' => 'admin@vibe.com',
             'MANAGER' => 'manager@vibe.com',
             'STAFF' => 'door@vibe.com',
@@ -59,19 +60,25 @@ class TestSeeder extends Seeder
 
         $baseUsers = [];
         foreach ($roles as $role => $email) {
+            $isSuperAdmin = ($role === 'SUPERADMIN');
             $user = User::firstOrCreate(
                 ['email' => $email],
                 [
-                    'name' => ucfirst(strtolower($role)) . ' Vibe',
+                    'name' => ($role === 'SUPERADMIN') ? 'SuperAdmin VIBE' : (ucfirst(strtolower($role)) . ' Vibe'),
                     'password' => $password,
+                    'is_superadmin' => $isSuperAdmin,
                     'email_verified_at' => now(),
                 ]
             );
 
+            if ($user->is_superadmin !== $isSuperAdmin && $isSuperAdmin) {
+                $user->update(['is_superadmin' => true]);
+            }
+
             UserClubAccess::firstOrCreate(
                 ['user_id' => $user->id, 'club_id' => $mainClub->id],
                 [
-                    'role' => $role,
+                    'role' => $role === 'SUPERADMIN' ? 'ADMIN' : $role,
                     'points' => ($role === 'CLIENT' || $role === 'RP') ? $faker->numberBetween(0, 500) : 0,
                 ]
             );

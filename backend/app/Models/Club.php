@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Club extends Model
 {
     protected $fillable = [
-        'name', 'slug', 'location', 'address', 'city', 
+        'name', 'logo_url', 'slug', 'location', 'address', 'city', 
         'max_capacity', 'opening_time', 'closing_time', 
         'contact_phone', 'language', 'timezone', 
         'dark_mode', 'notifications', 'is_active'

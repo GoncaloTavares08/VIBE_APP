@@ -12,7 +12,8 @@ import {
   Bell,
   Zap,
   ChevronRight,
-  Trophy
+  QrCode,
+  Flame
 } from 'lucide-react';
 import { apiFetch } from '../../services/api';
 import { NotificationPanel } from '../NotificationPanel';
@@ -29,15 +30,17 @@ interface RPDashboardLayoutProps {
 
 const menuItems = [
   { id: 'overview', label: 'RP Center', icon: Home },
-  { id: 'guestlist', label: 'Guestlist', icon: LinkIcon },
-  { id: 'team', label: 'Team', icon: UsersRound },
-  { id: 'competitions', label: 'Competitions', icon: Trophy },
-  { id: 'wallet', label: 'Wallet', icon: Wallet },
-  { id: 'leaderboard', label: 'Leaderboard', icon: Award },
-  { id: 'profile', label: 'Profile', icon: User },
+  { id: 'radar', label: 'Festa Atual', icon: Flame },
+  { id: 'qr', label: 'O Meu QR Code', icon: QrCode },
+  { id: 'guestlist', label: 'Guestlist & Links', icon: LinkIcon },
+  { id: 'team', label: 'Equipa & Metas', icon: UsersRound },
+  { id: 'wallet', label: 'Carteira & Pontos', icon: Wallet },
+  { id: 'leaderboard', label: 'Classificação Global', icon: Award },
+  { id: 'profile', label: 'Perfil', icon: User },
 ];
 
-export function RPDashboardLayout({ children, currentPage, onPageChange, rpName = "João Silva", user, onLogout, isTeamLeader = false }: RPDashboardLayoutProps) {
+export function RPDashboardLayout({ children, currentPage, onPageChange, rpName, user, onLogout, isTeamLeader = false }: RPDashboardLayoutProps) {
+  const displayName = rpName || user?.name || "Promotor";
   const [showNotifications, setShowNotifications] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -322,18 +325,18 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
             {profilePhotoUrl ? (
               <img
                 src={`/api/serve-image?file=${profilePhotoUrl}`}
-                alt={rpName}
+                alt={displayName}
                 className="w-full h-full object-cover"
               />
             ) : (
-              rpName.charAt(0)
+              displayName.charAt(0)
             )}
           </div>
 
           {!isCollapsed || isMobileMenuOpen ? (
             <>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-white truncate text-sm md:text-base">{rpName}</p>
+                <p className="font-semibold text-white truncate text-sm md:text-base">{displayName}</p>
                 <p className="text-xs text-gray-400 truncate">VIP Promoter</p>
               </div>
               <button
@@ -377,7 +380,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
                 backgroundClip: 'text'
               }}
             >
-              Olá, {rpName.split(' ')[0]}
+              Olá, {displayName.split(' ')[0]}
             </h1>
             <p className="text-xs md:text-sm text-gray-400">{currentDate} • {currentTime}</p>
           </div>
@@ -417,7 +420,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation Bar (Static Block) */}
+      {/* Mobile Bottom Navigation Bar (Exact 4 items + Menu as originally designed) */}
       {isMobile && (
         <div
           className="fixed bottom-0 left-0 right-0 z-40 px-6 py-4 flex items-center justify-between"
@@ -436,8 +439,10 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
             <span className="text-[10px] font-medium">Menu</span>
           </button>
 
-          {/* Render Requested Order: Guestlist, Wallet, Leaderboard, Profile (skipping Team & Competitions) */}
-          {filteredMenuItems.filter(item => item.id !== 'overview' && item.id !== 'team' && item.id !== 'competitions').map((item) => {
+          {/* Render standard 4 items: Festa Atual, Carteira, Guestlist, Perfil */}
+          {['radar', 'wallet', 'guestlist', 'profile'].map((itemId) => {
+            const item = menuItems.find(m => m.id === itemId);
+            if (!item) return null;
             const Icon = item.icon;
             const isActive = currentPage === item.id;
             return (
