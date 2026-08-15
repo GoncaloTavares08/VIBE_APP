@@ -5,6 +5,7 @@ import { apiFetch } from '../services/api';
 interface ClubInfo {
   id: number;
   name: string;
+  logo_url?: string;
   slug: string;
   location: string;
 }

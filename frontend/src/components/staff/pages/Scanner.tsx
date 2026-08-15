@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { CheckCircle, XCircle, Gift, User, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, Gift, User, AlertTriangle, Camera, CameraOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Html5QrcodeScanner, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { Scanner as QrScanner } from '@yudiel/react-qr-scanner';
 import { apiFetch } from '../../../services/api';
 
 interface ScannerProps {
@@ -22,10 +22,30 @@ export function Scanner({ onOpenManual }: ScannerProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [isScanning, setIsScanning] = useState(true); // Auto-start scanner
   const [scannerStarted, setScannerStarted] = useState(false);
+  const [isCameraActive, setIsCameraActive] = useState(() => {
+    const stored = sessionStorage.getItem('isCameraActive');
+    return stored ? JSON.parse(stored) : true;
+  });
+  const scannerRef = useRef<any>(null);
+
+  useEffect(() => {
+    sessionStorage.setItem('isCameraActive', JSON.stringify(isCameraActive));
+  }, [isCameraActive]);
+
+  const handleTurnOffCamera = () => {
+    // If the scanner library exposes the video element or stream, try to stop tracks directly
+    if (scannerRef.current) {
+      // The library exposes `getStream()` on the ref
+      const stream = typeof scannerRef.current.getStream === 'function' ? scannerRef.current.getStream() : null;
+      if (stream) {
+        stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+      }
+    }
+    setIsCameraActive(false);
+  };
+
   const [cameraPermission, setCameraPermission] = useState<'checking' | 'granted' | 'denied' | 'prompt'>('checking');
   const [userId, setUserId] = useState<number | null>(null);
-  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
-
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
@@ -76,59 +96,10 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     checkPermissions();
   }, []);
 
-  useEffect(() => {
-    // Initialize Scanner with Html5QrcodeScanner
-    if (isScanning && !scannerRef.current) {
-      const scannerId = "reader";
-      const element = document.getElementById(scannerId);
-      if (!element) {
-        console.error("Scanner element not found");
-        return;
-      }
-
-      console.log("Initializing Html5QrcodeScanner...");
-
-      try {
-        const scanner = new Html5QrcodeScanner(
-          scannerId,
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-            showTorchButtonIfSupported: true,
-            rememberLastUsedCamera: true
-          },
-          /* verbose= */ false
-        );
-
-        scanner.render(onScanSuccess, onScanFailure);
-        scannerRef.current = scanner;
-        console.log("✅ Html5QrcodeScanner initialized");
-      } catch (error) {
-        console.error("❌ Exception during scanner creation:", error);
-        alert(`Erro crítico ao iniciar scanner: ${error}`);
-      }
-    }
-
-    return () => {
-      if (scannerRef.current) {
-        console.log("Cleaning up scanner...");
-        scannerRef.current.clear().catch((error: any) => {
-          console.error("Failed to clear scanner:", error);
-        });
-        scannerRef.current = null;
-      }
-    };
-  }, [isScanning]);
-
-  const onScanFailure = (error: any) => {
-    // Ignore frequent scan errors
-  };
-
-  const onScanSuccess = async (decodedText: string, decodedResult: any) => {
+  const onScanSuccess = async (decodedText: string) => {
     if (!isScanning) return;
 
-    console.log(`Scan result: ${decodedText}`, decodedResult);
+    console.log(`Scan result: ${decodedText}`);
     handleProcessCode(decodedText);
   };
 
@@ -141,17 +112,30 @@ export function Scanner({ onOpenManual }: ScannerProps) {
         body: JSON.stringify({ qr_code: qrCode, confirm: true })
       });
 
-      // Check if this is a payment request (user already checked in)
+      // BAR QR: Prompt for purchase amount
       if (data.status === 'awaiting_payment') {
-        // Show payment modal
         setPaymentData(data.data);
         setShowPaymentModal(true);
+        return;
+      }
+
+      // ENTRY QR: Already checked in — just show green info, no payment
+      if (data.status === 'already_in') {
+        setScanResult({
+          type: 'warning',
+          category: 'guestlist',
+          name: data.data?.client?.name || 'Cliente',
+          photo: data.data?.client?.photo || null,
+          details: `RP: ${data.data?.rp_name || 'N/A'}`,
+          message: data.message || 'Já entrou.'
+        });
         return;
       }
 
       let resultType: ScanResult['type'] = 'error';
       if (data.status === 'success') resultType = 'success';
       if (data.status === 'warning') resultType = 'warning';
+      if (data.status === 'info') resultType = 'info';
 
       const isReward = data.data?.type === 'reward';
       const client = data.data?.client;
@@ -179,13 +163,6 @@ export function Scanner({ onOpenManual }: ScannerProps) {
         details: 'Tente novamente',
         message: error instanceof Error ? error.message : String(error)
       });
-    }
-
-    if (scannerRef.current) {
-      try {
-        await scannerRef.current.clear();
-        scannerRef.current = null;
-      } catch (e) { console.error(e) }
     }
   };
 
@@ -239,6 +216,11 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     setPaymentData(null);
   };
 
+  const handleCancelPayment = () => {
+    handleClosePayment();
+    setIsScanning(true); // Restart scanner when cancelled
+  };
+
   const handleQuickAmount = (amount: number) => {
     setPaymentAmount(amount.toString());
   };
@@ -247,16 +229,68 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     <div className="h-full relative overflow-hidden bg-black flex flex-col">
       {/* Scanner Container */}
       {isScanning && (
-        <div className="flex-1 relative flex flex-col p-4">
-          {/* HTML5 QR Code Reader Container */}
-          <div
-            id="reader"
-            className="w-full flex-1 rounded-2xl overflow-hidden border-2 border-[#D4AF37]/50 shadow-2xl"
-          />
+        <div className="flex-1 relative flex flex-col p-4 pb-8 gap-4">
+          {/* QR Scanner Component */}
+          <div 
+            className="w-full flex-1 mx-auto rounded-[2rem] overflow-hidden shadow-2xl relative flex flex-col justify-center"
+            style={{
+              background: 'rgba(255, 255, 255, 0.02)',
+              backdropFilter: 'blur(20px)',
+              border: '2px solid rgba(212, 175, 55, 0.3)',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.1)'
+            }}
+          >
+            {isCameraActive ? (
+              <>
+                <QrScanner
+                  ref={scannerRef}
+                  onScan={(result) => {
+                    if (result && result.length > 0) {
+                      onScanSuccess(result[0].rawValue);
+                    }
+                  }}
+                  onError={(error) => console.log(error?.message)}
+                  styles={{
+                    container: { width: '100%', height: '100%', paddingTop: 0 },
+                    video: { objectFit: 'cover' }
+                  }}
+                />
+                <button
+                  onClick={handleTurnOffCamera}
+                  className="absolute top-4 right-4 p-3 rounded-full bg-black/50 backdrop-blur-md border border-white/10 text-white hover:bg-white/10 transition-colors z-10"
+                >
+                  <CameraOff className="w-6 h-6" />
+                </button>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full gap-4">
+                <CameraOff className="w-16 h-16 text-gray-600 mb-2" />
+                <p className="text-gray-400 font-medium">Câmara Desligada</p>
+                <button
+                  onClick={() => setIsCameraActive(true)}
+                  className="px-6 py-3 rounded-full font-black text-black flex items-center gap-2 hover:scale-105 transition-transform shadow-[0_4px_20px_rgba(212,175,55,0.3)]"
+                  style={{
+                    background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)'
+                  }}
+                >
+                  <Camera className="w-5 h-5" />
+                  Ligar Câmara
+                </button>
+              </div>
+            )}
+          </div>
 
-          <p className="mt-4 text-gray-400 text-sm md:text-base text-center">
-            Aponte a câmara para o QR Code do cliente
-          </p>
+          <div className="flex-shrink-0 flex flex-col items-center gap-2">
+            <button 
+              onClick={onOpenManual}
+              className="w-full py-5 rounded-full font-black text-xl text-black transition-transform shadow-[0_4px_20px_rgba(212,175,55,0.3)] hover:scale-[1.02] active:scale-[0.98]"
+              style={{
+                background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)'
+              }}
+            >
+              Check-in Manual
+            </button>
+          </div>
         </div>
       )}
 
@@ -269,10 +303,17 @@ export function Scanner({ onOpenManual }: ScannerProps) {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
           >
-            <div className="w-full max-w-sm bg-[#111] border border-[#D4AF37]/30 rounded-3xl p-6 relative overflow-hidden">
+            <div 
+              className="w-full max-w-sm rounded-[2rem] p-8 relative overflow-hidden"
+              style={{
+                background: 'linear-gradient(145deg, rgba(20,20,20,0.95) 0%, rgba(10,10,10,0.98) 100%)',
+                border: '1px solid rgba(212, 175, 55, 0.3)',
+                boxShadow: '0 30px 60px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1)'
+              }}
+            >
               {/* Close Button */}
               <button
-                onClick={handleClosePayment}
+                onClick={handleCancelPayment}
                 className="absolute top-4 right-4 text-gray-400 hover:text-white"
               >
                 <XCircle className="w-8 h-8" />
@@ -301,7 +342,13 @@ export function Scanner({ onOpenManual }: ScannerProps) {
                   <button
                     key={amount}
                     onClick={() => handleQuickAmount(amount)}
-                    className="py-3 rounded-xl bg-white/5 border border-white/10 text-white font-semibold hover:bg-[#D4AF37]/20 hover:border-[#D4AF37] transition-all"
+                    className="py-3 rounded-2xl transition-all"
+                    style={{
+                      background: paymentAmount === amount.toString() ? 'rgba(212, 175, 55, 0.2)' : 'rgba(255, 255, 255, 0.03)',
+                      border: paymentAmount === amount.toString() ? '1px solid #D4AF37' : '1px solid rgba(255, 255, 255, 0.1)',
+                      color: paymentAmount === amount.toString() ? '#D4AF37' : '#ffffff',
+                      fontWeight: paymentAmount === amount.toString() ? 'bold' : 'normal',
+                    }}
                   >
                     {amount}€
                   </button>
@@ -312,7 +359,11 @@ export function Scanner({ onOpenManual }: ScannerProps) {
               <button
                 onClick={handleConfirmPayment}
                 disabled={processingPayment || !paymentAmount}
-                className="w-full py-4 rounded-xl font-bold text-lg text-black bg-gradient-to-r from-[#D4AF37] to-[#FFD700] shadow-[0_4px_20px_rgba(212,175,55,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:grayscale"
+                className="w-full py-4 rounded-full font-black text-lg text-black transition-all disabled:opacity-50 disabled:grayscale"
+                style={{
+                  background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                  boxShadow: '0 4px 20px rgba(212, 175, 55, 0.3)'
+                }}
               >
                 {processingPayment ? 'Processando...' : 'Confirmar Pagamento'}
               </button>
@@ -333,19 +384,20 @@ export function Scanner({ onOpenManual }: ScannerProps) {
             exit={{ opacity: 0 }}
           >
             <div
-              className="w-full max-w-sm rounded-3xl p-8 text-center relative overflow-hidden"
+              className="w-full max-w-sm rounded-[2rem] p-8 text-center relative overflow-hidden"
               style={{
-                background: 'rgba(10, 10, 10, 0.95)',
+                background: 'rgba(10, 10, 10, 0.8)',
+                backdropFilter: 'blur(30px)',
                 border: scanResult.type === 'success'
-                  ? '2px solid rgba(34, 197, 94, 0.6)'
+                  ? '1px solid rgba(34, 197, 94, 0.5)'
                   : scanResult.type === 'warning'
-                    ? '2px solid rgba(234, 179, 8, 0.6)'
-                    : '2px solid rgba(239, 68, 68, 0.6)',
+                    ? '1px solid rgba(234, 179, 8, 0.5)'
+                    : '1px solid rgba(239, 68, 68, 0.5)',
                 boxShadow: scanResult.type === 'success'
-                  ? '0 0 60px rgba(34, 197, 94, 0.2)'
+                  ? '0 30px 60px rgba(34, 197, 94, 0.15)'
                   : scanResult.type === 'warning'
-                    ? '0 0 60px rgba(234, 179, 8, 0.2)'
-                    : '0 0 60px rgba(239, 68, 68, 0.2)',
+                    ? '0 30px 60px rgba(234, 179, 8, 0.15)'
+                    : '0 30px 60px rgba(239, 68, 68, 0.15)',
               }}
             >
               <div className="flex flex-col items-center gap-6">
@@ -391,15 +443,20 @@ export function Scanner({ onOpenManual }: ScannerProps) {
 
                 {/* Action Button */}
                 <button
-                  onClick={resetScanner}
-                  className="w-full py-4 rounded-xl font-bold text-lg transition-transform hover:scale-105 active:scale-95"
+                  onClick={() => {
+                    setScanResult(null);
+                    setIsScanning(true);
+                  }}
+                  className="w-full py-4 mt-8 rounded-[2rem] font-black text-lg text-black transition-all"
                   style={{
-                    background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-                    color: 'black',
-                    boxShadow: '0 4px 20px rgba(212, 175, 55, 0.3)'
+                    background: scanResult.type === 'success'
+                      ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
+                      : scanResult.type === 'warning'
+                        ? 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)'
+                        : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
                   }}
                 >
-                  Ler Próximo
+                  Próximo (Scanner)
                 </button>
               </div>
             </div>
@@ -410,7 +467,7 @@ export function Scanner({ onOpenManual }: ScannerProps) {
       <style>{`
           /* Force reader container to fill available space */
           #reader {
-            min-height: 400px;
+            min-height: 250px;
             display: flex !important;
             flex-direction: column !important;
           }
@@ -419,7 +476,7 @@ export function Scanner({ onOpenManual }: ScannerProps) {
           #reader video {
             width: 100% !important;
             height: 100% !important;
-            min-height: 400px !important;
+            min-height: 250px !important;
             object-fit: cover !important;
             flex: 1 !important;
           }
@@ -428,7 +485,7 @@ export function Scanner({ onOpenManual }: ScannerProps) {
           #reader__scan_region {
             width: 100% !important;
             height: 100% !important;
-            min-height: 400px !important;
+            min-height: 250px !important;
             display: flex !important;
             flex-direction: column !important;
           }

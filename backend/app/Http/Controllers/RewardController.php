@@ -56,24 +56,30 @@ class RewardController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Clube não encontrado.'], 400);
         }
 
-        $reward = Reward::where('id', $validated['reward_id'])
-            ->where('club_id', $clubId)
-            ->first();
-
-        if (!$reward || !$reward->available || $reward->stock <= 0) {
-            return response()->json(['status' => 'error', 'message' => 'Prémio indisponível.'], 400);
-        }
-
-        $userClubAccess = UserClubAccess::where('user_id', $user->id)
-            ->where('club_id', $clubId)
-            ->first();
-
-        if (!$userClubAccess || $userClubAccess->points < $reward->points) {
-            return response()->json(['status' => 'error', 'message' => 'Pontos insuficientes.'], 400);
-        }
-
         DB::beginTransaction();
         try {
+            $reward = Reward::where('id', $validated['reward_id'])
+                ->where('club_id', $clubId)
+                ->where('available', 1)
+                ->where('stock', '>', 0)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$reward) {
+                DB::rollBack();
+                return response()->json(['status' => 'error', 'message' => 'Prémio indisponível ou esgotado.'], 400);
+            }
+
+            $userClubAccess = UserClubAccess::where('user_id', $user->id)
+                ->where('club_id', $clubId)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$userClubAccess || $userClubAccess->points < $reward->points) {
+                DB::rollBack();
+                return response()->json(['status' => 'error', 'message' => 'Pontos insuficientes.'], 400);
+            }
+
             // Deduct points
             $newPoints = $userClubAccess->points - $reward->points;
             $userClubAccess->update(['points' => $newPoints]);

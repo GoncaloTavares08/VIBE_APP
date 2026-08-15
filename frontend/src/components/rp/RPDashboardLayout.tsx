@@ -12,7 +12,8 @@ import {
   Bell,
   Zap,
   ChevronRight,
-  Trophy
+  QrCode,
+  Flame
 } from 'lucide-react';
 import { apiFetch } from '../../services/api';
 import { NotificationPanel } from '../NotificationPanel';
@@ -29,21 +30,84 @@ interface RPDashboardLayoutProps {
 
 const menuItems = [
   { id: 'overview', label: 'RP Center', icon: Home },
-  { id: 'guestlist', label: 'Guestlist', icon: LinkIcon },
-  { id: 'team', label: 'Team', icon: UsersRound },
-  { id: 'competitions', label: 'Competitions', icon: Trophy },
-  { id: 'wallet', label: 'Wallet', icon: Wallet },
-  { id: 'leaderboard', label: 'Leaderboard', icon: Award },
-  { id: 'profile', label: 'Profile', icon: User },
+  { id: 'radar', label: 'Festa Atual', icon: Flame },
+  { id: 'qr', label: 'O Meu QR Code', icon: QrCode },
+  { id: 'guestlist', label: 'Guestlist & Links', icon: LinkIcon },
+  { id: 'team', label: 'Equipa & Metas', icon: UsersRound },
+  { id: 'wallet', label: 'Carteira & Pontos', icon: Wallet },
+  { id: 'leaderboard', label: 'Classificação Global', icon: Award },
+  { id: 'profile', label: 'Perfil', icon: User },
 ];
 
-export function RPDashboardLayout({ children, currentPage, onPageChange, rpName = "João Silva", user, onLogout, isTeamLeader = false }: RPDashboardLayoutProps) {
+export function RPDashboardLayout({ children, currentPage, onPageChange, rpName, user, onLogout, isTeamLeader = false }: RPDashboardLayoutProps) {
+  const displayName = rpName || user?.name || "Promotor";
   const [showNotifications, setShowNotifications] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Logout modal structure
+  const logoutModal = showLogoutModal && (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in"
+      style={{
+        background: 'rgba(0, 0, 0, 0.8)',
+        backdropFilter: 'blur(10px)',
+      }}
+    >
+      <div
+        className="w-full max-w-sm rounded-3xl p-6 shadow-2xl border"
+        style={{
+          background: 'linear-gradient(180deg, rgba(30,30,30,0.95) 0%, rgba(15,15,15,0.98) 100%)',
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4 border border-red-500/30">
+            <LogOut className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">Terminar Sessão</h3>
+          <p className="text-gray-400 text-sm mb-6">
+            Pretendes sair totalmente da tua conta ou apenas voltar à seleção de clubes?
+          </p>
+          
+          <div className="w-full space-y-3">
+            <button
+              onClick={() => {
+                setShowLogoutModal(false);
+                window.history.pushState({}, '', '/');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-white transition-all duration-200"
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              Mudar de Clube
+            </button>
+            <button
+              onClick={() => {
+                setShowLogoutModal(false);
+                if (onLogout) onLogout();
+              }}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-white transition-all duration-200 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30"
+            >
+              Sair da Conta
+            </button>
+            <button
+              onClick={() => setShowLogoutModal(false)}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-gray-400 hover:text-white transition-all duration-200"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const userId = user?.id;
 
@@ -145,12 +209,12 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
   };
 
   return (
-    <div className="flex h-screen w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
+    <div className="flex h-[100dvh] w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
       {/* Animated background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-[#D4AF37] opacity-10 blur-[150px] rounded-full"></div>
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-[#FFD700] opacity-8 blur-[120px] rounded-full"></div>
-        <div className="absolute top-1/2 left-1/2 w-[400px] h-[400px] bg-[#B8860B] opacity-6 blur-[100px] rounded-full"></div>
+        <div className="absolute top-0 left-0 w-[600px] h-[600px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.1) 0%, transparent 70%)' }}></div>
+        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.08) 0%, transparent 70%)' }}></div>
+        <div className="absolute top-1/2 left-1/2 w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(184,134,11,0.06) 0%, transparent 70%)' }}></div>
       </div>
 
       {/* Sidebar */}
@@ -261,22 +325,22 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
             {profilePhotoUrl ? (
               <img
                 src={`/api/serve-image?file=${profilePhotoUrl}`}
-                alt={rpName}
+                alt={displayName}
                 className="w-full h-full object-cover"
               />
             ) : (
-              rpName.charAt(0)
+              displayName.charAt(0)
             )}
           </div>
 
           {!isCollapsed || isMobileMenuOpen ? (
             <>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-white truncate text-sm md:text-base">{rpName}</p>
+                <p className="font-semibold text-white truncate text-sm md:text-base">{displayName}</p>
                 <p className="text-xs text-gray-400 truncate">VIP Promoter</p>
               </div>
               <button
-                onClick={onLogout}
+                onClick={() => setShowLogoutModal(true)}
                 className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-red-400 transition-colors"
                 title="Sair"
               >
@@ -285,7 +349,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
             </>
           ) : (
             <button
-              onClick={onLogout}
+              onClick={() => setShowLogoutModal(true)}
               className="p-0 rounded-lg text-gray-400 hover:text-red-400 transition-colors"
               title="Sair"
             >
@@ -299,7 +363,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
       <main ref={mainContentRef} className="flex-1 overflow-y-auto overflow-x-hidden relative transition-all duration-300 w-full">
         {/* Header */}
         <header
-          className="sticky top-0 z-10 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between"
+          className="sticky top-0 z-40 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between"
           style={{
             background: 'rgba(10, 10, 10, 0.8)',
             backdropFilter: 'blur(20px)',
@@ -316,7 +380,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
                 backgroundClip: 'text'
               }}
             >
-              Olá, {rpName.split(' ')[0]}
+              Olá, {displayName.split(' ')[0]}
             </h1>
             <p className="text-xs md:text-sm text-gray-400">{currentDate} • {currentTime}</p>
           </div>
@@ -356,7 +420,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation Bar (Static Block) */}
+      {/* Mobile Bottom Navigation Bar (Exact 4 items + Menu as originally designed) */}
       {isMobile && (
         <div
           className="fixed bottom-0 left-0 right-0 z-40 px-6 py-4 flex items-center justify-between"
@@ -375,8 +439,10 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
             <span className="text-[10px] font-medium">Menu</span>
           </button>
 
-          {/* Render Requested Order: Guestlist, Wallet, Leaderboard, Profile (skipping Team & Competitions) */}
-          {filteredMenuItems.filter(item => item.id !== 'overview' && item.id !== 'team' && item.id !== 'competitions').map((item) => {
+          {/* Render standard 4 items: Festa Atual, Carteira, Guestlist, Perfil */}
+          {['radar', 'wallet', 'guestlist', 'profile'].map((itemId) => {
+            const item = menuItems.find(m => m.id === itemId);
+            if (!item) return null;
             const Icon = item.icon;
             const isActive = currentPage === item.id;
             return (
@@ -392,6 +458,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName 
           })}
         </div>
       )}
+      {logoutModal}
     </div>
   );
 }

@@ -101,6 +101,7 @@ class AuthController extends Controller
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
+            'is_superadmin' => (bool) $user->is_superadmin,
             'created_at' => $user->created_at,
             'birthdate' => $profile->birthdate ?? null,
             'gender' => $profile->gender ?? null,
@@ -109,10 +110,12 @@ class AuthController extends Controller
         ];
 
         if ($clientSlug && $userRole) {
-            $responseUser['role'] = $userRole;
+            $responseUser['role'] = $user->is_superadmin ? 'SUPERADMIN' : $userRole;
             $responseUser['club_slug'] = $clientSlug;
             $responseUser['points'] = $userPoints;
             $responseUser['member_since'] = $joinedAt;
+        } elseif ($user->is_superadmin) {
+            $responseUser['role'] = 'SUPERADMIN';
         }
 
         return response()->json([

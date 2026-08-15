@@ -12,8 +12,8 @@ export function AccessDenied({ clubName, onGoBack }: AccessDeniedProps) {
         <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}>
             {/* Ambient golden glows */}
             <div className="fixed inset-0 pointer-events-none">
-                <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-[#D4AF37] opacity-20 blur-[150px] rounded-full"></div>
-                <div className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] bg-[#FFD700] opacity-15 blur-[120px] rounded-full"></div>
+                <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.2) 0%, transparent 70%)' }}></div>
+                <div className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.15) 0%, transparent 70%)' }}></div>
             </div>
 
             <motion.div

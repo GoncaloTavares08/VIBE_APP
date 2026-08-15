@@ -62,8 +62,14 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
       console.error('Response text:', text.substring(0, 200)); // Log first 200 chars
       throw new Error(`Invalid JSON response: ${text.substring(0, 100)}`);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('API Fetch Error:', error);
+    
+    // Check if it's a network error (e.g. offline)
+    if (error.name === 'TypeError' || error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+      window.dispatchEvent(new CustomEvent('networkError', { detail: { message: 'Sem ligação à internet. Verifica a tua rede.' } }));
+    }
+    
     throw error;
   }
 };

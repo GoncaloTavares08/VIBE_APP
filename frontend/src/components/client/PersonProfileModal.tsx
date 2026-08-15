@@ -36,6 +36,33 @@ export function PersonProfileModal({ person, isMatch, onClose }: PersonProfileMo
     }
   };
 
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+    
+    if (isLeftSwipe) {
+      nextPhoto();
+    }
+    if (isRightSwipe) {
+      prevPhoto();
+    }
+  };
+
   // Preload next and previous images
   useEffect(() => {
     if (person.photos) {
@@ -84,7 +111,12 @@ export function PersonProfileModal({ person, isMatch, onClose }: PersonProfileMo
         <div className="overflow-y-auto flex-1 overscroll-contain no-scrollbar">
 
           {/* Photo Gallery */}
-          <div className="relative h-96 select-none bg-black">
+          <div 
+            className={`relative ${isMatch ? 'h-64' : 'h-96'} select-none bg-black transition-all duration-500 ease-out`}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
             <ImageWithFallback
               key={`photo-${person.id}-${currentPhotoIndex}`} // Force re-render on photo change
               src={person.photos[currentPhotoIndex]}
@@ -143,58 +175,71 @@ export function PersonProfileModal({ person, isMatch, onClose }: PersonProfileMo
             {/* Name & Age */}
             <div>
               <h2
-                className="text-3xl font-black"
+                className="text-4xl font-black"
                 style={{
                   background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                 }}
               >
-                {person.name}, {person.age}
+                {person.name}, <span className="text-3xl text-gray-300 font-bold">{person.age}</span>
               </h2>
             </div>
 
             {/* Stats */}
             <div
-              className="p-4 rounded-xl text-center"
+              className="p-5 rounded-[1.5rem] flex items-center justify-center gap-3 transition-transform hover:scale-[1.02]"
               style={{
-                background: 'rgba(212, 175, 55, 0.1)',
+                background: 'linear-gradient(145deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 100%)',
                 border: '1px solid rgba(212, 175, 55, 0.3)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
               }}
             >
-              <div className="flex items-center justify-center gap-2">
-                <Sparkles className="w-5 h-5 text-[#D4AF37]" />
-                <p className="text-2xl font-black text-[#D4AF37]">{person.vibes || 0}</p>
-                <span className="text-sm text-gray-400">VIBES ✨</span>
+              <Sparkles className="w-6 h-6 text-[#D4AF37]" />
+              <div className="flex flex-col">
+                <span className="text-2xl font-black text-[#D4AF37] leading-none">{person.vibes || 0}</span>
+                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">VIBES Recebidas</span>
               </div>
             </div>
 
             {/* Bio */}
-            <div>
-              <h3 className="text-white font-black mb-2">About</h3>
-              <p className="text-gray-300">{person.bio}</p>
+            <div 
+              className="p-5 rounded-[1.5rem] space-y-2"
+              style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.05)'
+              }}
+            >
+              <h3 className="text-gray-400 font-bold text-xs uppercase tracking-widest">Sobre mim</h3>
+              <p className="text-gray-200 leading-relaxed font-medium">
+                {person.bio || "Sem biografia disponível."}
+              </p>
             </div>
 
             {/* Instagram */}
             <div
-              className="p-4 rounded-xl"
+              className="p-5 rounded-[1.5rem] transition-all"
               style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
+                background: 'rgba(255, 255, 255, 0.03)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
               }}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Instagram className="w-5 h-5 text-[#D4AF37]" />
-                  <span className="text-white">Instagram</span>
+                  <div className="p-2 rounded-full bg-black/40">
+                    <Instagram className="w-5 h-5 text-pink-500" />
+                  </div>
+                  <span className="text-white font-bold">Instagram</span>
                 </div>
 
                 {isMatch ? (
-                  <span className="text-[#D4AF37]">{person.instagram || '@username'}</span>
+                  <span className="text-[#D4AF37] font-bold">@{person.instagram?.replace('@', '') || 'username'}</span>
                 ) : (
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <Lock className="w-4 h-4" />
-                    <span className="text-sm">Match to unlock</span>
+                  <div className="flex items-center gap-2 bg-black/30 px-3 py-1.5 rounded-full border border-white/5">
+                    <Lock className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Match to unlock</span>
                   </div>
                 )}
               </div>
@@ -203,14 +248,14 @@ export function PersonProfileModal({ person, isMatch, onClose }: PersonProfileMo
             {/* Match Status */}
             {isMatch && (
               <div
-                className="p-4 rounded-xl text-center"
+                className="p-5 rounded-[1.5rem] text-center"
                 style={{
-                  background: 'rgba(212, 175, 55, 0.1)',
-                  border: '1px solid rgba(212, 175, 55, 0.3)',
+                  background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%)',
+                  border: '1px solid rgba(34, 197, 94, 0.3)',
                 }}
               >
-                <p className="text-[#D4AF37] font-black">✨ You matched with {person.name}!</p>
-                <p className="text-sm text-gray-400 mt-1">
+                <p className="text-[#22C55E] font-black text-lg">✨ You matched with {person.name}!</p>
+                <p className="text-sm text-gray-400 mt-1 font-medium">
                   Start a conversation or say hi in person
                 </p>
               </div>

@@ -11,9 +11,10 @@ import {
   ChevronRight,
   Menu,
   LogOut,
-  X // Added X icon
+  X
 } from 'lucide-react';
 import { NotificationPanel } from '../NotificationPanel';
+import { useClubInfo } from '../../hooks/useClubInfo';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -33,11 +34,73 @@ const menuItems = [
 ];
 
 export function DashboardLayout({ children, currentPage, onPageChange, user, onLogout }: DashboardLayoutProps) {
+  const { clubInfo } = useClubInfo();
   const [showNotifications, setShowNotifications] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0); // New state for mobile menu overlay
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Logout modal structure
+  const logoutModal = showLogoutModal && (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in"
+      style={{
+        background: 'rgba(0, 0, 0, 0.8)',
+        backdropFilter: 'blur(10px)',
+      }}
+    >
+      <div
+        className="w-full max-w-sm rounded-3xl p-6 shadow-2xl border"
+        style={{
+          background: 'linear-gradient(180deg, rgba(30,30,30,0.95) 0%, rgba(15,15,15,0.98) 100%)',
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4 border border-red-500/30">
+            <LogOut className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">Terminar Sessão</h3>
+          <p className="text-gray-400 text-sm mb-6">
+            Pretendes sair totalmente da tua conta ou apenas voltar à seleção de clubes?
+          </p>
+          
+          <div className="w-full space-y-3">
+            <button
+              onClick={() => {
+                setShowLogoutModal(false);
+                window.history.pushState({}, '', '/');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-white transition-all duration-200"
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              Mudar de Clube
+            </button>
+            <button
+              onClick={() => {
+                setShowLogoutModal(false);
+                if (onLogout) onLogout();
+              }}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-white transition-all duration-200 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30"
+            >
+              Sair da Conta
+            </button>
+            <button
+              onClick={() => setShowLogoutModal(false)}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-gray-400 hover:text-white transition-all duration-200"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const currentDate = new Date().toLocaleDateString('pt-PT', {
     weekday: 'long',
@@ -118,13 +181,14 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
 
   return (
     // Root: Viewport-constrained (h-screen), Mobile: Column, Desktop: Row
-    <div className="flex h-screen w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
-      {/* Animated background */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-[#D4AF37] opacity-10 blur-[150px] rounded-full"></div>
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-[#FFD700] opacity-8 blur-[120px] rounded-full"></div>
-        <div className="absolute top-1/2 left-1/2 w-[400px] h-[400px] bg-[#B8860B] opacity-6 blur-[100px] rounded-full"></div>
-      </div>
+    <div className="flex h-[100dvh] w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
+      {/* Ambient subtle background */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle at 15% 15%, rgba(212, 175, 55, 0.08) 0%, transparent 45%), radial-gradient(circle at 85% 85%, rgba(255, 215, 0, 0.05) 0%, transparent 45%)'
+        }}
+      />
 
       {/* Sidebar */}
       <aside
@@ -148,17 +212,29 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
         <div className={`mb-8 md:mb-12 flex items-center ${isCollapsed && !isMobileMenuOpen ? 'justify-center flex-col gap-4' : 'justify-between'}`}>
           <div className={`flex items-center gap-3 ${isCollapsed && !isMobileMenuOpen ? 'justify-center' : ''}`}>
             <div
-              className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center shrink-0"
+              className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden bg-black"
               style={{
-                background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                background: clubInfo?.logo_url ? '#000000' : 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+                border: clubInfo?.logo_url ? '1px solid rgba(212, 175, 55, 0.3)' : 'none',
                 boxShadow: '0 0 30px rgba(212, 175, 55, 0.4)',
               }}
             >
-              <Zap className="w-6 h-6 md:w-7 md:h-7 text-black" fill="black" />
+              {clubInfo?.logo_url ? (
+                <img
+                  src={clubInfo.logo_url}
+                  alt={clubInfo.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <Zap className="w-6 h-6 md:w-7 md:h-7 text-black" fill="black" />
+              )}
             </div>
             {(!isCollapsed || isMobileMenuOpen) && (
               <span
-                className="text-xl md:text-2xl font-black tracking-tight"
+                className="text-xl md:text-2xl font-black tracking-tight truncate max-w-[140px]"
                 style={{
                   background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)',
                   WebkitBackgroundClip: 'text',
@@ -166,7 +242,7 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
                   backgroundClip: 'text'
                 }}
               >
-                VIBE
+                {clubInfo?.name || 'VIBE'}
               </span>
             )}
           </div>
@@ -264,9 +340,9 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
       <main ref={mainContentRef} className="flex-1 overflow-y-auto overflow-x-hidden relative transition-all duration-300 w-full">
         {/* Header */}
         <header
-          className="sticky top-0 z-10 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between"
+          className="sticky top-0 z-30 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between"
           style={{
-            background: 'rgba(10, 10, 10, 0.8)',
+            background: 'rgba(10, 10, 10, 0.95)',
             backdropFilter: 'blur(20px)',
             borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
           }}
@@ -322,62 +398,68 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation Bar (Static Block) */}
+      {/* Mobile Bottom Navigation Bar (Floating Glassmorphism Pill) */}
       {isMobile && (
-        <div
-          className="fixed bottom-0 left-0 right-0 z-40 px-6 py-4 flex items-center justify-between"
-          style={{
-            background: '#000000',
-            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-            paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' // Respect safe area
-          }}
-        >
-          {/* 1. Open Menu Button */}
-          <button
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
+        <div className="fixed bottom-3 left-4 right-4 z-40">
+          <div
+            className="px-4 py-3 rounded-3xl flex items-center justify-around border shadow-2xl"
+            style={{
+              background: 'rgba(15, 15, 15, 0.85)',
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+              backdropFilter: 'blur(25px)',
+              boxShadow: '0 15px 35px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+            }}
           >
-            <Menu className="w-6 h-6" />
-            <span className="text-[10px] font-medium">Menu</span>
-          </button>
+            {/* 1. Open Menu Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="flex flex-col items-center gap-1 text-gray-400 hover:text-white transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+              <span className="text-[10px] font-semibold">Menu</span>
+            </button>
 
-          {/* 2. Dashboard */}
-          <button
-            onClick={() => onPageChange('dashboard')}
-            className={`flex flex-col items-center gap-1 transition-colors ${currentPage === 'dashboard' ? 'text-[#D4AF37]' : 'text-gray-400'}`}
-          >
-            <Home className="w-6 h-6" />
-            <span className="text-[10px] font-medium">Dashboard</span>
-          </button>
+            {/* 2. Dashboard */}
+            <button
+              onClick={() => onPageChange('dashboard')}
+              className={`flex flex-col items-center gap-1 transition-all ${currentPage === 'dashboard' ? 'text-[#D4AF37] scale-105' : 'text-gray-400 hover:text-white'}`}
+            >
+              <Home className="w-5 h-5" />
+              <span className="text-[10px] font-semibold">Geral</span>
+            </button>
 
-          {/* 3. RPs */}
-          <button
-            onClick={() => onPageChange('rps')}
-            className={`flex flex-col items-center gap-1 transition-colors ${currentPage === 'rps' ? 'text-[#D4AF37]' : 'text-gray-400'}`}
-          >
-            <Users className="w-6 h-6" />
-            <span className="text-[10px] font-medium">RPs</span>
-          </button>
+            {/* 3. RPs */}
+            <button
+              onClick={() => onPageChange('rps')}
+              className={`flex flex-col items-center gap-1 transition-all ${currentPage === 'rps' ? 'text-[#D4AF37] scale-105' : 'text-gray-400 hover:text-white'}`}
+            >
+              <Users className="w-5 h-5" />
+              <span className="text-[10px] font-semibold">RPs</span>
+            </button>
 
-          {/* 4. Events */}
-          <button
-            onClick={() => onPageChange('events')}
-            className={`flex flex-col items-center gap-1 transition-colors ${currentPage === 'events' ? 'text-[#D4AF37]' : 'text-gray-400'}`}
-          >
-            <Calendar className="w-6 h-6" />
-            <span className="text-[10px] font-medium">Eventos</span>
-          </button>
+            {/* 4. Events */}
+            <button
+              onClick={() => onPageChange('events')}
+              className={`flex flex-col items-center gap-1 transition-all ${currentPage === 'events' ? 'text-[#D4AF37] scale-105' : 'text-gray-400 hover:text-white'}`}
+            >
+              <Calendar className="w-5 h-5" />
+              <span className="text-[10px] font-semibold">Eventos</span>
+            </button>
 
-          {/* 5. Settings */}
-          <button
-            onClick={() => onPageChange('settings')}
-            className={`flex flex-col items-center gap-1 transition-colors ${currentPage === 'settings' ? 'text-[#D4AF37]' : 'text-gray-400'}`}
-          >
-            <Settings className="w-6 h-6" />
-            <span className="text-[10px] font-medium">Definições</span>
-          </button>
+            {/* 5. Settings */}
+            <button
+              onClick={() => onPageChange('settings')}
+              className={`flex flex-col items-center gap-1 transition-all ${currentPage === 'settings' ? 'text-[#D4AF37] scale-105' : 'text-gray-400 hover:text-white'}`}
+            >
+              <Settings className="w-5 h-5" />
+              <span className="text-[10px] font-semibold">Definições</span>
+            </button>
+          </div>
         </div>
       )}
+
+      {/* Logout Modal */}
+      {logoutModal}
     </div>
   );
 }

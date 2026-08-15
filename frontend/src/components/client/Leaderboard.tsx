@@ -217,13 +217,19 @@ export function Leaderboard({ onPersonClick }: LeaderboardProps) {
         <div
           className="p-4 rounded-xl text-center animate-in slide-in-from-bottom"
           style={{
-            background: 'rgba(212, 175, 55, 0.1)',
-            border: '1px solid rgba(212, 175, 55, 0.3)',
+            background: (userRank as any).ghost_mode ? 'rgba(168, 85, 247, 0.1)' : 'rgba(212, 175, 55, 0.1)',
+            border: (userRank as any).ghost_mode ? '1px solid rgba(168, 85, 247, 0.3)' : '1px solid rgba(212, 175, 55, 0.3)',
           }}
         >
-          <p className="text-[#D4AF37]">
-            You are <span className="font-black">#{userRank.rank}</span> with <span className="font-bold">{activeTab === 'points' ? userRank.points : userRank.vibes}</span> {activeTab === 'points' ? 'points' : 'likes'}!
-          </p>
+          {(userRank as any).ghost_mode ? (
+            <p className="text-purple-300 text-sm font-medium">
+              👻 <span className="font-bold">Modo Fantasma Ativo:</span> Estás oculto da tabela pública da festa ({activeTab === 'points' ? `${userRank.points} pts` : `${userRank.vibes} likes`}).
+            </p>
+          ) : (
+            <p className="text-[#D4AF37]">
+              You are <span className="font-black">#{userRank.rank}</span> with <span className="font-bold">{activeTab === 'points' ? userRank.points : userRank.vibes}</span> {activeTab === 'points' ? 'points' : 'likes'}!
+            </p>
+          )}
         </div>
       )}
     </div>

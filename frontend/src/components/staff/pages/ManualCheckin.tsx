@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, X, CheckCircle, Clock, Users, AlertTriangle } from 'lucide-react';
+import { motion } from 'motion/react';
 import { apiFetch } from '../../../services/api';
 
 interface ManualCheckinProps {
@@ -26,6 +27,9 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
   const [userId, setUserId] = useState<number | null>(null);
 
   useEffect(() => {
+    // Scroll to top when opening manual check-in
+    window.scrollTo(0, 0);
+
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try {
@@ -133,7 +137,7 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
   const checkedInCount = guests.filter((g) => g.status === 'checked-in').length;
 
   const content = (
-    <div className="h-full flex flex-col" style={{ background: embedded ? 'transparent' : '#0a0a0a' }}>
+    <div className="h-full flex flex-col relative z-10">
       {/* Header */}
       <div className={`${embedded ? 'p-8 pb-6' : 'p-6'} border-b`} style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
         <div className="flex items-center justify-between mb-6">
@@ -155,10 +159,11 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
 
         {/* Search Bar */}
         <div
-          className="flex items-center gap-3 px-4 py-3 rounded-xl"
+          className="flex items-center gap-3 px-5 py-4 rounded-[2rem] shadow-lg transition-all focus-within:shadow-[0_0_20px_rgba(212,175,55,0.15)]"
           style={{
-            background: 'rgba(0, 0, 0, 0.4)',
-            border: '1px solid rgba(212, 175, 55, 0.2)',
+            background: 'rgba(25, 25, 25, 0.6)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(212, 175, 55, 0.3)',
           }}
         >
           <Search className="w-5 h-5 text-[#D4AF37]" />
@@ -168,7 +173,6 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 bg-transparent text-white outline-none placeholder-gray-500"
-            autoFocus={!embedded}
           />
           {searchTerm && (
             <button onClick={() => setSearchTerm('')} className="text-gray-500 hover:text-white">
@@ -192,11 +196,12 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
               return (
                 <div
                   key={guest.id}
-                  className="p-4 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
+                  className="p-5 rounded-[2rem] transition-all duration-300 hover:scale-[1.02]"
                   style={{
                     background: guest.status === 'checked-in' || guest.status === 'checked_in' as any // Handle both cases just in case
                       ? 'rgba(0, 0, 0, 0.3)'
-                      : 'rgba(255, 255, 255, 0.05)',
+                      : 'rgba(255, 255, 255, 0.03)',
+                    backdropFilter: 'blur(20px)',
                     border: guest.status === 'checked-in' || guest.status === 'checked_in' as any
                       ? '1px solid rgba(34, 197, 94, 0.3)'
                       : '1px solid rgba(255, 255, 255, 0.1)',
@@ -222,7 +227,7 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center gap-2">
                           <Users className="w-3 h-3 text-gray-500" />
-                          <span className="text-xs text-gray-400">RP: {guest.rpName}</span>
+                          <span className="text-xs text-gray-400">RP: {(guest as any).rp || guest.rpName || 'Direto'}</span>
                         </div>
                         {guest.eventName && (
                           <div className="text-xs text-[#D4AF37]/80">
@@ -250,7 +255,7 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-5 h-5 text-green-400" />
                         <div className="text-right">
-                          <p className="text-xs text-green-400 font-semibold">Entrou</p>
+                          <p className="text-xs text-green-400 font-bold tracking-wider uppercase">Entrou</p>
                           <p className="text-xs text-gray-500 flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             {guest.checkInTime}
@@ -260,13 +265,13 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
                     ) : (
                       <button
                         onClick={() => handleCheckIn(guest.id)}
-                        className="px-4 py-2 rounded-xl transition-all duration-300 hover:scale-105"
+                        className="px-6 py-3 rounded-full transition-all duration-300 hover:scale-105 shadow-[0_4px_15px_rgba(212,175,55,0.2)]"
                         style={{
                           background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
                           color: '#000000',
                         }}
                       >
-                        <span className="font-semibold text-sm">Entrar</span>
+                        <span className="font-black text-sm uppercase tracking-wider">Entrar</span>
                       </button>
                     )}
                   </div>
@@ -301,16 +306,31 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
         backdropFilter: 'blur(10px)',
       }}
     >
-      <div
-        className="w-full h-[90vh] rounded-t-3xl overflow-hidden"
+      <motion.div
+        drag={embedded ? false : "y"}
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={0.2}
+        onDragEnd={(event, info) => {
+          if (!embedded && info.offset.y > 100) {
+            onClose();
+          }
+        }}
+        className="w-full h-[90vh] rounded-t-[2rem] overflow-hidden shadow-[0_-10px_40px_rgba(0,0,0,0.5)] flex flex-col relative"
         style={{
-          background: 'rgba(10, 10, 10, 0.98)',
-          backdropFilter: 'blur(30px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          background: 'linear-gradient(180deg, rgba(20,20,20,0.95) 0%, rgba(10,10,10,0.98) 100%)',
+          backdropFilter: 'blur(40px)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
         }}
       >
-        {content}
-      </div>
+        {!embedded && (
+          <div className="w-full flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing shrink-0 z-20 absolute top-0 left-0 right-0">
+            <div className="w-12 h-1.5 bg-white/20 rounded-full" />
+          </div>
+        )}
+        <div className={!embedded ? 'pt-6 h-full flex flex-col' : 'h-full flex flex-col'}>
+          {content}
+        </div>
+      </motion.div>
 
       <style>{`
         @keyframes slideUp {

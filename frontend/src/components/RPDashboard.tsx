@@ -3,10 +3,11 @@ import { RPDashboardLayout } from './rp/RPDashboardLayout';
 import { RPOverview } from './rp/pages/RPOverview';
 import { RPGuestlist } from './rp/pages/RPGuestlist';
 import { RPTeam } from './rp/pages/RPTeam';
-import { RPCompetitions } from './rp/pages/RPCompetitions';
 import { RPLeaderboard } from './rp/pages/RPLeaderboard';
 import { RPProfile } from './rp/pages/RPProfile';
 import { ClientWallet } from './client/pages/ClientWallet';
+import { ClientQRCode } from './ClientDashboard';
+import { ClientHome } from './client/pages/ClientHome';
 
 interface RPDashboardProps {
     userRole: 'rp' | 'team_leader';
@@ -21,13 +22,17 @@ export function RPDashboard({ userRole, user, onLogout }: RPDashboardProps) {
         switch (currentPage) {
             case 'overview':
                 return <RPOverview />;
+            case 'qr':
+                return <ClientQRCode />;
+            case 'radar':
+            case 'tinder':
+            case 'home':
+                return <ClientHome />;
             case 'guestlist':
                 return <RPGuestlist />;
             case 'team':
-                // Pass isTeamLeader based on the userRole
-                return <RPTeam isTeamLeader={userRole === 'team_leader'} />;
             case 'competitions':
-                return <RPCompetitions />;
+                return <RPTeam isTeamLeader={userRole === 'team_leader'} />;
             case 'leaderboard':
                 return <RPLeaderboard />;
             case 'wallet':
@@ -43,7 +48,7 @@ export function RPDashboard({ userRole, user, onLogout }: RPDashboardProps) {
         <RPDashboardLayout
             currentPage={currentPage}
             onPageChange={setCurrentPage}
-            rpName={user?.name || "João Silva"}
+            rpName={user?.name || "Promotor"}
             user={user}
             onLogout={onLogout}
             isTeamLeader={userRole === 'team_leader'}

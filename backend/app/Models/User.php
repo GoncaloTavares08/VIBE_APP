@@ -21,6 +21,7 @@ class User extends Authenticatable
         'email',
         'password',
         'username',
+        'is_superadmin',
         'reset_token',
         'reset_token_expiry',
     ];
@@ -46,6 +47,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_superadmin' => 'boolean',
         ];
     }
 

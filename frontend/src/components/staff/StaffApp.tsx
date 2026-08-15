@@ -16,7 +16,68 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
   const [showManualCheckin, setShowManualCheckin] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+  // Logout modal structure
+  const logoutModal = showLogoutModal && (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in"
+      style={{
+        background: 'rgba(0, 0, 0, 0.8)',
+        backdropFilter: 'blur(10px)',
+      }}
+    >
+      <div
+        className="w-full max-w-sm rounded-3xl p-6 shadow-2xl border"
+        style={{
+          background: 'linear-gradient(180deg, rgba(30,30,30,0.95) 0%, rgba(15,15,15,0.98) 100%)',
+          borderColor: 'rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4 border border-red-500/30">
+            <LogOut className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="text-xl font-bold text-white mb-2">Terminar Sessão</h3>
+          <p className="text-gray-400 text-sm mb-6">
+            Pretendes sair totalmente da tua conta ou apenas voltar à seleção de clubes?
+          </p>
+          
+          <div className="w-full space-y-3">
+            <button
+              onClick={() => {
+                setShowLogoutModal(false);
+                window.history.pushState({}, '', '/');
+                window.dispatchEvent(new PopStateEvent('popstate'));
+              }}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-white transition-all duration-200"
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              Mudar de Clube
+            </button>
+            <button
+              onClick={() => {
+                setShowLogoutModal(false);
+                onLogout();
+              }}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-white transition-all duration-200 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30"
+            >
+              Sair da Conta
+            </button>
+            <button
+              onClick={() => setShowLogoutModal(false)}
+              className="w-full py-3 px-4 rounded-xl font-semibold text-gray-400 hover:text-white transition-all duration-200"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const currentDate = new Date().toLocaleDateString('pt-PT', {
     weekday: 'long',
@@ -105,23 +166,11 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
   if (window.innerWidth < 1024 && isMobile) { // Using the hook state which relies on resize
     // Re-using the mobile layout from before, as that was specifically requested for mobile
     return (
-      <div className="h-screen flex flex-col" style={{ background: '#0a0a0a' }}>
-        <div className="flex-1 relative overflow-y-auto pb-28">
+      <div className="fixed inset-0 h-[100dvh] flex flex-col overflow-hidden w-full overscroll-none" style={{ background: '#0a0a0a' }}>
+        <div className={`flex-1 relative pb-24 ${currentView === 'scanner' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
           {currentView === 'scanner' && (
             <div className="h-full flex flex-col">
               <Scanner onOpenManual={() => setShowManualCheckin(true)} />
-              {/* Manual Check-in Button - Inside scrollable container */}
-              <button
-                onClick={() => setShowManualCheckin(true)}
-                className="mx-4 my-4 transition-all duration-300 hover:scale-105 active:scale-95"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.3) 0%, rgba(255, 215, 0, 0.2) 100%)',
-                  backdropFilter: 'blur(20px)', border: '1px solid rgba(212, 175, 55, 0.5)',
-                  borderRadius: '16px', padding: '14px 28px', boxShadow: '0 8px 32px rgba(212, 175, 55, 0.3)',
-                }}
-              >
-                <span className="text-[#D4AF37] font-semibold text-center block">Manual Check-in</span>
-              </button>
             </div>
           )}
           {currentView === 'statistics' && <Statistics />}
@@ -130,32 +179,33 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
         <div className="fixed bottom-0 left-0 right-0 z-50" style={{ background: 'rgba(10, 10, 10, 0.95)', backdropFilter: 'blur(30px)', borderTop: '1px solid rgba(212, 175, 55, 0.2)', boxShadow: '0 -4px 40px rgba(0, 0, 0, 0.6)' }}>
           <div className="flex items-center justify-around px-4 py-3 safe-area-bottom">
             <button onClick={() => setCurrentView('scanner')} className="flex flex-col items-center gap-1 px-6 py-2" style={{ color: currentView === 'scanner' ? '#D4AF37' : '#888888' }}>
-              <div className="p-2 rounded-2xl" style={{ background: currentView === 'scanner' ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}><ScanQrCode className="w-6 h-6" /></div>
-              <span className="text-xs font-medium">Scanner</span>
+              <div className="p-3 rounded-full" style={{ background: currentView === 'scanner' ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}><ScanQrCode className="w-6 h-6" /></div>
+              <span className="text-[10px] font-bold uppercase tracking-wider">Scanner</span>
             </button>
             <button onClick={() => setCurrentView('statistics')} className="flex flex-col items-center gap-1 px-6 py-2" style={{ color: currentView === 'statistics' ? '#D4AF37' : '#888888' }}>
-              <div className="p-2 rounded-2xl" style={{ background: currentView === 'statistics' ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}><BarChart3 className="w-6 h-6" /></div>
-              <span className="text-xs font-medium">Statistics</span>
+              <div className="p-3 rounded-full" style={{ background: currentView === 'statistics' ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}><BarChart3 className="w-6 h-6" /></div>
+              <span className="text-[10px] font-bold uppercase tracking-wider">Stats</span>
             </button>
-            <button onClick={onLogout} className="flex flex-col items-center gap-1 px-6 py-2" style={{ color: '#888888' }}>
-              <div className="p-2 rounded-2xl"><LogOut className="w-6 h-6" /></div>
-              <span className="text-xs font-medium">Sair</span>
+            <button onClick={() => setShowLogoutModal(true)} className="flex flex-col items-center gap-1 px-6 py-2" style={{ color: '#888888' }}>
+              <div className="p-3 rounded-full"><LogOut className="w-6 h-6" /></div>
+              <span className="text-[10px] font-bold uppercase tracking-wider">Sair</span>
             </button>
           </div>
         </div>
         {showManualCheckin && <ManualCheckin onClose={() => setShowManualCheckin(false)} />}
+        {logoutModal}
       </div>
     );
   }
 
   // Desktop View with Unified Sidebar
   return (
-    <div className="flex h-screen w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
+    <div className="flex h-[100dvh] w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
       {/* Animated background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-[#D4AF37] opacity-10 blur-[150px] rounded-full"></div>
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-[#FFD700] opacity-8 blur-[120px] rounded-full"></div>
-        <div className="absolute top-1/2 left-1/2 w-[400px] h-[400px] bg-[#B8860B] opacity-6 blur-[100px] rounded-full"></div>
+        <div className="absolute top-0 left-0 w-[600px] h-[600px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.1) 0%, transparent 70%)' }}></div>
+        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.08) 0%, transparent 70%)' }}></div>
+        <div className="absolute top-1/2 left-1/2 w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(184,134,11,0.06) 0%, transparent 70%)' }}></div>
       </div>
 
       <aside className={getSidebarClasses()} style={getSidebarStyle()}>
@@ -225,12 +275,12 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
                 <p className="font-semibold text-white truncate text-sm md:text-base">{user?.name || 'Staff'}</p>
                 <p className="text-xs text-gray-400 truncate">{user?.email || 'staff@vibe.pt'}</p>
               </div>
-              <button onClick={onLogout} className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-red-400 transition-colors" title="Sair">
+              <button onClick={() => setShowLogoutModal(true)} className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-red-400 transition-colors" title="Sair">
                 <LogOut className="w-5 h-5" />
               </button>
             </>
           ) : (
-            <button onClick={onLogout} className="p-0 rounded-lg text-gray-400 hover:text-red-400 transition-colors" title="Sair">
+            <button onClick={() => setShowLogoutModal(true)} className="p-0 rounded-lg text-gray-400 hover:text-red-400 transition-colors" title="Sair">
               <LogOut className="w-5 h-5" />
             </button>
           )}
