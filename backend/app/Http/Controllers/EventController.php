@@ -13,27 +13,24 @@ class EventController extends Controller
     {
         $now = Carbon::now('Europe/Lisbon');
 
-        // Upcoming -> Ongoing
-        $upcomingEvents = Event::where('status', 'upcoming')->get();
-        foreach ($upcomingEvents as $event) {
+        // Evaluate all events except cancelled
+        $events = Event::where('status', '!=', 'cancelled')->get();
+        foreach ($events as $event) {
             $startStr = $event->date . ' ' . $event->start_time;
             $startObj = Carbon::parse($startStr, 'Europe/Lisbon');
-            if ($now->gte($startObj)) {
-                $event->update(['status' => 'ongoing']);
-            }
-        }
-
-        // Ongoing -> Completed (handling cross-midnight)
-        $ongoingEvents = Event::where('status', 'ongoing')->get();
-        foreach ($ongoingEvents as $event) {
+            
             $endStr = $event->date . ' ' . $event->end_time;
             $endObj = Carbon::parse($endStr, 'Europe/Lisbon');
             if ($event->end_time < $event->start_time) {
                 $endObj->addDay();
             }
-            
-            if ($now->gte($endObj)) {
-                $event->update(['status' => 'completed']);
+
+            if ($now->lt($startObj)) {
+                if ($event->status !== 'upcoming') $event->update(['status' => 'upcoming']);
+            } elseif ($now->gte($startObj) && $now->lt($endObj)) {
+                if ($event->status !== 'ongoing') $event->update(['status' => 'ongoing']);
+            } else {
+                if ($event->status !== 'completed') $event->update(['status' => 'completed']);
             }
         }
     }
