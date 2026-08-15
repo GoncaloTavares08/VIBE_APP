@@ -20,6 +20,19 @@ class NetworkingController extends Controller
         return $gl ? $gl->event_id : null;
     }
 
+    private function resolvePhotoUrl($path)
+    {
+        if (!$path) return null;
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            if (preg_match('#https?://(localhost|127\.0\.0\.1):8000/(.*)#', $path, $matches)) {
+                return '/' . $matches[2];
+            }
+            return $path;
+        }
+        $cleanPath = ltrim(str_replace('storage/', '', $path), '/');
+        return '/storage/' . $cleanPath;
+    }
+
     public function whoIsHere(Request $request)
     {
         $user = $request->user();
@@ -43,11 +56,16 @@ class NetworkingController extends Controller
             ->pluck('liked_id')
             ->toArray();
 
-        $checkedInClients = Guestlist::where('event_id', $eventId)
-            ->where('status', 'checked_in')
-            ->where('client_id', '!=', $user->id)
-            ->pluck('client_id')
-            ->toArray();
+        $allCheckedInClients = \Illuminate\Support\Facades\Cache::remember("event:{$eventId}:checked_in_clients", 30, function () use ($eventId) {
+            return Guestlist::where('event_id', $eventId)
+                ->where('status', 'checked_in')
+                ->pluck('client_id')
+                ->toArray();
+        });
+        
+        $checkedInClients = array_filter($allCheckedInClients, function($id) use ($user) {
+            return $id !== $user->id;
+        });
 
         $likers = DB::table('event_likes')
             ->where('event_id', $eventId)
@@ -66,6 +84,18 @@ class NetworkingController extends Controller
                 'total_people' => 0,
                 'data' => []
             ]);
+        }
+
+        foreach ($candidates as $cId) {
+            ClientProfile::firstOrCreate(
+                ['user_id' => $cId],
+                [
+                    'bio' => 'A curtir a noite no VIBE! 🎉',
+                    'gender' => 'everyone',
+                    'gender_preference' => 'everyone',
+                    'ghost_mode' => 0
+                ]
+            );
         }
 
         $profiles = ClientProfile::with(['user', 'gallery_photos' => function ($query) {
@@ -90,11 +120,21 @@ class NetworkingController extends Controller
                 continue;
             }
 
-            if ($profile->gallery_photos->isEmpty()) continue;
-
             $photos = $profile->gallery_photos->map(function ($p) {
-                return str_starts_with($p->photo_path, 'http') ? $p->photo_path : url('storage/' . str_replace('storage/', '', $p->photo_path));
-            });
+                return $this->resolvePhotoUrl($p->photo_path);
+            })->filter()->values()->toArray();
+
+            if (empty($photos) && !empty($profile->profile_photo_path)) {
+                $resolved = $this->resolvePhotoUrl($profile->profile_photo_path);
+                if ($resolved) {
+                    $photos = [$resolved];
+                }
+            }
+
+            // Exige obrigatoriamente que o utilizador tenha foto: se não tiver, NÃO aparece no radar
+            if (empty($photos)) {
+                continue;
+            }
 
             $age = 18;
             if ($profile->birthdate) {
@@ -231,8 +271,15 @@ class NetworkingController extends Controller
         $matches = [];
         foreach ($profiles as $profile) {
             $photos = $profile->gallery_photos->map(function ($p) {
-                return str_starts_with($p->photo_path, 'http') ? $p->photo_path : url('storage/' . str_replace('storage/', '', $p->photo_path));
-            });
+                return $this->resolvePhotoUrl($p->photo_path);
+            })->filter()->values()->toArray();
+
+            if (empty($photos) && !empty($profile->profile_photo_path)) {
+                $resolved = $this->resolvePhotoUrl($profile->profile_photo_path);
+                if ($resolved) {
+                    $photos = [$resolved];
+                }
+            }
 
             $vibes = DB::table('event_likes')
                 ->where('liked_id', $profile->user_id)

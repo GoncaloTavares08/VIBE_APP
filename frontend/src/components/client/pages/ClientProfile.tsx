@@ -382,7 +382,7 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
           }}
         >
           {/* Ambient Glow */}
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#D4AF37] opacity-10 blur-[80px] rounded-full pointer-events-none" />
+          <div className="absolute top-0 right-0 w-64 h-64 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.15) 0%, transparent 70%)' }} />
           <div className="flex flex-col md:flex-row items-center gap-6">
             {/* Avatar */}
             <div className="relative">
@@ -529,7 +529,7 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
           }}
         >
           {/* Subtle glow effect */}
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37] opacity-5 blur-[40px] rounded-full pointer-events-none" />
+          <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.1) 0%, transparent 70%)' }} />
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-black text-white flex items-center gap-2">
               <Instagram className="w-5 h-5 text-[#D4AF37]" />
@@ -619,7 +619,7 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
           }}
         >
           {/* Subtle glow effect */}
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37] opacity-5 blur-[40px] rounded-full pointer-events-none" />
+          <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.1) 0%, transparent 70%)' }} />
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-black text-white">My Photos</h2>
             <button
@@ -708,7 +708,7 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
           }}
         >
           {/* Subtle glow effect */}
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37] opacity-5 blur-[40px] rounded-full pointer-events-none" />
+          <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.1) 0%, transparent 70%)' }} />
           <h2 className="text-xl font-black text-white flex items-center gap-2">
             {ghostMode ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             Privacy Control
@@ -783,7 +783,7 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
           }}
         >
           {/* Subtle glow effect */}
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37] opacity-5 blur-[40px] rounded-full pointer-events-none" />
+          <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.1) 0%, transparent 70%)' }} />
           <h2 className="text-xl font-black text-white flex items-center gap-2">
             <Users className="w-5 h-5 text-[#D4AF37]" />
             Discovery Preference
@@ -822,7 +822,7 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
           }}
         >
           {/* Subtle glow effect */}
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37] opacity-5 blur-[40px] rounded-full pointer-events-none" />
+          <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.1) 0%, transparent 70%)' }} />
           <h2 className="text-xl font-black text-white flex items-center gap-2">
             <Award className="w-5 h-5 text-[#D4AF37]" />
             Achievements
@@ -868,7 +868,7 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
           }}
         >
           {/* Subtle glow effect */}
-          <div className="absolute -top-10 -right-10 w-32 h-32 bg-[#D4AF37] opacity-5 blur-[40px] rounded-full pointer-events-none" />
+          <div className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.1) 0%, transparent 70%)' }} />
           <h2 className="text-xl font-black text-white flex items-center gap-2">
             <Calendar className="w-5 h-5" />
             Party History

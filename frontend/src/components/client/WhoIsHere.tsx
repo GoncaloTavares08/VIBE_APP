@@ -3,6 +3,7 @@ import { motion, useMotionValue, useTransform, useAnimation, PanInfo } from 'mot
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { apiFetch } from '../../services/api';
 import { X, Heart, Sparkles, Info } from 'lucide-react';
+import Skeleton from '../ui/Skeleton';
 
 interface Person {
   id: number;
@@ -26,7 +27,6 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
-  const [showMatchAnimation, setShowMatchAnimation] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const dragStart = useRef<number | null>(null);
@@ -114,12 +114,9 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
       });
 
       if (response.status === 'success' && response.is_match) {
-        // Show match animation - will close when user clicks
-        setTimeout(() => {
-          setShowMatchAnimation(true);
-          onMatch?.(currentPerson);
-        }, 300);
-        return;
+        window.dispatchEvent(new CustomEvent('newMatch', { detail: currentPerson }));
+        onMatch?.(currentPerson);
+        // Continue to move to next
       }
     } catch (error) {
       console.error('Swipe error:', error);
@@ -188,8 +185,14 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <div className="w-8 h-8 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin"></div>
+      <div className="relative max-w-md mx-auto flex flex-col h-[77dvh] min-h-[400px] max-h-[750px]">
+        <Skeleton className="w-full h-full rounded-3xl" />
+        {/* Skeleton overlays to simulate the card's text area */}
+        <div className="absolute bottom-20 left-0 right-0 p-6 z-20 flex flex-col gap-3">
+          <Skeleton className="w-2/3 h-8 bg-[#333333] opacity-60 rounded-lg" />
+          <Skeleton className="w-1/3 h-4 bg-[#333333] opacity-60 rounded-lg" />
+          <Skeleton className="w-1/2 h-4 bg-[#333333] opacity-60 rounded-lg" />
+        </div>
       </div>
     );
   }
@@ -213,7 +216,8 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
           <motion.div 
             animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute inset-0 bg-[#D4AF37] rounded-full blur-xl"
+            className="absolute inset-0 rounded-full"
+            style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.8) 0%, transparent 70%)' }}
           />
           <div className="relative z-10 w-20 h-20 rounded-full bg-black/50 border border-[#D4AF37]/30 flex items-center justify-center backdrop-blur-md">
             <span className="text-4xl">👻</span>
@@ -230,67 +234,7 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
   }
 
   return (
-    <div className="relative max-w-md mx-auto flex flex-col h-[77dvh] min-h-[500px] max-h-[750px]">
-      {/* Match Animation */}
-      {showMatchAnimation && currentPerson && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ background: 'rgba(0, 0, 0, 0.95)' }}
-          onClick={() => {
-            setShowMatchAnimation(false);
-            moveToNext();
-          }}
-        >
-          <div className="text-center space-y-6 max-w-md mx-4 p-8 rounded-3xl"
-            style={{
-              background: 'linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(212, 175, 55, 0.05) 100%)',
-              border: '2px solid rgba(212, 175, 55, 0.5)',
-            }}
-          >
-            <div className="text-8xl">✨</div>
-            <h2
-              className="text-5xl font-black"
-              style={{
-                background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-              }}
-            >
-              It's a Match!
-            </h2>
-            <p className="text-gray-300">
-              Tu e {currentPerson.name} deram VIBE
-            </p>
-
-            {/* Show Instagram */}
-            {currentPerson.instagram && (
-              <div
-                className="mt-4 p-4 rounded-xl"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(212, 175, 55, 0.3)',
-                }}
-              >
-                <p className="text-sm text-gray-400 mb-1">Instagram desbloqueado:</p>
-                <a
-                  href={`https://www.instagram.com/${currentPerson.instagram}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="text-2xl font-black text-[#D4AF37] hover:underline"
-                >
-                  @{currentPerson.instagram}
-                </a>
-              </div>
-            )}
-
-            <p className="text-sm text-gray-400 mt-4">
-              Toca para continuar
-            </p>
-          </div>
-        </div>
-      )}
-
+    <div className="relative max-w-md mx-auto flex flex-col h-[77dvh] min-h-[400px] max-h-[750px]">
       {/* Swipeable Card */}
       <motion.div
         key={currentPerson.id}

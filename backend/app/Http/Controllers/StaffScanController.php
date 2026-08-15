@@ -75,7 +75,12 @@ class StaffScanController extends Controller
                 $qrCode = $uuid;
             }
         } catch (\Exception $e) {
-            // Not encrypted, continue with raw QR code
+            // Se o QR code não estiver encriptado, REJEITA IMEDIATAMENTE.
+            // Isto previne que os clientes tirem print do seu UUID estático e usem para sempre.
+            return response()->json([
+                'status' => 'error', 
+                'message' => 'QR Code Antigo ou Inválido. Pede ao cliente para atualizar a app ou fazer refresh.'
+            ], 400);
         }
 
         $guestlist = Guestlist::with(['event', 'client.profile', 'rp'])->where('qr_code', $qrCode)->first();
@@ -98,7 +103,22 @@ class StaffScanController extends Controller
         }
 
         $now = Carbon::now('Europe/Lisbon');
-        $eventStart = Carbon::parse($guestlist->event->date . ' ' . $guestlist->event->start_time, 'Europe/Lisbon');
+        $eventDate = $guestlist->event->date;
+        $eventStartTime = $guestlist->event->start_time ?: '00:00';
+        $eventEndTime = $guestlist->event->end_time;
+
+        $eventStart = Carbon::parse($eventDate . ' ' . $eventStartTime, 'Europe/Lisbon');
+
+        if ($eventEndTime) {
+            $eventEnd = Carbon::parse($eventDate . ' ' . $eventEndTime, 'Europe/Lisbon');
+            // If end time is earlier or equal to start time (e.g. starts 23:00, ends 06:00), it ends the next day
+            if ($eventEnd->lte($eventStart)) {
+                $eventEnd->addDay();
+            }
+        } else {
+            // Default nightlife cutoff: next day at 12:00 (midday) or 12 hours after start
+            $eventEnd = (clone $eventStart)->addHours(12);
+        }
 
         $responsePayload = [
             'type' => 'guestlist',
@@ -117,6 +137,24 @@ class StaffScanController extends Controller
             'guestlist_status' => $guestlist->status,
             'checked_in_at' => $guestlist->checked_in_at
         ];
+
+        // 1. Reject if event is explicitly cancelled or ended
+        if (in_array(strtolower($guestlist->event->status ?? ''), ['cancelled', 'ended'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Este evento já encerrou ou foi cancelado.',
+                'data' => $responsePayload
+            ], 400);
+        }
+
+        // 2. Reject if event has already finished
+        if ($now->gt($eventEnd)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Este evento já terminou (' . $eventEnd->format('d/m/Y H:i') . '). O bilhete/QR já não é válido.',
+                'data' => $responsePayload
+            ], 400);
+        }
 
         // BAR QR: Only for clients already checked in — add points
         if ($qrType === 'bar') {
@@ -193,6 +231,16 @@ class StaffScanController extends Controller
             ],
             'redemption_status' => $redemption->status
         ];
+
+        // 1. Verify if it belongs to the same club (if clubId is defined for this staff)
+        if ($clubId && $redemption->reward && $redemption->reward->club_id !== $clubId) {
+            $clubName = $redemption->reward->club->name ?? 'Outro Clube';
+            return response()->json([
+                'status' => 'error',
+                'message' => "Este prémio pertence a outro clube ($clubName).",
+                'data' => $responsePayload
+            ], 400);
+        }
 
         if ($redemption->status === 'used') {
             $responsePayload['used_at'] = $redemption->used_at;
@@ -384,7 +432,31 @@ class StaffScanController extends Controller
         }
 
         $now = Carbon::now('Europe/Lisbon');
-        $eventStart = Carbon::parse($guestlist->event->date . ' ' . $guestlist->event->start_time, 'Europe/Lisbon');
+        $eventDate = $guestlist->event->date;
+        $eventStartTime = $guestlist->event->start_time ?: '00:00';
+        $eventEndTime = $guestlist->event->end_time;
+
+        $eventStart = Carbon::parse($eventDate . ' ' . $eventStartTime, 'Europe/Lisbon');
+
+        if ($eventEndTime) {
+            $eventEnd = Carbon::parse($eventDate . ' ' . $eventEndTime, 'Europe/Lisbon');
+            if ($eventEnd->lte($eventStart)) {
+                $eventEnd->addDay();
+            }
+        } else {
+            $eventEnd = (clone $eventStart)->addHours(12);
+        }
+
+        if (in_array(strtolower($guestlist->event->status ?? ''), ['cancelled', 'ended'])) {
+            return response()->json(['status' => 'error', 'message' => 'Este evento já encerrou ou foi cancelado.'], 400);
+        }
+
+        if ($now->gt($eventEnd)) {
+            return response()->json([
+                'status' => 'error', 
+                'message' => 'Este evento já terminou (' . $eventEnd->format('d/m/Y H:i') . '). Não é possível fazer check-in.'
+            ], 400);
+        }
 
         if ($now->lt($eventStart)) {
             return response()->json([

@@ -18,9 +18,9 @@ export function SuperAdminPortal({ user, onLogout, onBack }: SuperAdminPortalPro
     <div className="min-h-screen bg-[#070707] text-white relative overflow-x-hidden">
       {/* Ambient glowing lighting */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-[#D4AF37]/12 blur-[180px] rounded-full" />
-        <div className="absolute top-1/3 right-1/4 w-[500px] h-[500px] bg-[#FFD700]/10 blur-[160px] rounded-full" />
-        <div className="absolute bottom-0 left-1/2 w-[500px] h-[500px] bg-[#B8860B]/12 blur-[180px] rounded-full" />
+        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.12) 0%, transparent 70%)' }} />
+        <div className="absolute top-1/3 right-1/4 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.10) 0%, transparent 70%)' }} />
+        <div className="absolute bottom-0 left-1/2 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(184,134,11,0.12) 0%, transparent 70%)' }} />
       </div>
 
       {/* Topbar */}

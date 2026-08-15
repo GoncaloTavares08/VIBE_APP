@@ -467,7 +467,7 @@ export function Scanner({ onOpenManual }: ScannerProps) {
       <style>{`
           /* Force reader container to fill available space */
           #reader {
-            min-height: 400px;
+            min-height: 250px;
             display: flex !important;
             flex-direction: column !important;
           }
@@ -476,7 +476,7 @@ export function Scanner({ onOpenManual }: ScannerProps) {
           #reader video {
             width: 100% !important;
             height: 100% !important;
-            min-height: 400px !important;
+            min-height: 250px !important;
             object-fit: cover !important;
             flex: 1 !important;
           }
@@ -485,7 +485,7 @@ export function Scanner({ onOpenManual }: ScannerProps) {
           #reader__scan_region {
             width: 100% !important;
             height: 100% !important;
-            min-height: 400px !important;
+            min-height: 250px !important;
             display: flex !important;
             flex-direction: column !important;
           }

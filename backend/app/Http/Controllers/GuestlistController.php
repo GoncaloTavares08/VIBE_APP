@@ -80,28 +80,33 @@ class GuestlistController extends Controller
         $clubId = $this->getClubId($request);
         $this->ensureRpOnGuestlist($user, $clubId);
 
-        $today = Carbon::now('Europe/Lisbon')->format('Y-m-d');
-        $yesterday = Carbon::now('Europe/Lisbon')->subDay()->format('Y-m-d');
+        $now = Carbon::now('Europe/Lisbon');
         
-        // Return guestlists for events happening now or in the future in the current club
+        // Return guestlists only for active/future events (never expired/finished ones)
         $guestlists = Guestlist::with('event')
             ->where('client_id', $user->id)
             ->whereIn('status', ['confirmed', 'checked_in'])
-            ->whereHas('event', function ($query) use ($clubId, $today, $yesterday) {
-                $query->where('status', '!=', 'cancelled')
-                      ->where(function($q) use ($today, $yesterday) {
-                          $q->where('date', '>=', $today)
-                            ->orWhere('status', 'ongoing')
-                            ->orWhere(function($sub) use ($yesterday) {
-                                $sub->where('date', $yesterday)
-                                    ->where('end_time', '<', '12:00:00');
-                            });
-                      });
+            ->whereHas('event', function ($query) use ($clubId) {
+                $query->whereNotIn('status', ['cancelled', 'ended']);
                 if ($clubId) {
                     $query->where('club_id', $clubId);
                 }
             })
             ->get()
+            ->filter(function ($gl) use ($now) {
+                $event = $gl->event;
+                if (!$event) return false;
+                $start = Carbon::parse($event->date . ' ' . ($event->start_time ?: '00:00'), 'Europe/Lisbon');
+                if ($event->end_time) {
+                    $end = Carbon::parse($event->date . ' ' . $event->end_time, 'Europe/Lisbon');
+                    if ($end->lte($start)) {
+                        $end->addDay();
+                    }
+                } else {
+                    $end = (clone $start)->addHours(12);
+                }
+                return $now->lte($end);
+            })
             ->sortBy(function ($gl) {
                 return $gl->event ? ($gl->event->date . ' ' . $gl->event->start_time) : '9999';
             })
@@ -145,6 +150,19 @@ class GuestlistController extends Controller
 
         if (!$event) {
             return response()->json(['status' => 'error', 'message' => 'Evento não encontrado ou já passou.'], 400);
+        }
+
+        $now = \Carbon\Carbon::now('Europe/Lisbon');
+        $start = \Carbon\Carbon::parse($event->date . ' ' . ($event->start_time ?: '00:00'), 'Europe/Lisbon');
+        if ($event->end_time) {
+            $end = \Carbon\Carbon::parse($event->date . ' ' . $event->end_time, 'Europe/Lisbon');
+            if ($end->lte($start)) $end->addDay();
+        } else {
+            $end = (clone $start)->addHours(12);
+        }
+
+        if ($now->gt($end)) {
+            return response()->json(['status' => 'error', 'message' => 'Este evento já encerrou. Já não podes aderir à Guestlist.'], 400);
         }
 
         $clubId = $event->club_id;
@@ -259,11 +277,29 @@ class GuestlistController extends Controller
     public function qrCode(Request $request)
     {
         $user = $request->user();
+        $now = Carbon::now('Europe/Lisbon');
         
         $activeGuestlist = Guestlist::with('event')
             ->where('client_id', $user->id)
             ->where('status', 'checked_in')
+            ->whereHas('event', function ($query) {
+                $query->whereNotIn('status', ['cancelled', 'ended']);
+            })
             ->orderBy('created_at', 'desc')
+            ->get()
+            ->filter(function ($gl) use ($now) {
+                $event = $gl->event;
+                $start = Carbon::parse($event->date . ' ' . ($event->start_time ?: '00:00'), 'Europe/Lisbon');
+                if ($event->end_time) {
+                    $end = Carbon::parse($event->date . ' ' . $event->end_time, 'Europe/Lisbon');
+                    if ($end->lte($start)) {
+                        $end->addDay();
+                    }
+                } else {
+                    $end = (clone $start)->addHours(12);
+                }
+                return $now->lte($end);
+            })
             ->first();
 
         if ($activeGuestlist && $activeGuestlist->qr_code) {
@@ -281,7 +317,7 @@ class GuestlistController extends Controller
 
         return response()->json([
             'status' => 'error',
-            'message' => 'Nenhuma guestlist ativa encontrada.'
+            'message' => 'Nenhum evento ativo de momento.'
         ], 404);
     }
 }

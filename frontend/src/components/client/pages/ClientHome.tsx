@@ -6,8 +6,9 @@ import { apiFetch } from '../../../services/api';
 import { WhoIsHere } from '../WhoIsHere';
 import { PersonProfileModal } from '../PersonProfileModal';
 import { Leaderboard } from '../Leaderboard';
-import { MyMatches } from '../MyMatches'
+import { MyMatches } from '../MyMatches';
 import { createPortal } from 'react-dom';
+import Skeleton from '../../ui/Skeleton';
 
 type PartyState = 'no-guestlist' | 'has-guestlist' | 'live-party';
 
@@ -71,8 +72,29 @@ export function ClientHome() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
-        <div className="w-8 h-8 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin"></div>
+      <div className="min-h-screen p-4 space-y-6">
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between mb-8">
+          <Skeleton className="w-1/3 h-8" />
+          <Skeleton className="w-10 h-10 rounded-full" />
+        </div>
+        
+        {/* Main Card Skeleton */}
+        <Skeleton className="w-full h-64 rounded-3xl" />
+        
+        {/* Buttons / Info Skeleton */}
+        <div className="flex gap-4">
+          <Skeleton className="w-1/2 h-14 rounded-2xl" />
+          <Skeleton className="w-1/2 h-14 rounded-2xl" />
+        </div>
+        
+        {/* List Items Skeleton */}
+        <div className="space-y-4 pt-4">
+          <Skeleton className="w-1/4 h-6" />
+          <Skeleton className="w-full h-20 rounded-xl" />
+          <Skeleton className="w-full h-20 rounded-xl" />
+          <Skeleton className="w-full h-20 rounded-xl" />
+        </div>
       </div>
     );
   }
@@ -289,7 +311,7 @@ function NoGuestlistView({ initialEvent, onRefresh }: { initialEvent: Event | nu
           }}
         >
           {/* Decorative glow */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#D4AF37]/20 rounded-full filter blur-[40px] group-hover:bg-[#D4AF37]/40 transition-all duration-500"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full transition-all duration-500 group-hover:opacity-100 opacity-50" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.4) 0%, transparent 70%)' }}></div>
           
           <div className="relative z-10 flex flex-col h-full justify-between">
             <div>
@@ -590,7 +612,7 @@ function LivePartyView({ event }: { event: Event | null }) {
         }}
         onClick={() => setShowQRModal(true)}
       >
-        <div className="absolute top-0 right-0 w-32 h-32 bg-[#D4AF37] opacity-20 blur-[50px] rounded-full pointer-events-none" />
+        <div className="absolute top-0 right-0 w-32 h-32 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.2) 0%, transparent 70%)' }} />
         <QrCode className="w-16 h-16 mx-auto text-[#D4AF37]" />
         <div>
           <p className="text-[#D4AF37] font-black text-2xl tracking-tight">Show Bar QR</p>

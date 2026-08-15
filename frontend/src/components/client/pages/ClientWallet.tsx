@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { ImageWithFallback } from '../../figma/ImageWithFallback';
 import { Sparkles, Gift, TrendingUp, TrendingDown, ArrowRight, X, Check, QrCode, Clock, Info, Award, CreditCard } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
+import Skeleton from '../../ui/Skeleton';
 
 const RANKS = [
   {
@@ -275,10 +276,21 @@ export function ClientWallet({ user }: ClientWalletProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}>
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400">A carregar carteira...</p>
+      <div className="max-w-6xl mx-auto space-y-8 p-4 pt-8">
+        {/* Wallet Balance Card Skeleton */}
+        <Skeleton className="w-full h-64 rounded-[2rem]" />
+        
+        {/* Rewards Tabs Skeleton */}
+        <div className="flex gap-4">
+          <Skeleton className="w-32 h-10 rounded-full" />
+          <Skeleton className="w-32 h-10 rounded-full" />
+        </div>
+        
+        {/* Rewards Grid Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Skeleton className="w-full h-72 rounded-2xl" />
+          <Skeleton className="w-full h-72 rounded-2xl" />
+          <Skeleton className="w-full h-72 rounded-2xl" />
         </div>
       </div>
     );
@@ -334,8 +346,8 @@ export function ClientWallet({ user }: ClientWalletProps) {
           />
 
           {/* Ambient Glows */}
-          <div className="absolute top-[-20%] right-[-10%] w-64 h-64 opacity-20 rounded-full blur-[80px]" style={{ background: currentRank.glow }} />
-          <div className="absolute bottom-[-20%] left-[-10%] w-48 h-48 opacity-10 rounded-full blur-[60px]" style={{ background: currentRank.color }} />
+          <div className="absolute top-[-20%] right-[-10%] w-64 h-64 opacity-30 rounded-full" style={{ background: `radial-gradient(circle, ${currentRank.glow} 0%, transparent 70%)` }} />
+          <div className="absolute bottom-[-20%] left-[-10%] w-48 h-48 opacity-20 rounded-full" style={{ background: `radial-gradient(circle, ${currentRank.color} 0%, transparent 70%)` }} />
 
           {/* Card Content */}
           <div className="relative z-10 space-y-8">

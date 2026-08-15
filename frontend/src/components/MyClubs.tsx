@@ -191,7 +191,8 @@ export function MyClubs({ user, onNavigate }: MyClubsProps) {
                                     className="group relative"
                                 >
                                     <div
-                                        className="absolute inset-0 bg-gradient-to-r from-[#D4AF37] to-[#FFD700] rounded-3xl blur opacity-20 group-hover:opacity-40 transition-opacity duration-500"
+                                        className="absolute -inset-2 bg-gradient-to-r from-[#D4AF37] to-[#FFD700] rounded-[2rem] opacity-10 group-hover:opacity-30 transition-opacity duration-500"
+                                        style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.3) 0%, transparent 70%)' }}
                                     />
 
                                     <div

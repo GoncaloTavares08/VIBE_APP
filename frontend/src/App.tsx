@@ -14,6 +14,7 @@ import { SuperAdminPortal } from './components/superadmin/SuperAdminPortal';
 import { useClubAccess } from './hooks/useClubAccess';
 import { clearAllAccessCache } from './utils/clearAccessCache';
 import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import './styles/globals.css';
 import { MyClubs } from './components/MyClubs';
 
@@ -100,6 +101,20 @@ export default function App() {
       setShowStaffApp(false);
     }
   }, [user, verifiedRole, isSuperAdmin]);
+
+  // Global Network Error Listener
+  useEffect(() => {
+    const handleNetworkError = (e: any) => {
+      const message = e.detail?.message || 'Sem ligação à internet.';
+      toast.error(message, {
+        id: 'network-error-toast', // prevents duplicate toasts
+        duration: 4000
+      });
+    };
+
+    window.addEventListener('networkError', handleNetworkError);
+    return () => window.removeEventListener('networkError', handleNetworkError);
+  }, []);
 
   const handleLoginSuccess = (userData: any) => {
     setUser(userData);
@@ -200,10 +215,10 @@ export default function App() {
         <InteractiveBackground />
         {/* Ambient glow effects in background */}
         <div className="fixed inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#D4AF37] opacity-15 blur-[150px] rounded-full"></div>
-          <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] bg-[#FFD700] opacity-10 blur-[120px] rounded-full"></div>
-          <div className="absolute bottom-0 left-1/2 w-[450px] h-[450px] bg-[#B8860B] opacity-12 blur-[140px] rounded-full"></div>
-          <div className="absolute top-1/2 right-1/3 w-[350px] h-[350px] bg-[#DAA520] opacity-8 blur-[100px] rounded-full"></div>
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.15) 0%, transparent 70%)' }}></div>
+        <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.10) 0%, transparent 70%)' }}></div>
+        <div className="absolute bottom-0 left-1/2 w-[450px] h-[450px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(184,134,11,0.12) 0%, transparent 70%)' }}></div>
+        <div className="absolute top-1/2 right-1/3 w-[350px] h-[350px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(218,165,32,0.08) 0%, transparent 70%)' }}></div>
         </div>
 
         <div className="relative z-10">

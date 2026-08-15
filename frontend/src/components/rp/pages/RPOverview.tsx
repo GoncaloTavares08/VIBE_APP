@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { TrendingUp, Users, MousePointerClick, ArrowUp } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import Skeleton from '../../ui/Skeleton';
 import { GlassCard } from '../../ui/GlassCard';
 import { apiFetch } from '../../../services/api';
 
@@ -66,15 +67,15 @@ export function RPOverview() {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-12 w-64 bg-white/5 rounded-2xl mb-8"></div>
+      <div className="space-y-6">
+        <Skeleton className="h-12 w-64 rounded-2xl mb-8" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-36 bg-white/5 rounded-[2rem] border border-white/5"></div>
+            <Skeleton key={i} className="h-36 rounded-[2rem]" />
           ))}
         </div>
-        <div className="h-96 bg-white/5 rounded-[2rem] border border-white/5"></div>
-        <div className="h-80 bg-white/5 rounded-[2rem] border border-white/5"></div>
+        <Skeleton className="h-96 rounded-[2rem]" />
+        <Skeleton className="h-80 rounded-[2rem]" />
       </div>
     );
   }

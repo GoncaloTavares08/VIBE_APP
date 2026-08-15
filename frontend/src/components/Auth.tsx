@@ -352,9 +352,9 @@ export function Auth({ onLoginSuccess }: AuthProps) {
       <InteractiveBackground />
       {/* Ambient golden glows */}
       <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-[#D4AF37] opacity-20 blur-[150px] rounded-full"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] bg-[#FFD700] opacity-15 blur-[120px] rounded-full"></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#B8860B] opacity-10 blur-[100px] rounded-full"></div>
+        <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.2) 0%, transparent 70%)' }}></div>
+        <div className="absolute bottom-1/4 right-1/4 w-[350px] h-[350px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.15) 0%, transparent 70%)' }}></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(184,134,11,0.1) 0%, transparent 70%)' }}></div>
       </div>
 
       {/* Content */}

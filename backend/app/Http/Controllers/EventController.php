@@ -5,7 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Event;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
-
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
 class EventController extends Controller
 {
     private function autoUpdateStatuses()
@@ -294,11 +295,15 @@ class EventController extends Controller
 
         $file = $request->file('banner');
         $datePath = date('Y/m/d');
-        $ext = $file->getClientOriginalExtension() ?: 'jpg';
-        $filename = uniqid('event_banner_') . '.' . $ext;
+        
+        $manager = new ImageManager(new Driver());
+        $image = $manager->decode($file->getRealPath());
+        $encoded = $image->encode(new \Intervention\Image\Encoders\WebpEncoder(85));
+
+        $filename = uniqid('event_banner_') . '.webp';
         $fullPath = "events/banners/{$datePath}/{$filename}";
 
-        \Illuminate\Support\Facades\Storage::disk('public')->put($fullPath, file_get_contents($file->getRealPath()));
+        \Illuminate\Support\Facades\Storage::disk('public')->put($fullPath, (string) $encoded);
         $webPath = 'storage/' . $fullPath;
 
         return response()->json([

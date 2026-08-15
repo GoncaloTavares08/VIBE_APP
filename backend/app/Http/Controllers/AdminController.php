@@ -905,15 +905,17 @@ class AdminController extends Controller
 
         if ($request->hasFile('image')) {
             $file = $request->file('image');
-            $manager = new ImageManager(new Driver());
-            $image = $manager->decode($file->getRealPath());
-            $encoded = $image->encode(new \Intervention\Image\Encoders\WebpEncoder(85));
-
+            $datePath = date('Y/m/d');
             $filename = 'reward_' . time() . '_' . uniqid() . '.webp';
-            $fullPath = "rewards/{$reward->id}/{$filename}";
+            $finalPath = "rewards/{$datePath}/{$filename}";
+            $ext = $file->getClientOriginalExtension() ?: 'jpg';
+            $tempPath = "temp/" . uniqid('reward_') . ".{$ext}";
+            
+            Storage::disk('public')->put($tempPath, file_get_contents($file->getRealPath()));
+            $tempUrl = 'storage/' . $tempPath;
+            $reward->update(['image_path' => $tempUrl]);
 
-            Storage::disk('public')->put($fullPath, (string) $encoded);
-            $reward->update(['image_path' => 'storage/' . $fullPath]);
+            \App\Jobs\ProcessImageJob::dispatch($tempPath, $finalPath, \App\Models\Reward::class, $reward->id, 'image_path');
         }
 
         return response()->json([
@@ -951,15 +953,17 @@ class AdminController extends Controller
             }
 
             $file = $request->file('image');
-            $manager = new ImageManager(new Driver());
-            $image = $manager->decode($file->getRealPath());
-            $encoded = $image->encode(new \Intervention\Image\Encoders\WebpEncoder(85));
-
+            $datePath = date('Y/m/d');
             $filename = 'reward_' . time() . '_' . uniqid() . '.webp';
-            $fullPath = "rewards/{$reward->id}/{$filename}";
+            $finalPath = "rewards/{$datePath}/{$filename}";
+            $ext = $file->getClientOriginalExtension() ?: 'jpg';
+            $tempPath = "temp/" . uniqid('reward_') . ".{$ext}";
+            
+            Storage::disk('public')->put($tempPath, file_get_contents($file->getRealPath()));
+            $tempUrl = 'storage/' . $tempPath;
+            $reward->update(['image_path' => $tempUrl]);
 
-            Storage::disk('public')->put($fullPath, (string) $encoded);
-            $reward->update(['image_path' => 'storage/' . $fullPath]);
+            \App\Jobs\ProcessImageJob::dispatch($tempPath, $finalPath, \App\Models\Reward::class, $reward->id, 'image_path');
         }
 
         return response()->json([

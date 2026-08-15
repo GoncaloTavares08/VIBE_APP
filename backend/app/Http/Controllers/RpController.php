@@ -83,17 +83,15 @@ class RpController extends Controller
 
         $user = $request->user();
         $file = $request->file('photo');
-
-        $manager = new ImageManager(new Driver());
-        $image = $manager->decode($file->getRealPath());
-        $encoded = $image->encode(new \Intervention\Image\Encoders\WebpEncoder(85));
-
         $datePath = date('Y/m/d');
-        $filename = uniqid('rp_profile_') . '.webp';
-        $fullPath = "profiles/rps/{$user->id}/{$datePath}/{$filename}";
-
-        Storage::disk('public')->put($fullPath, (string) $encoded);
-        $webPath = 'storage/' . $fullPath;
+        $uniqid = uniqid('rp_profile_');
+        $ext = $file->getClientOriginalExtension() ?: 'jpg';
+        
+        $tempPath = "temp/{$uniqid}.{$ext}";
+        \Illuminate\Support\Facades\Storage::disk('public')->put($tempPath, file_get_contents($file->getRealPath()));
+        
+        $finalPath = "profiles/rps/{$datePath}/{$uniqid}.webp";
+        $webPath = 'storage/' . $tempPath;
 
         $profile = RpProfile::firstOrCreate(
             ['user_id' => $user->id],
@@ -107,6 +105,7 @@ class RpController extends Controller
         }
 
         $profile->update(['profile_image_url' => $webPath]);
+        \App\Jobs\ProcessImageJob::dispatch($tempPath, $finalPath, \App\Models\RpProfile::class, $profile->id, 'profile_image_url');
 
         return response()->json([
             'status' => 'success',

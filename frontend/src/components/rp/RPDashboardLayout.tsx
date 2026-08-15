@@ -212,9 +212,9 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName,
     <div className="flex h-[100dvh] w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
       {/* Animated background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-[#D4AF37] opacity-10 blur-[150px] rounded-full"></div>
-        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-[#FFD700] opacity-8 blur-[120px] rounded-full"></div>
-        <div className="absolute top-1/2 left-1/2 w-[400px] h-[400px] bg-[#B8860B] opacity-6 blur-[100px] rounded-full"></div>
+        <div className="absolute top-0 left-0 w-[600px] h-[600px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(212,175,55,0.1) 0%, transparent 70%)' }}></div>
+        <div className="absolute bottom-0 right-0 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(255,215,0,0.08) 0%, transparent 70%)' }}></div>
+        <div className="absolute top-1/2 left-1/2 w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(184,134,11,0.06) 0%, transparent 70%)' }}></div>
       </div>
 
       {/* Sidebar */}

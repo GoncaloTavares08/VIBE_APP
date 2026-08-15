@@ -109,20 +109,18 @@ class ClientProfileController extends Controller
 
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
-            $manager = new ImageManager(new Driver());
-            $image = $manager->decode($file->getRealPath());
-
-            // Convert to WEBP 85%
-            $encoded = $image->encode(new \Intervention\Image\Encoders\WebpEncoder(85));
-
-            // Generate Y/m/d path
             $datePath = date('Y/m/d');
-            $filename = uniqid('profile_') . '.webp';
-            $fullPath = "profiles/clients/{$user->id}/{$datePath}/{$filename}";
+            $uniqid = uniqid('profile_');
+            $ext = $file->getClientOriginalExtension() ?: 'jpg';
+            
+            $tempPath = "temp/{$uniqid}.{$ext}";
+            Storage::disk('public')->put($tempPath, file_get_contents($file->getRealPath()));
+            
+            $finalPath = "profiles/clients/{$datePath}/{$uniqid}.webp";
+            
+            \App\Jobs\ProcessImageJob::dispatch($tempPath, $finalPath, \App\Models\ClientProfile::class, $profile->id, 'profile_photo_path');
 
-            Storage::disk('public')->put($fullPath, (string) $encoded);
-
-            $validated['profile_photo_path'] = 'storage/' . $fullPath;
+            $validated['profile_photo_path'] = 'storage/' . $tempPath;
         }
         unset($validated['photo']);
 
@@ -155,25 +153,25 @@ class ClientProfileController extends Controller
         }
 
         $file = $request->file('photo');
-        $manager = new ImageManager(new Driver());
-        $image = $manager->decode($file->getRealPath());
-
-        $encoded = $image->encode(new \Intervention\Image\Encoders\WebpEncoder(85));
-
         $datePath = date('Y/m/d');
-        $filename = uniqid('gallery_') . '.webp';
-        $fullPath = "profiles/clients/{$user->id}/{$datePath}/{$filename}";
-
-        Storage::disk('public')->put($fullPath, (string) $encoded);
+        $uniqid = uniqid('gallery_');
+        $ext = $file->getClientOriginalExtension() ?: 'jpg';
+        
+        $tempPath = "temp/{$uniqid}.{$ext}";
+        Storage::disk('public')->put($tempPath, file_get_contents($file->getRealPath()));
+        
+        $finalPath = "profiles/clients/{$datePath}/{$uniqid}.webp";
 
         // Calculate next order
         $nextOrder = \App\Models\ClientProfilePhoto::where('client_profile_id', $profile->id)->max('photo_order') + 1;
 
         $photo = \App\Models\ClientProfilePhoto::create([
             'client_profile_id' => $profile->id,
-            'photo_path' => 'storage/' . $fullPath,
+            'photo_path' => 'storage/' . $tempPath,
             'photo_order' => $nextOrder
         ]);
+
+        \App\Jobs\ProcessImageJob::dispatch($tempPath, $finalPath, \App\Models\ClientProfilePhoto::class, $photo->id, 'photo_path');
 
         return response()->json([
             'status' => 'success',

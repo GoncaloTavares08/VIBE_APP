@@ -60,12 +60,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Reward Routes
     Route::get('/rewards', [\App\Http\Controllers\RewardController::class, 'index']);
-    Route::post('/rewards/redeem', [\App\Http\Controllers\RewardController::class, 'redeem']);
+    Route::post('/rewards/redeem', [\App\Http\Controllers\RewardController::class, 'redeem'])->middleware('throttle:5,1');
     Route::get('/rewards/my-redemptions', [\App\Http\Controllers\RewardController::class, 'myRedemptions']);
 
     // Guestlist Routes
     Route::get('/guestlist', [\App\Http\Controllers\GuestlistController::class, 'index']);
-    Route::post('/guestlist/join', [\App\Http\Controllers\GuestlistController::class, 'join']);
+    Route::post('/guestlist/join', [\App\Http\Controllers\GuestlistController::class, 'join'])->middleware('throttle:5,1');
     Route::get('/guestlist/status', [\App\Http\Controllers\GuestlistController::class, 'status']);
     Route::get('/guestlist/qr-code', [\App\Http\Controllers\GuestlistController::class, 'qrCode']);
 
@@ -100,7 +100,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Phase 3: Networking & Leaderboard
     Route::get('/networking/who-is-here', [NetworkingController::class, 'whoIsHere']);
-    Route::post('/networking/swipe', [NetworkingController::class, 'swipe']);
+    Route::post('/networking/swipe', [NetworkingController::class, 'swipe'])->middleware('throttle:30,1');
     Route::get('/networking/matches', [NetworkingController::class, 'myMatches']);
     Route::get('/networking/check-updates', [NetworkingController::class, 'checkUpdates']);
     
