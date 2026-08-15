@@ -255,7 +255,7 @@ export function RPProfile() {
 
     try {
       const data = await apiFetch('/rp/profile', {
-        method: 'PUT',
+        method: 'POST',
         body: JSON.stringify(formData)
       });
 
