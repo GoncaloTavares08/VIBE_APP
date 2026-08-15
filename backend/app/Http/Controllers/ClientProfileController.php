@@ -108,6 +108,12 @@ class ClientProfileController extends Controller
         ]);
 
         if ($request->hasFile('photo')) {
+            // Delete old photo from disk if it exists
+            if ($profile->profile_photo_path && !str_starts_with($profile->profile_photo_path, 'http')) {
+                $oldPath = str_replace('storage/', '', $profile->profile_photo_path);
+                Storage::disk('public')->delete($oldPath);
+            }
+            
             $file = $request->file('photo');
             $datePath = date('Y/m/d');
             $uniqid = uniqid('profile_');
@@ -206,6 +212,29 @@ class ClientProfileController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Photo deleted successfully'
+        ]);
+    }
+
+    public function deletePhoto(Request $request)
+    {
+        $user = $request->user();
+        $profile = ClientProfile::where('user_id', $user->id)->first();
+
+        if (!$profile) {
+            return response()->json(['status' => 'error', 'message' => 'Perfil não encontrado.'], 404);
+        }
+
+        if ($profile->profile_photo_path && !str_starts_with($profile->profile_photo_path, 'http')) {
+            $storagePath = str_replace('storage/', '', $profile->profile_photo_path);
+            Storage::disk('public')->delete($storagePath);
+        }
+
+        $profile->profile_photo_path = null;
+        $profile->save();
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Foto de perfil removida com sucesso'
         ]);
     }
 

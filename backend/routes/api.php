@@ -55,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/profile', [\App\Http\Controllers\ClientProfileController::class, 'update']); // Using POST with _method=PUT or just POST for file uploads
     Route::post('/profile/gallery', [\App\Http\Controllers\ClientProfileController::class, 'uploadGallery']);
     Route::delete('/profile/gallery/{id}', [\App\Http\Controllers\ClientProfileController::class, 'deleteGallery']);
+    Route::delete('/profile/photo', [\App\Http\Controllers\ClientProfileController::class, 'deletePhoto']);
     Route::get('/client/wallet/points', [\App\Http\Controllers\ClientProfileController::class, 'getPoints']);
     Route::post('/profile/check-username', [\App\Http\Controllers\ClientProfileController::class, 'checkUsername']);
 

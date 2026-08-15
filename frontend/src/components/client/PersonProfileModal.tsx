@@ -218,32 +218,50 @@ export function PersonProfileModal({ person, isMatch, onClose }: PersonProfileMo
             </div>
 
             {/* Instagram */}
-            <div
-              className="p-5 rounded-[1.5rem] transition-all"
-              style={{
-                background: 'rgba(255, 255, 255, 0.03)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.05)',
-              }}
-            >
-              <div className="flex items-center justify-between">
+            {isMatch ? (
+              <a
+                href={`https://instagram.com/${person.instagram?.replace('@', '') || ''}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-5 rounded-[1.5rem] transition-all flex items-center justify-between gap-4 active:scale-95"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(212, 175, 55, 0.3)',
+                  boxShadow: '0 4px 20px rgba(212, 175, 55, 0.1)',
+                }}
+              >
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-full bg-black/40">
                     <Instagram className="w-5 h-5 text-pink-500" />
                   </div>
                   <span className="text-white font-bold">Instagram</span>
                 </div>
-
-                {isMatch ? (
-                  <span className="text-[#D4AF37] font-bold">@{person.instagram?.replace('@', '') || 'username'}</span>
-                ) : (
-                  <div className="flex items-center gap-2 bg-black/30 px-3 py-1.5 rounded-full border border-white/5">
-                    <Lock className="w-3.5 h-3.5 text-gray-400" />
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Match to unlock</span>
+                <span className="text-[#D4AF37] font-bold underline-offset-4 decoration-1 hover:underline">
+                  @{person.instagram?.replace('@', '') || 'username'}
+                </span>
+              </a>
+            ) : (
+              <div
+                className="p-5 rounded-[1.5rem] transition-all flex items-center justify-between gap-4"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.05)',
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-full bg-black/40">
+                    <Instagram className="w-5 h-5 text-pink-500" />
                   </div>
-                )}
+                  <span className="text-white font-bold">Instagram</span>
+                </div>
+                <div className="flex items-center gap-2 bg-black/30 px-3 py-1.5 rounded-full border border-white/5 flex-shrink-0">
+                  <Lock className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">Match to unlock</span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Match Status */}
             {isMatch && (
