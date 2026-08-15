@@ -34,9 +34,11 @@ export function RPGuestlist() {
     return pathSegments[0] || localStorage.getItem('clubSlug') || '';
   };
 
-  const rpLink = username
-    ? `${window.location.origin}/guest/${username}`
-    : 'A carregar...';
+  const rpLink = loading 
+    ? 'A carregar...' 
+    : username 
+      ? `${window.location.origin}/guest/${username}`
+      : 'Cria o teu Perfil Público primeiro para teres um link.';
 
   // Generate QR Code once when username is available
   useEffect(() => {
@@ -217,24 +219,35 @@ export function RPGuestlist() {
           {/* QR Code Placeholder */}
           <div className="aspect-square rounded-[1.5rem] mb-6 flex items-center justify-center overflow-hidden border-4 border-white/10 shadow-2xl bg-white group cursor-pointer hover:scale-[1.02] transition-transform">
             <div className="text-center p-2 w-full h-full flex items-center justify-center">
-              {qrCodeUrl ? (
-                <img
-                  src={qrCodeUrl}
-                  alt="RP Public Profile QR"
-                  className="w-full h-full object-contain mix-blend-multiply"
-                />
+              {username ? (
+                qrCodeUrl ? (
+                  <img
+                    src={qrCodeUrl}
+                    alt="RP Public Profile QR"
+                    className="w-full h-full object-contain mix-blend-multiply"
+                  />
+                ) : (
+                  <div className="text-gray-400 font-medium text-sm">A gerar QR Code...</div>
+                )
               ) : (
-                <div className="text-gray-400 font-medium text-sm">A gerar QR Code...</div>
+                <div className="text-red-500 font-bold text-sm px-4">
+                  ⚠ Vai a "Perfil Público" para criares o teu username.
+                </div>
               )}
             </div>
           </div>
 
           <button
             onClick={handleDownloadQR}
-            className="w-full px-4 py-3.5 rounded-2xl font-bold transition-all duration-300 hover:scale-105 hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] flex items-center justify-center gap-2"
+            disabled={!username}
+            className={`w-full px-4 py-3.5 rounded-2xl font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
+              username 
+                ? 'hover:scale-105 hover:shadow-[0_0_20px_rgba(212,175,55,0.4)]' 
+                : 'opacity-50 cursor-not-allowed'
+            }`}
             style={{
-              background: 'linear-gradient(135deg, #D4AF37 0%, #AA8C2C 100%)',
-              color: '#000000',
+              background: username ? 'linear-gradient(135deg, #D4AF37 0%, #AA8C2C 100%)' : '#333333',
+              color: username ? '#000000' : '#888888',
             }}
           >
             <Download className="w-5 h-5" />
@@ -290,11 +303,12 @@ export function RPGuestlist() {
             </button>
             <button
               onClick={handleShareLink}
-              className="px-4 py-3.5 rounded-2xl font-bold transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(212,175,55,0.4)] flex items-center justify-center gap-2"
-              style={{
-                background: 'linear-gradient(135deg, #D4AF37 0%, #AA8C2C 100%)',
-                color: '#000000',
-              }}
+              disabled={!username}
+              className={`flex-1 flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-bold transition-all ${
+                username 
+                  ? 'bg-white/5 text-white hover:bg-white/10 border border-white/10' 
+                  : 'bg-white/5 text-gray-500 cursor-not-allowed border border-white/5'
+              }`}
             >
               <Share2 className="w-5 h-5" />
               <span>Partilhar</span>
