@@ -51,7 +51,8 @@ class EventController extends Controller
         }
 
         if ($request->has('status')) {
-            $query->where('status', $request->status);
+            $statuses = explode(',', $request->status);
+            $query->whereIn('status', $statuses);
         }
 
         $events = $query->get();

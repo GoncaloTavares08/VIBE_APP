@@ -43,8 +43,8 @@ export function DiscoverEvents() {
     useEffect(() => {
         const fetchEvents = async () => {
             try {
-                // Fetch upcoming global events
-                const response = await apiFetch('/events?status=upcoming');
+                // Fetch upcoming and ongoing global events
+                const response = await apiFetch('/events?status=upcoming,ongoing');
                 if (response.status === 'success') {
                     setEvents(response.data || []);
                 }
