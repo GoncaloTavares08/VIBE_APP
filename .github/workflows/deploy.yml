@@ -21,4 +21,5 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /var/www/VIBE_APP
+            git pull origin develop
             bash deploy.sh
