@@ -60,34 +60,57 @@ export function MyClubs({ user, onNavigate }: MyClubsProps) {
             <div className="space-y-4">
                 <section className="pt-20 pb-10 relative z-10">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                        <div className="mb-12 text-center animate-pulse">
-                            <div className="h-10 bg-white/10 rounded-xl w-64 mx-auto mb-4"></div>
-                            <div className="h-4 bg-white/5 rounded-lg w-96 mx-auto"></div>
+                        {/* Title Header Skeleton */}
+                        <div className="mb-12 text-center animate-pulse space-y-4">
+                            <div className="h-10 sm:h-12 bg-white/10 rounded-2xl w-64 sm:w-80 mx-auto"></div>
+                            <div className="h-4 sm:h-5 bg-white/5 rounded-xl w-72 sm:w-[420px] mx-auto"></div>
                         </div>
 
+                        {/* VIP Cards Skeleton Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {[1, 2, 3].map((skeleton) => (
                                 <div
                                     key={skeleton}
                                     className="relative h-full rounded-3xl p-1 overflow-hidden"
                                     style={{
-                                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02))',
+                                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02))',
                                         backdropFilter: 'blur(20px)',
+                                        border: '1px solid rgba(255, 255, 255, 0.08)',
                                     }}
                                 >
-                                    <div className="bg-[#0a0a0a] rounded-[1.4rem] h-full flex flex-col justify-between">
-                                        <div className="p-6 md:p-8 animate-pulse">
-                                            {/* Icon Skeleton */}
-                                            <div className="w-14 h-14 bg-white/10 rounded-2xl mb-6"></div>
-                                            {/* Title Skeleton */}
-                                            <div className="h-8 bg-white/10 rounded-xl w-3/4 mb-4"></div>
-                                            {/* Location Skeleton */}
-                                            <div className="h-4 bg-white/10 rounded-lg w-1/2 mb-6"></div>
+                                    <div className="relative h-full bg-[#111111] rounded-[22px] overflow-hidden flex flex-col justify-between animate-pulse">
+                                        {/* Cover Banner Skeleton */}
+                                        <div className="relative h-44 sm:h-48 w-full bg-white/[0.05] border-b border-white/5 overflow-hidden">
+                                            {/* Role Pill Skeleton */}
+                                            <div className="absolute top-3 right-3">
+                                                <div className="h-6 w-24 rounded-full bg-black/80 border border-[#D4AF37]/20"></div>
+                                            </div>
                                         </div>
-                                        {/* Bottom Bar Skeleton */}
-                                        <div className="p-4 border-t border-white/5 bg-white/5 flex items-center justify-between animate-pulse">
-                                            <div className="h-4 bg-white/10 rounded-lg w-24"></div>
-                                            <div className="w-5 h-5 bg-white/10 rounded-full"></div>
+
+                                        {/* Card Body Skeleton */}
+                                        <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                                            <div>
+                                                <div className="flex items-baseline justify-between gap-2 mb-2">
+                                                    <div className="h-6 bg-white/15 rounded-lg w-36"></div>
+                                                    <div className="h-4 bg-[#D4AF37]/20 rounded-md w-14"></div>
+                                                </div>
+                                                <div className="h-3.5 bg-white/10 rounded w-24"></div>
+                                            </div>
+
+                                            {/* Stats Grid Skeleton */}
+                                            <div className="grid grid-cols-2 gap-2.5">
+                                                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 space-y-2">
+                                                    <div className="h-3 bg-white/10 rounded w-12"></div>
+                                                    <div className="h-5 bg-white/15 rounded w-16"></div>
+                                                </div>
+                                                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 space-y-2">
+                                                    <div className="h-3 bg-white/10 rounded w-16"></div>
+                                                    <div className="h-4 bg-white/15 rounded w-20"></div>
+                                                </div>
+                                            </div>
+
+                                            {/* Button Skeleton */}
+                                            <div className="h-12 w-full bg-gradient-to-r from-[#D4AF37]/20 to-[#FFD700]/10 border border-[#D4AF37]/20 rounded-xl"></div>
                                         </div>
                                     </div>
                                 </div>

@@ -170,8 +170,19 @@ export default function App() {
   // Show loading while verifying access
   if (user && isLoading && hasClubInUrl) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a]">
-        <div className="text-white">A verificar acesso...</div>
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.12)_0%,transparent_60%)] pointer-events-none" />
+        <div className="relative z-10 flex flex-col items-center gap-6 animate-pulse">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#D4AF37] to-[#FFD700] p-0.5 shadow-[0_0_40px_rgba(212,175,55,0.35)]">
+            <div className="w-full h-full bg-black rounded-[14px] flex items-center justify-center">
+              <span className="text-xl font-black text-[#D4AF37]">V</span>
+            </div>
+          </div>
+          <div className="space-y-2 text-center">
+            <div className="h-5 w-48 bg-white/10 rounded-lg mx-auto"></div>
+            <div className="h-3.5 w-32 bg-white/5 rounded-md mx-auto"></div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -195,7 +206,7 @@ export default function App() {
           <div className="absolute top-1/2 right-1/3 w-[350px] h-[350px] bg-[#DAA520] opacity-8 blur-[100px] rounded-full"></div>
         </div>
 
-        <div className="relative z-10 pt-20">
+        <div className="relative z-10">
           {/* Modified Header with SuperAdmin Button & Logout */}
           <Header
             onLoginClick={handleLogout}
@@ -244,7 +255,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#050505] relative overflow-hidden">
       <InteractiveBackground />
-      <div className="relative z-10 flex flex-col min-h-screen pt-20">
+      <div className="relative z-10 flex flex-col min-h-screen">
         <Header onLoginClick={() => setShowAuth(true)} />
         <HeroSection onLoginClick={() => setShowAuth(true)} />
         <Marquee />

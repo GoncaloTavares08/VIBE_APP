@@ -88,9 +88,47 @@ export function DiscoverEvents() {
 
     if (loading) {
         return (
-            <div className="flex justify-center py-20 relative z-10">
-                <div className="w-10 h-10 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin"></div>
-            </div>
+            <section className="py-20 relative z-10">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    {/* Header Skeleton */}
+                    <div className="text-center mb-12 animate-pulse space-y-4">
+                        <div className="h-10 sm:h-12 bg-white/10 rounded-2xl w-72 sm:w-96 mx-auto"></div>
+                        <div className="h-4 sm:h-5 bg-white/5 rounded-xl w-80 sm:w-[480px] mx-auto"></div>
+                    </div>
+
+                    {/* Filter Pill Skeleton */}
+                    <div className="flex justify-center mb-12 animate-pulse">
+                        <div className="h-12 w-64 bg-white/5 border border-white/10 rounded-2xl"></div>
+                    </div>
+
+                    {/* Events Grid Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                            <div
+                                key={i}
+                                className="relative rounded-3xl overflow-hidden aspect-[4/5] bg-[#111111] border border-white/10 animate-pulse flex flex-col justify-between p-6"
+                            >
+                                {/* Top Badge & Status Skeleton */}
+                                <div className="flex justify-between items-start">
+                                    <div className="h-7 w-28 bg-white/10 rounded-full"></div>
+                                    <div className="h-7 w-16 bg-[#D4AF37]/10 rounded-full border border-[#D4AF37]/20"></div>
+                                </div>
+
+                                {/* Bottom Info Skeleton */}
+                                <div className="space-y-3">
+                                    <div className="h-4 w-24 bg-white/10 rounded-lg"></div>
+                                    <div className="h-7 w-3/4 bg-white/15 rounded-xl"></div>
+                                    <div className="flex items-center gap-3 pt-2">
+                                        <div className="h-4 w-28 bg-white/5 rounded-lg"></div>
+                                        <div className="h-4 w-20 bg-white/5 rounded-lg"></div>
+                                    </div>
+                                    <div className="h-11 w-full bg-gradient-to-r from-white/10 to-white/5 rounded-xl mt-2"></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
         );
     }
 

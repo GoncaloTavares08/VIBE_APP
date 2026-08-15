@@ -16,7 +16,7 @@ export function Header({ onLoginClick, isLoggedIn = false, userName, isSuperAdmi
   const displayName = clubInfo ? `VIBE - ${clubInfo.name}` : 'VIBE';
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 w-full px-4 sm:px-8 py-3.5 backdrop-blur-2xl bg-[#0a0a0a]/95 border-b border-white/10 shadow-2xl transition-all duration-300">
+    <header className="relative z-30 w-full px-4 sm:px-8 py-5 border-b border-white/5 transition-all duration-300">
       <nav className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Logo and brand */}
         <div className="flex items-center gap-3">
