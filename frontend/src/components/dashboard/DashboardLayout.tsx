@@ -180,8 +180,8 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
   };
 
   return (
-    // Root: Viewport-constrained (h-screen), Mobile: Column, Desktop: Row
-    <div className="flex h-[100dvh] w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
+    // Root: Viewport-constrained (fixed inset-0), Mobile: Column, Desktop: Row
+    <div className="fixed inset-0 flex w-full overflow-hidden flex-col md:flex-row" style={{ background: '#0a0a0a' }}>
       {/* Ambient subtle background */}
       <div
         className="fixed inset-0 pointer-events-none"
@@ -340,11 +340,13 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
       <main ref={mainContentRef} className="flex-1 overflow-y-auto overflow-x-hidden relative transition-all duration-300 w-full">
         {/* Header */}
         <header
-          className="sticky top-0 z-30 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between"
+          className="sticky top-0 z-30 px-4 md:px-8 flex items-center justify-between"
           style={{
             background: 'rgba(10, 10, 10, 0.95)',
             backdropFilter: 'blur(20px)',
             borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            paddingTop: 'calc(env(safe-area-inset-top) + 1rem)',
+            paddingBottom: '1rem'
           }}
         >
           <div>
@@ -400,7 +402,10 @@ export function DashboardLayout({ children, currentPage, onPageChange, user, onL
 
       {/* Mobile Bottom Navigation Bar (Floating Glassmorphism Pill) */}
       {isMobile && (
-        <div className="fixed bottom-3 left-4 right-4 z-40">
+        <div 
+          className="fixed left-4 right-4 z-40"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+        >
           <div
             className="px-4 py-3 rounded-3xl flex items-center justify-around border shadow-2xl"
             style={{

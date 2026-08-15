@@ -13,9 +13,11 @@ export function ClientHeader({ userName = 'André Silva', onLogout }: ClientHead
         background: 'rgba(10, 10, 10, 0.95)',
         backdropFilter: 'blur(30px)',
         borderColor: 'rgba(255, 255, 255, 0.1)',
+        paddingTop: 'calc(env(safe-area-inset-top) + 1rem)',
+        paddingBottom: '1rem',
       }}
     >
-      <div className="px-4 lg:px-8 py-4 flex items-center justify-between">
+      <div className="px-4 lg:px-8 flex items-center justify-between">
         {/* Left: Welcome Message */}
         <div>
           <h1

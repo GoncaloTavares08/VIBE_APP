@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Camera, X, Check, User, Eye, EyeOff, Calendar, TrendingUp, Award, Edit, Instagram, Plus, Loader2, AlertCircle, Users } from 'lucide-react';
+import { Camera, Check, User, Eye, EyeOff, Calendar, TrendingUp, Award, Edit, Instagram, Plus, Loader2, AlertCircle, Users, Trash2 } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
 
 interface PartyHistoryItem {
@@ -193,6 +193,8 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
     }
   };
 
+
+
   const handleGalleryPhotoClick = () => {
     if (photos.length >= 6) {
       showError('Máximo de 6 fotos atingido');
@@ -246,6 +248,10 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
 
   const handleDeleteGalleryPhoto = async (photoId: number) => {
     if (!userId) return;
+
+    if (!window.confirm('Queres mesmo apagar esta foto?')) {
+      return;
+    }
 
     try {
       const data = await apiFetch(`/profile/gallery/${photoId}`, {
@@ -657,18 +663,22 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
                   alt={`Gallery ${photo.photo_order + 1}`}
                   className="w-full h-full object-cover"
                 />
-                {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <button
-                    onClick={() => handleDeleteGalleryPhoto(photo.id)}
-                    className="w-10 h-10 rounded-full flex items-center justify-center"
-                    style={{
-                      background: 'rgba(239, 68, 68, 0.9)',
-                    }}
-                  >
-                    <X className="w-5 h-5 text-white" />
-                  </button>
-                </div>
+                {/* Delete Button (Centered, visible on mobile, hover on desktop) */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDeleteGalleryPhoto(photo.id);
+                  }}
+                  className="absolute inset-0 m-auto z-10 w-12 h-12 rounded-full flex items-center justify-center opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity shadow-xl backdrop-blur-sm cursor-pointer"
+                  style={{
+                    background: 'rgba(20, 20, 20, 0.7)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                  }}
+                >
+                  <Trash2 className="w-5 h-5 text-gray-300" />
+                </button>
               </div>
             ))}
 
