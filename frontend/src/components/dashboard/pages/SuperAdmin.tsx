@@ -16,6 +16,7 @@ import {
   X
 } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
+import { processHeicFile } from '../../../utils/imageUtils';
 
 interface ClubAdmin {
   id: number;
@@ -227,8 +228,15 @@ export function SuperAdmin() {
       formData.append('is_active', clubForm.is_active ? '1' : '0');
 
       if (clubLogoFile) {
-        formData.append('logo_file', clubLogoFile);
-      } else {
+        try {
+          const processedLogo = await processHeicFile(clubLogoFile);
+          formData.append('logo_file', processedLogo);
+        } catch (err) {
+          setError('Erro ao converter formato do logo do iPhone');
+          setClubSubmitting(false);
+          return;
+        }
+      } else if (clubForm.logo_url) {
         formData.append('logo_url', clubForm.logo_url);
       }
 

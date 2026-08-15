@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Camera, Check, User, Eye, EyeOff, Calendar, TrendingUp, Award, Edit, Instagram, Plus, Loader2, AlertCircle, Users, Trash2 } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
+import { GlassCard } from '../../ui/GlassCard';
+import { processHeicFile } from '../../../utils/imageUtils';
 
 interface PartyHistoryItem {
   id: number;
@@ -167,8 +169,18 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
 
     try {
       setUploading(true);
+      
+      let processedFile = file;
+      try {
+        processedFile = await processHeicFile(file);
+      } catch (err) {
+        showError('Erro ao converter formato da imagem do iPhone');
+        setUploading(false);
+        return;
+      }
+
       const formData = new FormData();
-      formData.append('photo', file);
+      formData.append('photo', processedFile);
       formData.append('user_id', userId.toString());
 
       const data = await apiFetch('/profile', {
@@ -220,8 +232,18 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
 
     try {
       setUploadingGallery(true);
+      
+      let processedFile = file;
+      try {
+        processedFile = await processHeicFile(file);
+      } catch (err) {
+        showError('Erro ao converter formato da imagem do iPhone');
+        setUploadingGallery(false);
+        return;
+      }
+
       const formData = new FormData();
-      formData.append('photo', file);
+      formData.append('photo', processedFile);
       formData.append('user_id', userId.toString());
 
       const data = await apiFetch('/profile/gallery', {

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ExternalLink, Edit, Share2, Instagram, Copy, CheckCircle2, Calendar, Music, Loader2, Clock, Users, Check, X, AlertCircle, Camera, Plus, Trash2, Ghost, Flame, Sparkles, Heart } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
 import { GlassCard } from '../../ui/GlassCard';
+import { processHeicFile } from '../../../utils/imageUtils';
 
 interface Event {
   id: number;
@@ -121,8 +122,17 @@ export function RPProfile() {
 
     try {
       setUploadingGallery(true);
+      
+      let processedFile = file;
+      try {
+        processedFile = await processHeicFile(file);
+      } catch (err) {
+        setSaveMessage({ type: 'error', text: 'Erro ao converter foto do iPhone' });
+        setUploadingGallery(false);
+        return;
+      }
       const dataUpload = new FormData();
-      dataUpload.append('photo', file);
+      dataUpload.append('photo', processedFile);
       dataUpload.append('user_id', userId.toString());
 
       const data = await apiFetch('/profile/gallery', {
@@ -137,8 +147,8 @@ export function RPProfile() {
       } else {
         setSaveMessage({ type: 'error', text: data.message });
       }
-    } catch (err) {
-      setSaveMessage({ type: 'error', text: 'Erro ao enviar foto' });
+    } catch (err: any) {
+      setSaveMessage({ type: 'error', text: err.message || 'Erro ao enviar foto' });
     } finally {
       setUploadingGallery(false);
       if (galleryInputRef.current) galleryInputRef.current.value = '';
@@ -266,9 +276,9 @@ export function RPProfile() {
       } else {
         setSaveMessage({ type: 'error', text: data.message });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving profile:', err);
-      setSaveMessage({ type: 'error', text: 'Erro ao guardar perfil' });
+      setSaveMessage({ type: 'error', text: err.message || 'Erro ao guardar perfil' });
     } finally {
       setSaving(false);
     }
@@ -287,8 +297,18 @@ export function RPProfile() {
 
     try {
       setUploadingPhoto(true);
+      
+      let processedFile = file;
+      try {
+        processedFile = await processHeicFile(file);
+      } catch (err) {
+        setSaveMessage({ type: 'error', text: 'Erro ao converter foto do iPhone' });
+        setUploadingPhoto(false);
+        return;
+      }
+
       const uploadData = new FormData();
-      uploadData.append('photo', file);
+      uploadData.append('photo', processedFile);
 
       const data = await apiFetch('/rp/profile/photo', {
         method: 'POST',

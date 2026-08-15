@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Bell, Building, Shield, Save, AlertTriangle, Users, TrendingUp, Loader2, Upload, Link, X } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
+import { processHeicFile } from '../../../utils/imageUtils';
 
 interface ClubSettings {
   id: number;
@@ -154,7 +155,14 @@ export function Settings() {
       formData.append('notifications', JSON.stringify(notifications));
 
       if (logoFile) {
-        formData.append('logo_file', logoFile);
+        try {
+          const processedLogo = await processHeicFile(logoFile);
+          formData.append('logo_file', processedLogo);
+        } catch (err) {
+          setError('Erro ao converter formato do logo do iPhone');
+          setSaving(false);
+          return;
+        }
       } else {
         formData.append('logo_url', logoUrl);
       }
