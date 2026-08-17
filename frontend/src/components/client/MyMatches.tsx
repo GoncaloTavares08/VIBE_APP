@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Heart, Instagram } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { apiFetch } from '../../services/api';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 

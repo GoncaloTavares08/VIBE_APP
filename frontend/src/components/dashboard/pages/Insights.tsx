@@ -1,5 +1,5 @@
 import { Users, UserPlus, TrendingUp, Euro } from 'lucide-react';
-import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // Mock data
 const monthlyRevenue = [
@@ -172,7 +172,7 @@ export function Insights() {
                 formatter={(value) => [`€${value}`, 'Revenue']}
               />
               <Bar dataKey="revenue" radius={[12, 12, 0, 0]}>
-                {monthlyRevenue.map((entry, index) => (
+                {monthlyRevenue.map((_entry, index) => (
                   <Cell key={`cell-${index}`} fill="#D4AF37" />
                 ))}
               </Bar>

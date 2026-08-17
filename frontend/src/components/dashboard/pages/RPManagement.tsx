@@ -9,7 +9,6 @@ import {
   AlertCircle,
   Users,
   Crown,
-  Sparkles,
   ChevronDown,
   ChevronUp,
   Filter,

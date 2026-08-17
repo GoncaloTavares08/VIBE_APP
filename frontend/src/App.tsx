@@ -17,7 +17,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import './styles/globals.css';
 import { MyClubs } from './components/MyClubs';
-import { enablePushNotifications } from './services/pushNotifications';
+import { enablePushNotifications, listenForForegroundMessages } from './services/pushNotifications';
 
 interface AppUser {
   id: number;
@@ -64,11 +64,18 @@ export default function App() {
   // Verify club access
   const { hasAccess, isLoading, clubName, role: verifiedRole, points: verifiedPoints, memberSince: verifiedMemberSince } = useClubAccess(user?.id, currentPath);
 
-  // Ask for push notification permission once, right after a session is established
-  // (fresh login or restored from localStorage) — not tied to any specific screen.
+  // Set up push notifications right after a session is established (fresh
+  // login or restored from localStorage) — not tied to any specific screen.
+  // Ask for permission the first time; on every later visit (already granted)
+  // just re-attach the foreground listener, since that's per-page-load, not
+  // something that sticks around from the original grant.
   useEffect(() => {
-    if (user?.id && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+    if (!user?.id || typeof Notification === 'undefined') return;
+
+    if (Notification.permission === 'default') {
       enablePushNotifications();
+    } else if (Notification.permission === 'granted') {
+      listenForForegroundMessages();
     }
   }, [user?.id]);
 

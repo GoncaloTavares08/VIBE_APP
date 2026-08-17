@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Camera, Check, User, Eye, EyeOff, Calendar, TrendingUp, Award, Edit, Instagram, Plus, Loader2, AlertCircle, Users, Trash2 } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
-import { GlassCard } from '../../ui/GlassCard';
 import { processHeicFile } from '../../../utils/imageUtils';
 
 interface PartyHistoryItem {

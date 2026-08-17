@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { LogOut, Home, KeySquare, Camera, ArrowLeft, MoreHorizontal, Settings, ScanLine, Wallet, Clock, User, QrCode, Menu, X, Bell, Zap, ChevronRight } from 'lucide-react';
+import { LogOut, Home, Wallet, Clock, User, QrCode, Menu, X, Bell, Zap, ChevronRight } from 'lucide-react';
 import { apiFetch } from '../../services/api';
 import { getEcho } from '../../services/echo';
 import { NotificationPanel } from '../NotificationPanel';

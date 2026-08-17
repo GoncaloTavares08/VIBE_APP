@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, useAnimation, PanInfo } from 'motion/react';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { apiFetch } from '../../services/api';
@@ -25,11 +25,10 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
   const [people, setPeople] = useState<Person[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
-  const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
+  const [, setSwipeDirection] = useState<'left' | 'right' | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const dragStart = useRef<number | null>(null);
-  
+
   // Framer Motion Drag values
   const x = useMotionValue(0);
   // When swiping left (negative x), rotate counter-clockwise. Right, clockwise.
@@ -145,7 +144,7 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
     });
   };
 
-  const handleDragEnd = async (event: any, info: PanInfo) => {
+  const handleDragEnd = async (_event: any, info: PanInfo) => {
     const swipeThreshold = 100;
     if (info.offset.x > swipeThreshold || info.velocity.x > 800) {
       await controls.start({ x: window.innerWidth, transition: { duration: 0.2 } });
