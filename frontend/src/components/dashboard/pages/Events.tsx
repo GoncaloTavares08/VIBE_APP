@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Calendar, Clock, Users, Plus, Trash2, TrendingUp, Loader2, Edit2, Euro, UploadCloud, Link as LinkIcon, Image as ImageIcon, X } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
-import { GlassCard } from '../../ui/GlassCard';
 import { processHeicFile } from '../../../utils/imageUtils';
 
 const formatImageUrl = (url?: string | null) => {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, X, CheckCircle, Clock, Users, AlertTriangle } from 'lucide-react';
+import { Search, X, CheckCircle, Clock, Users } from 'lucide-react';
 import { motion } from 'motion/react';
 import { apiFetch } from '../../../services/api';
 
@@ -23,7 +23,6 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
   const [searchTerm, setSearchTerm] = useState('');
   const [guests, setGuests] = useState<Guest[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -131,10 +130,6 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
         };
     }
   };
-
-  const pendingCount = guests.filter((g) => g.status === 'pending').length;
-  // checkedInCount logic might be limited to search results, which is fine
-  const checkedInCount = guests.filter((g) => g.status === 'checked-in').length;
 
   const content = (
     <div className="h-full flex flex-col relative z-10">
@@ -310,7 +305,7 @@ export function ManualCheckin({ onClose, embedded = false }: ManualCheckinProps)
         drag={embedded ? false : "y"}
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={0.2}
-        onDragEnd={(event, info) => {
+        onDragEnd={(_event, info) => {
           if (!embedded && info.offset.y > 100) {
             onClose();
           }

@@ -1,18 +1,21 @@
 name: Deploy to EC2
 
+# Only deploys after the CI workflow finishes running on `develop` — and only
+# if it actually passed. A broken push to `develop` no longer reaches production.
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
     branches:
       - develop
 
 jobs:
   deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
       - name: Execute Deploy Script on Server
         uses: appleboy/ssh-action@master
         with:

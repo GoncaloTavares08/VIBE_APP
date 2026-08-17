@@ -11,7 +11,6 @@ import {
     User as UserIcon,
     Home,
     Check,
-    ChevronRight,
     ArrowRight
 } from 'lucide-react';
 import { useState, useEffect } from 'react';

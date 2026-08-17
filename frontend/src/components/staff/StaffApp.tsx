@@ -102,7 +102,6 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
       setIsMobile(isMobileAppView);
 
       // Sidebar collapsing logic (only relevant if we are NOT in mobile app view, i.e. >= 1024)
-      const shouldCollapse = window.innerWidth < 1280; // Example breakpoint for auto-collapse on smaller desktops if desired, or just keep manual. 
       // Actually DashboardLayout collapses at 768. Since we only show this layout at >= 1024, it will be expanded by default.
       if (window.innerWidth < 1280) {
         setIsCollapsed(true);

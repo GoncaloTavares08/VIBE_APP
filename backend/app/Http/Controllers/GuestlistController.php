@@ -207,7 +207,7 @@ class GuestlistController extends Controller
                 $startStr = $event->date . ' ' . $event->start_time;
                 $endStr = $event->date . ' ' . $event->end_time;
                 
-                $endObj = Carbon::parse($endStr);
+                $endObj = Carbon::parse($endStr, 'Europe/Lisbon');
                 if ($event->end_time < $event->start_time) {
                     $endObj->addDay();
                 }
@@ -224,20 +224,31 @@ class GuestlistController extends Controller
             ]);
         }
 
-        // 2. Next Event Status
-        $nextEventQuery = Event::where('status', '!=', 'cancelled')
+        // 2. Next Event Status — mirrors the time-window logic already used by
+        // index()/qrCode() instead of trusting the `status` column, which is
+        // only refreshed as a side effect of hitting EventController and can
+        // go stale (e.g. an event from last night still marked "ongoing").
+        $candidateQuery = Event::where('status', '!=', 'cancelled')
+            ->where('date', '>=', $now->copy()->subDay()->toDateString())
             ->orderBy('date', 'asc')
             ->orderBy('start_time', 'asc');
 
         if ($clubId) {
-            $nextEventQuery->where('club_id', $clubId);
+            $candidateQuery->where('club_id', $clubId);
         }
 
-        $nextEvent = $nextEventQuery->where(function($q) use ($now) {
-            $dateOnly = $now->format('Y-m-d');
-            $q->where('date', '>=', $dateOnly)
-              ->orWhere('status', 'ongoing');
-        })->first();
+        $nextEvent = $candidateQuery->get()->first(function ($ev) use ($now) {
+            $start = Carbon::parse($ev->date . ' ' . ($ev->start_time ?: '00:00'), 'Europe/Lisbon');
+            if ($ev->end_time) {
+                $end = Carbon::parse($ev->date . ' ' . $ev->end_time, 'Europe/Lisbon');
+                if ($end->lte($start)) {
+                    $end->addDay();
+                }
+            } else {
+                $end = (clone $start)->addHours(12);
+            }
+            return $now->lte($end);
+        });
 
         if (!$nextEvent) {
             return response()->json([

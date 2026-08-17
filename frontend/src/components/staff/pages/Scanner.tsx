@@ -33,9 +33,8 @@ interface PaymentData {
 
 export function Scanner({ onOpenManual }: ScannerProps) {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const [, setIsMobile] = useState(false);
   const [isScanning, setIsScanning] = useState(true); // Auto-start scanner
-  const [scannerStarted, setScannerStarted] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(() => {
     const stored = sessionStorage.getItem('isCameraActive');
     return stored ? JSON.parse(stored) : true;
@@ -60,8 +59,8 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     setIsCameraActive(false);
   };
 
-  const [cameraPermission, setCameraPermission] = useState<'checking' | 'granted' | 'denied' | 'prompt'>('checking');
-  const [userId, setUserId] = useState<number | null>(null);
+  const [, setCameraPermission] = useState<'checking' | 'granted' | 'denied' | 'prompt'>('checking');
+  const [, setUserId] = useState<number | null>(null);
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
@@ -177,11 +176,6 @@ export function Scanner({ onOpenManual }: ScannerProps) {
         message: error instanceof Error ? error.message : String(error)
       });
     }
-  };
-
-  const resetScanner = () => {
-    setScanResult(null);
-    setIsScanning(true);
   };
 
   const handleConfirmPayment = async () => {

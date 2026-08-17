@@ -129,4 +129,35 @@ class NetworkingTest extends TestCase
 
         $response->assertStatus(400);
     }
+
+    public function test_swipe_is_rejected_for_a_stale_check_in_to_an_event_that_already_ended(): void
+    {
+        // Regression: getCurrentEventId() used to pick the most recent checked_in
+        // guestlist regardless of whether that event had actually finished.
+        $club = Club::create(['name' => 'Vibe Club', 'slug' => 'vibeclub']);
+        $now = Carbon::now('Europe/Lisbon');
+
+        $pastEvent = Event::create([
+            'club_id' => $club->id,
+            'name' => 'Festa de Ontem',
+            'date' => $now->copy()->subDay()->toDateString(),
+            'start_time' => $now->copy()->subDay()->subHours(6)->format('H:i:s'),
+            'end_time' => $now->copy()->subHours(3)->format('H:i:s'),
+            'capacity' => 500,
+            'status' => 'ongoing',
+        ]);
+
+        $user = User::create(['name' => 'Ana', 'email' => 'ana5@example.com', 'password' => bcrypt('password')]);
+        $other = User::create(['name' => 'Bruno', 'email' => 'bruno5@example.com', 'password' => bcrypt('password')]);
+        $this->checkInToEvent($user, $pastEvent);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/networking/swipe', [
+            'liked_id' => $other->id,
+            'action' => 'like',
+        ]);
+
+        $response->assertStatus(400);
+    }
 }

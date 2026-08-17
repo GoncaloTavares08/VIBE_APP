@@ -13,10 +13,30 @@ class NetworkingController extends Controller
 {
     private function getCurrentEventId($userId)
     {
-        $gl = Guestlist::where('client_id', $userId)
+        $now = Carbon::now('Europe/Lisbon');
+
+        $gl = Guestlist::with('event')
+            ->where('client_id', $userId)
             ->where('status', 'checked_in')
             ->orderBy('checked_in_at', 'desc')
-            ->first();
+            ->get()
+            ->first(function ($guestlist) use ($now) {
+                $event = $guestlist->event;
+                if (!$event) return false;
+
+                $start = Carbon::parse($event->date . ' ' . ($event->start_time ?: '00:00'), 'Europe/Lisbon');
+                if ($event->end_time) {
+                    $end = Carbon::parse($event->date . ' ' . $event->end_time, 'Europe/Lisbon');
+                    if ($end->lte($start)) {
+                        $end->addDay();
+                    }
+                } else {
+                    $end = (clone $start)->addHours(12);
+                }
+
+                return $now->lte($end);
+            });
+
         return $gl ? $gl->event_id : null;
     }
 

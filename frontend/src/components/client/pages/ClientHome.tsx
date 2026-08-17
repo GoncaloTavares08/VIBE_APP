@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ImageWithFallback } from '../../figma/ImageWithFallback';
-import { Clock, Lock, MapPin, QrCode, TrendingUp, Users, Heart, Award, Calendar, Flame, Trophy } from 'lucide-react';
+import { Clock, Lock, MapPin, QrCode, Users, Heart, Award, Calendar, Flame, Trophy } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
 import { WhoIsHere } from '../WhoIsHere';
 import { PersonProfileModal } from '../PersonProfileModal';
@@ -47,7 +47,6 @@ export function ClientHome() {
       // Get user ID from localStorage
       const userStr = localStorage.getItem('user');
       if (!userStr) return;
-      const user = JSON.parse(userStr);
 
       const response = await apiFetch('/guestlist/status', {
         method: 'GET'
