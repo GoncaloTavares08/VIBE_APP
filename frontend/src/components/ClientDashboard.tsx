@@ -18,7 +18,7 @@ export function ClientDashboard({ user, onLogout }: ClientDashboardProps) {
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
-        return <ClientHome />;
+        return <ClientHome onNavigate={(page) => setCurrentPage(page)} />;
       case 'wallet':
         return <ClientWallet user={user} />;
       case 'qr':

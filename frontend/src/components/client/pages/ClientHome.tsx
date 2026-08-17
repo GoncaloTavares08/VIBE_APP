@@ -36,9 +36,14 @@ interface Person {
   instagram?: string;
 }
 
-export function ClientHome() {
+interface ClientHomeProps {
+  onNavigate?: (page: string) => void;
+}
+
+export function ClientHome({ onNavigate }: ClientHomeProps) {
   const [partyState, setPartyState] = useState<PartyState>('no-guestlist');
   const [activeEvent, setActiveEvent] = useState<Event | null>(null);
+  const [eventStarted, setEventStarted] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Helper to fetch status from backend
@@ -56,6 +61,7 @@ export function ClientHome() {
         const backendStatus = response.computed_status as PartyState; // 'no-guestlist' | 'has-guestlist' | 'live-party'
         setPartyState(backendStatus || 'no-guestlist');
         setActiveEvent(response.event || null);
+        setEventStarted(Boolean(response.event_started));
       }
     } catch (error) {
       console.error('Error fetching home status:', error);
@@ -113,7 +119,9 @@ export function ClientHome() {
         {partyState === 'no-guestlist' && <NoGuestlistView initialEvent={activeEvent} onRefresh={fetchStatus} />}
 
         {/* Variation B: Has Guestlist */}
-        {partyState === 'has-guestlist' && <HasGuestlistView event={activeEvent} />}
+        {partyState === 'has-guestlist' && (
+          <HasGuestlistView event={activeEvent} eventStarted={eventStarted} onNavigate={onNavigate} />
+        )}
 
         {/* Variation C: Live Party */}
         {partyState === 'live-party' && <LivePartyView event={activeEvent} />}
@@ -444,8 +452,16 @@ function NoGuestlistView({ initialEvent, onRefresh }: { initialEvent: Event | nu
   );
 }
 
-// Variation B: Has Guestlist (Locked)
-function HasGuestlistView({ event }: { event?: Event | null }) {
+// Variation B: Has Guestlist (Locked before the event starts, "go to the door" once it has)
+function HasGuestlistView({
+  event,
+  eventStarted,
+  onNavigate,
+}: {
+  event?: Event | null;
+  eventStarted?: boolean;
+  onNavigate?: (page: string) => void;
+}) {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div
@@ -456,7 +472,7 @@ function HasGuestlistView({ event }: { event?: Event | null }) {
           border: '1px solid rgba(255, 255, 255, 0.1)',
         }}
       >
-        {/* Lock Icon */}
+        {/* Icon */}
         <div className="flex justify-center">
           <div
             className="w-20 h-20 rounded-full flex items-center justify-center"
@@ -466,7 +482,11 @@ function HasGuestlistView({ event }: { event?: Event | null }) {
               boxShadow: '0 0 40px rgba(212, 175, 55, 0.3)',
             }}
           >
-            <Lock className="w-10 h-10 text-[#D4AF37]" />
+            {eventStarted ? (
+              <QrCode className="w-10 h-10 text-[#D4AF37]" />
+            ) : (
+              <Lock className="w-10 h-10 text-[#D4AF37]" />
+            )}
           </div>
         </div>
 
@@ -484,23 +504,49 @@ function HasGuestlistView({ event }: { event?: Event | null }) {
             <br />
             {event?.name || 'Próximo Evento'}
           </h3>
-          <p className="text-gray-400">
-            Esta área desbloqueia quando entrares na festa.
-            <br />
-            Até lá, prepara o teu VIBE.
-          </p>
+          {eventStarted ? (
+            <p className="text-gray-400">
+              A festa já começou! 🎉
+              <br />
+              Vai à entrada e mostra o teu QR Code.
+            </p>
+          ) : (
+            <p className="text-gray-400">
+              Esta área desbloqueia quando entrares na festa.
+              <br />
+              Até lá, prepara o teu VIBE.
+            </p>
+          )}
         </div>
+
+        {eventStarted && onNavigate && (
+          <button
+            onClick={() => onNavigate('qr')}
+            className="w-full py-4 rounded-xl transition-all duration-300 hover:scale-[1.02]"
+            style={{
+              background: 'linear-gradient(135deg, #D4AF37 0%, #FFD700 100%)',
+              boxShadow: '0 8px 30px rgba(212, 175, 55, 0.4)',
+            }}
+          >
+            <span className="text-black font-black text-lg">Ver o meu QR Code</span>
+          </button>
+        )}
 
         {/* Status Badge */}
         <div
           className="inline-flex items-center gap-2 px-5 py-2 rounded-full"
           style={{
-            background: 'rgba(34, 197, 94, 0.2)',
-            border: '1px solid rgba(34, 197, 94, 0.4)',
+            background: eventStarted ? 'rgba(212, 175, 55, 0.2)' : 'rgba(34, 197, 94, 0.2)',
+            border: eventStarted ? '1px solid rgba(212, 175, 55, 0.4)' : '1px solid rgba(34, 197, 94, 0.4)',
           }}
         >
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          <span className="text-green-400 text-sm">Guestlist Confirmada</span>
+          <div
+            className="w-2 h-2 rounded-full animate-pulse"
+            style={{ background: eventStarted ? '#D4AF37' : '#4ADE80' }}
+          />
+          <span className="text-sm" style={{ color: eventStarted ? '#D4AF37' : '#4ADE80' }}>
+            {eventStarted ? 'Evento a Decorrer' : 'Guestlist Confirmada'}
+          </span>
         </div>
       </div>
     </div>

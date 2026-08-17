@@ -44,13 +44,16 @@ class GuestlistController extends Controller
             ->exists() || in_array(strtolower($user->role ?? ''), ['rp', 'team_leader', 'staff']);
 
         if ($isRp) {
+            // Only today's events (or yesterday's cross-midnight one still running this
+            // morning) — not every future event ever scheduled at the club. An RP is
+            // auto-added to the guestlist right before they'd actually need the entry,
+            // not weeks in advance for events they may never attend.
             $today = Carbon::now('Europe/Lisbon')->format('Y-m-d');
             $yesterday = Carbon::now('Europe/Lisbon')->subDay()->format('Y-m-d');
 
             $eventsQuery = Event::where('status', '!=', 'cancelled')
                 ->where(function($q) use ($today, $yesterday) {
-                    $q->where('date', '>=', $today)
-                      ->orWhere('status', 'ongoing')
+                    $q->where('date', $today)
                       ->orWhere(function($sub) use ($yesterday) {
                           $sub->where('date', $yesterday)
                               ->where('end_time', '<', '12:00:00');
@@ -262,10 +265,13 @@ class GuestlistController extends Controller
             ->where('client_id', $user->id)
             ->exists();
 
+        $eventStart = Carbon::parse($nextEvent->date . ' ' . ($nextEvent->start_time ?: '00:00'), 'Europe/Lisbon');
+
         return response()->json([
             'status' => 'success',
             'computed_status' => $hasGuestlist ? 'has-guestlist' : 'no-guestlist',
-            'event' => $nextEvent
+            'event' => $nextEvent,
+            'event_started' => $now->gte($eventStart)
         ]);
     }
 
