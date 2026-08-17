@@ -146,8 +146,6 @@ class NetworkingController extends Controller
                 ->where('action', 'like')
                 ->count();
 
-            $distances = ['5m away', '8m away', '12m away', '15m away', '20m away'];
-
             $result[] = [
                 'id' => $profile->user_id,
                 'name' => $profile->user->name,
@@ -156,7 +154,6 @@ class NetworkingController extends Controller
                 'vibes' => $vibes,
                 'instagram' => $profile->instagram ?? '',
                 'photos' => $photos,
-                'distance' => $distances[array_rand($distances)]
             ];
         }
 
@@ -298,7 +295,6 @@ class NetworkingController extends Controller
                 'bio' => $profile->bio,
                 'age' => $age,
                 'vibes' => $vibes,
-                'distance' => 'Na festa',
                 'photos' => $photos
             ];
         }

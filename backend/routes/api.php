@@ -107,7 +107,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/networking/swipe', [NetworkingController::class, 'swipe'])->middleware('throttle:30,1');
     Route::get('/networking/matches', [NetworkingController::class, 'myMatches']);
     Route::get('/networking/check-updates', [NetworkingController::class, 'checkUpdates']);
-    
+
+    // Push notifications (FCM)
+    Route::post('/push/subscribe', [App\Http\Controllers\PushSubscriptionController::class, 'subscribe']);
+    Route::post('/push/unsubscribe', [App\Http\Controllers\PushSubscriptionController::class, 'unsubscribe']);
+
+    // Broadcasting auth (Reverb/WebSockets) — uses the Bearer token like every other
+    // route here, since this API has no session/cookie auth for Broadcast::routes() to use.
+    Route::post('/broadcasting/auth', function (Request $request) {
+        return \Illuminate\Support\Facades\Broadcast::auth($request);
+    });
+
     Route::get('/leaderboard', [LeaderboardController::class, 'getLeaderboard']);
     
     Route::get('/client/history', [App\Http\Controllers\ClientHistoryController::class, 'getHistory']);

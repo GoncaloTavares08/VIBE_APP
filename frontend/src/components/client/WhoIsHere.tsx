@@ -12,7 +12,6 @@ interface Person {
   bio: string;
   vibes: number;
   photos: string[];
-  distance: string;
   instagram?: string;
 }
 
@@ -335,11 +334,6 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
                 <Sparkles className="w-4 h-4 text-[#D4AF37]" />
                 <span className="text-xs font-bold text-[#D4AF37] tracking-wider">{currentPerson.vibes} VIBES</span>
               </div>
-              {currentPerson.distance && (
-                 <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
-                   <span className="text-xs font-bold text-gray-300 tracking-wider">{currentPerson.distance}</span>
-                 </div>
-              )}
             </div>
 
             {/* Bio */}

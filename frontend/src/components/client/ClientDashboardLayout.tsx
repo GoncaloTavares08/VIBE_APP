@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { LogOut, Home, KeySquare, Camera, ArrowLeft, MoreHorizontal, Settings, ScanLine, Wallet, Clock, User, QrCode, Menu, X, Bell, Zap, ChevronRight } from 'lucide-react';
 import { apiFetch } from '../../services/api';
+import { getEcho } from '../../services/echo';
 import { NotificationPanel } from '../NotificationPanel';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -170,11 +171,24 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
     };
 
     window.addEventListener('newMatch', handleLocalMatch);
-    const interval = setInterval(pollMatches, 15000); // Poll every 15 seconds
-    
+    const interval = setInterval(pollMatches, 15000); // Poll every 15 seconds (fallback if the socket drops)
+
+    // Real-time: check immediately instead of waiting for the next poll tick.
+    const echo = getEcho();
+    let channelName: string | null = null;
+    if (echo) {
+      channelName = `App.Models.User.${userId}`;
+      echo.private(channelName).notification((notification: any) => {
+        if (notification.type === 'match') {
+          pollMatches();
+        }
+      });
+    }
+
     return () => {
       clearInterval(interval);
       window.removeEventListener('newMatch', handleLocalMatch);
+      if (echo && channelName) echo.leave(channelName);
     };
   }, [userId]);
 

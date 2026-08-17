@@ -94,6 +94,27 @@ class NetworkingTest extends TestCase
         $this->assertDatabaseHas('notifications', ['notifiable_id' => $userB->id]);
     }
 
+    public function test_swipe_still_succeeds_when_push_delivery_fails(): void
+    {
+        // Even with a device token on file, Firebase isn't configured in tests (no real
+        // project credentials) — the match flow must not blow up because of that.
+        $event = $this->makeEvent();
+        $userA = User::create(['name' => 'Ana', 'email' => 'ana4@example.com', 'password' => bcrypt('password')]);
+        $userB = User::create(['name' => 'Bruno', 'email' => 'bruno4@example.com', 'password' => bcrypt('password')]);
+        $this->checkInToEvent($userA, $event);
+        $this->checkInToEvent($userB, $event);
+        $userA->deviceTokens()->create(['token' => 'fake-token-a', 'platform' => 'web']);
+
+        Sanctum::actingAs($userA);
+        $this->postJson('/api/networking/swipe', ['liked_id' => $userB->id, 'action' => 'like'])
+            ->assertStatus(200);
+
+        Sanctum::actingAs($userB);
+        $response = $this->postJson('/api/networking/swipe', ['liked_id' => $userA->id, 'action' => 'like']);
+
+        $response->assertStatus(200)->assertJsonPath('is_match', true);
+    }
+
     public function test_swipe_without_being_checked_in_to_an_event_fails(): void
     {
         $user = User::create(['name' => 'Ana', 'email' => 'ana3@example.com', 'password' => bcrypt('password')]);

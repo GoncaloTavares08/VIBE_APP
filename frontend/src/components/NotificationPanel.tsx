@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../services/api';
+import { getEcho } from '../services/echo';
 import { PersonProfileModal } from './client/PersonProfileModal';
 
 interface Notification {
@@ -66,7 +67,7 @@ export function NotificationPanel({ isOpen, onClose, onUnreadCountChange }: Noti
         }
     };
 
-    // Smart Polling
+    // Smart Polling (kept as a fallback in case the WebSocket connection drops)
     useEffect(() => {
         if (isOpen) {
             fetchNotifications();
@@ -75,6 +76,22 @@ export function NotificationPanel({ isOpen, onClose, onUnreadCountChange }: Noti
         const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
     }, [isOpen]);
+
+    // Real-time updates over Reverb/WebSockets — refetches immediately instead
+    // of waiting for the next poll tick.
+    useEffect(() => {
+        const userStr = localStorage.getItem('user');
+        const userId = userStr ? JSON.parse(userStr)?.id : null;
+        const echo = userId ? getEcho() : null;
+        if (!echo || !userId) return;
+
+        const channel = echo.private(`App.Models.User.${userId}`);
+        channel.notification(() => fetchNotifications());
+
+        return () => {
+            echo.leave(`App.Models.User.${userId}`);
+        };
+    }, []);
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
 
