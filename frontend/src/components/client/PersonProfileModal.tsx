@@ -11,7 +11,6 @@ interface Person {
   vibes: number;
   points?: number;
   photos: string[];
-  distance: string;
   instagram?: string;
 }
 

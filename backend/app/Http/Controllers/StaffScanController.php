@@ -215,6 +215,8 @@ class StaffScanController extends Controller
                 'checked_in_at' => $now
             ]);
 
+            $guestlist->client->notify(new \App\Notifications\CheckInNotification($guestlist->event->id, $guestlist->event->name));
+
             $responsePayload['guestlist_status'] = 'checked_in';
             $responsePayload['checked_in_at'] = $now;
 
@@ -353,6 +355,7 @@ class StaffScanController extends Controller
             DB::commit();
 
             $client = \App\Models\User::find($validated['user_id']);
+            $client?->notify(new \App\Notifications\PointsAwardedNotification($pointsAwarded, $newPoints));
 
             return response()->json([
                 'status' => 'success',
@@ -485,6 +488,8 @@ class StaffScanController extends Controller
             'status' => 'checked_in',
             'checked_in_at' => $now
         ]);
+
+        $guestlist->client->notify(new \App\Notifications\CheckInNotification($guestlist->event->id, $guestlist->event->name));
 
         return response()->json([
             'status' => 'success',

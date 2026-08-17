@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Channels\FcmChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -27,7 +28,23 @@ class MatchNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'broadcast', FcmChannel::class];
+    }
+
+    /**
+     * Get the FCM push representation of the notification.
+     */
+    public function toFcm(object $notifiable): array
+    {
+        return [
+            'title' => 'Novo Match! 🎉',
+            'body' => "Tens um novo match com {$this->matchedUserName}!",
+            'data' => [
+                'type' => 'match',
+                'matched_user_id' => $this->matchedUserId,
+                'event_id' => $this->eventId,
+            ],
+        ];
     }
 
     /**

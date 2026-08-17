@@ -65,4 +65,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(\App\Models\UserClubAccess::class);
     }
+
+    public function deviceTokens()
+    {
+        return $this->hasMany(\App\Models\DeviceToken::class);
+    }
 }

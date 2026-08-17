@@ -10,7 +10,6 @@ interface Match {
     bio: string;
     vibes: number;
     photos: string[];
-    distance: string;
     instagram?: string;
 }
 

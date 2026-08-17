@@ -12,10 +12,13 @@ export default defineConfig({
     basicSsl(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
-      workbox: {
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
       manifest: {
         name: 'VIBE APP',
         short_name: 'VIBE',

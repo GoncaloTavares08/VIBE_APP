@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Channels\FcmChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -18,7 +19,22 @@ class TeamMessageNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', 'broadcast', FcmChannel::class];
+    }
+
+    /**
+     * Get the FCM push representation of the notification.
+     */
+    public function toFcm(object $notifiable): array
+    {
+        return [
+            'title' => "Mensagem de {$this->senderName} 💬",
+            'body' => $this->message,
+            'data' => [
+                'type' => 'team',
+                'sender_id' => $this->senderId,
+            ],
+        ];
     }
 
     public function toArray(object $notifiable): array

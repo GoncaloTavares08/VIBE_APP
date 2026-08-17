@@ -173,6 +173,8 @@ class GuestlistController extends Controller
             'qr_code' => $qrCode
         ]);
 
+        $user->notify(new \App\Notifications\GuestlistJoinedNotification($event->id, $event->name));
+
         return response()->json([
             'status' => 'success',
             'message' => 'Adicionado à guestlist com sucesso!',
