@@ -10,7 +10,6 @@ composer.lock
 
 # Frontend (Node/NPM)
 node_modules/
-package-lock.json
 build/
 dist/
 
