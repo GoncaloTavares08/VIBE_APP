@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Staff\ManualCheckinRequest;
+use App\Http\Requests\Staff\ProcessPurchaseRequest;
+use App\Http\Requests\Staff\ValidateQrRequest;
 use Illuminate\Http\Request;
 use App\Models\Guestlist;
 use App\Models\RewardRedemption;
@@ -12,14 +15,28 @@ use Illuminate\Support\Facades\DB;
 
 class StaffScanController extends Controller
 {
-    private function getClubId(Request $request)
+    /**
+     * Resolves the club from the X-Client-ID header AND verifies the authenticated
+     * user actually holds a STAFF/ADMIN role for it. Every action in this controller
+     * (check-in, purchases, reward scans) must go through this — the header alone is
+     * public info and proves nothing about who is calling.
+     */
+    private function checkStaffAccess(Request $request)
     {
         $rawSlug = $request->header('X-Client-ID');
         $slug = $rawSlug ? strtolower($rawSlug) : null;
-        if (!$slug) return null;
+        if (!$slug) {
+            return null;
+        }
 
         $club = Club::where('slug', $slug)->first();
-        return $club ? $club->id : null;
+        if (!$club) {
+            return null;
+        }
+
+        $this->authorize('staff', $club);
+
+        return $club->id;
     }
 
     private function resolvePhotoUrl($path)
@@ -31,14 +48,11 @@ class StaffScanController extends Controller
         return str_starts_with($path, 'http') ? $path : url('storage/' . str_replace('storage/', '', $path));
     }
 
-    public function validateQr(Request $request)
+    public function validateQr(ValidateQrRequest $request)
     {
-        $validated = $request->validate([
-            'qr_code' => 'required|string',
-            'confirm' => 'boolean'
-        ]);
+        $validated = $request->validated();
 
-        $clubId = $this->getClubId($request);
+        $clubId = $this->checkStaffAccess($request);
         if (!$clubId) {
             return response()->json(['status' => 'error', 'message' => 'Clube não encontrado.'], 400);
         }
@@ -98,6 +112,10 @@ class StaffScanController extends Controller
 
     private function handleGuestlistScan(Guestlist $guestlist, $confirm, $clubId, $qrType = 'entry')
     {
+        if (!$guestlist->event) {
+            return response()->json(['status' => 'error', 'message' => 'Evento associado não encontrado.'], 404);
+        }
+
         if ($guestlist->event->club_id !== $clubId) {
             return response()->json(['status' => 'error', 'message' => 'Bilhete pertence a outro clube.'], 403);
         }
@@ -283,15 +301,11 @@ class StaffScanController extends Controller
         ]);
     }
 
-    public function processPurchase(Request $request)
+    public function processPurchase(ProcessPurchaseRequest $request)
     {
-        $validated = $request->validate([
-            'user_id' => 'required|integer',
-            'amount' => 'required|numeric|min:0.01',
-            'event_id' => 'nullable|integer'
-        ]);
+        $validated = $request->validated();
 
-        $clubId = $this->getClubId($request);
+        $clubId = $this->checkStaffAccess($request);
         if (!$clubId) {
             return response()->json(['status' => 'error', 'message' => 'Clube não encontrado.'], 400);
         }
@@ -331,7 +345,7 @@ class StaffScanController extends Controller
                 'points' => $pointsAwarded,
                 'transaction_type' => 'purchase',
                 'amount_spent' => $validated['amount'],
-                'event_id' => $validated['event_id'],
+                'event_id' => $validated['event_id'] ?? null,
                 'staff_id' => $staffId,
                 'created_at' => $now
             ]);
@@ -359,7 +373,7 @@ class StaffScanController extends Controller
     public function searchGuestlist(Request $request)
     {
         $queryStr = $request->query('query');
-        $clubId = $this->getClubId($request);
+        $clubId = $this->checkStaffAccess($request);
 
         if (!$clubId) {
             return response()->json(['status' => 'error', 'message' => 'Clube não encontrado.'], 400);
@@ -410,18 +424,20 @@ class StaffScanController extends Controller
         ]);
     }
 
-    public function manualCheckin(Request $request)
+    public function manualCheckin(ManualCheckinRequest $request)
     {
-        $validated = $request->validate([
-            'guest_id' => 'required|integer|exists:guestlists,id'
-        ]);
+        $validated = $request->validated();
 
-        $clubId = $this->getClubId($request);
+        $clubId = $this->checkStaffAccess($request);
         if (!$clubId) {
             return response()->json(['status' => 'error', 'message' => 'Clube não encontrado.'], 400);
         }
 
         $guestlist = Guestlist::with('event')->find($validated['guest_id']);
+
+        if (!$guestlist || !$guestlist->event) {
+            return response()->json(['status' => 'error', 'message' => 'Convidado não encontrado.'], 404);
+        }
 
         if ($guestlist->event->club_id !== $clubId) {
             return response()->json(['status' => 'error', 'message' => 'Bilhete pertence a outro clube.'], 403);
@@ -477,7 +493,7 @@ class StaffScanController extends Controller
     }
     public function getStatistics(Request $request)
     {
-        $clubId = $this->getClubId($request);
+        $clubId = $this->checkStaffAccess($request);
         if (!$clubId) {
             return response()->json(['status' => 'error', 'message' => 'Clube não encontrado.'], 400);
         }

@@ -29,11 +29,6 @@ export function RPGuestlist() {
   const user = userStr ? JSON.parse(userStr) : null;
   const [username, setUsername] = useState(user?.username || '');
 
-  const getClubSlug = () => {
-    const pathSegments = window.location.pathname.split('/').filter(Boolean);
-    return pathSegments[0] || localStorage.getItem('clubSlug') || '';
-  };
-
   const rpLink = loading 
     ? 'A carregar...' 
     : username 
@@ -66,9 +61,6 @@ export function RPGuestlist() {
       if (!user?.id) return;
 
       try {
-        const clubSlug = getClubSlug();
-        console.log("Fetching guestlist for:", { userId: user.id, clubSlug });
-
         // Fetch guestlist entries
         const guestResult = await apiFetch('/rp/guestlists', {
           method: 'GET'

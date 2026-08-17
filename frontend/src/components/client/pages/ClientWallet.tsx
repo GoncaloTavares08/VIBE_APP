@@ -141,9 +141,6 @@ export function ClientWallet({ user }: ClientWalletProps) {
             method: 'GET'
           });
 
-          if (data.debug) {
-            console.log('API Debug:', data.debug);
-          }
           if (data.status === 'success' && data.data) {
             const freshPoints = data.data.points;
             if (freshPoints !== undefined) {

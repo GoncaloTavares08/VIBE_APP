@@ -18,8 +18,21 @@ import { toast } from 'sonner';
 import './styles/globals.css';
 import { MyClubs } from './components/MyClubs';
 
+interface AppUser {
+  id: number;
+  name: string;
+  email?: string;
+  role?: string;
+  club_slug?: string;
+  points?: number;
+  member_since?: string;
+  is_superadmin?: boolean;
+  created_at?: string;
+  profile_photo_path?: string | null;
+}
+
 export default function App() {
-  const [user, setUser] = useState<any>(() => {
+  const [user, setUser] = useState<AppUser | null>(() => {
     try {
       const storedUser = localStorage.getItem('user');
       return storedUser ? JSON.parse(storedUser) : null;
@@ -57,19 +70,16 @@ export default function App() {
       const updatedUser = { ...user };
 
       if (!user.role || user.role !== verifiedRole) {
-        console.log('[App Debug] Patching user role:', verifiedRole);
         updatedUser.role = verifiedRole;
         hasUpdates = true;
       }
 
       if (verifiedPoints !== null && user.points !== verifiedPoints) {
-        console.log('[App Debug] Patching user points:', verifiedPoints);
         updatedUser.points = verifiedPoints;
         hasUpdates = true;
       }
 
       if (verifiedMemberSince && user.member_since !== verifiedMemberSince) {
-        console.log('[App Debug] Patching member since:', verifiedMemberSince);
         updatedUser.member_since = verifiedMemberSince;
         hasUpdates = true;
       }

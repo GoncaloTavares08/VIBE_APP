@@ -15,10 +15,7 @@ class SuperAdminController extends Controller
 {
     private function checkSuperAdmin(Request $request)
     {
-        $user = $request->user();
-        if (!$user || !$user->is_superadmin) {
-            abort(403, 'Acesso restrito a SuperAdmins.');
-        }
+        $this->authorize('superadmin');
     }
 
     public function overview(Request $request)

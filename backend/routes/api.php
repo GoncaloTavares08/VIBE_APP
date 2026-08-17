@@ -14,14 +14,16 @@ use App\Http\Controllers\LeaderboardController;
 use App\Http\Controllers\AdminController;
 
 // Internal route for processing queues on Shared Hosting (Cron Job)
-Route::get('/internal/run-queue', function (Request $request) {
-    if ($request->token !== env('QUEUE_SECRET_TOKEN', 'vibe_secret_queue_2026')) {
+Route::middleware('throttle:10,1')->get('/internal/run-queue', function (Request $request) {
+    $expectedToken = env('QUEUE_SECRET_TOKEN');
+
+    if (!$expectedToken || !hash_equals($expectedToken, (string) $request->token)) {
         return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 401);
     }
-    
+
     // Stop when empty so the cron doesn't hang the PHP process indefinitely
     \Illuminate\Support\Facades\Artisan::call('queue:work', ['--stop-when-empty' => true]);
-    
+
     return response()->json(['status' => 'success', 'message' => 'Queue processed.']);
 });
 
@@ -38,9 +40,10 @@ Route::middleware('throttle:10,1')->group(function () {
 // Protected Routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
-        return $request->user();
+        return new \App\Http\Resources\UserResource($request->user());
     });
     Route::post('/user/verify-access', [App\Http\Controllers\ClubController::class, 'verifyAccess']);
+    Route::get('/user/clubs/{userId}', [App\Http\Controllers\ClubController::class, 'getUserClubs']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::put('/user/password', [AuthController::class, 'changePassword']);
     
@@ -124,6 +127,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/rewards', [AdminController::class, 'createReward']);
     Route::post('/admin/rewards/update', [AdminController::class, 'updateReward']);
     Route::post('/admin/rewards/delete', [AdminController::class, 'deleteReward']);
+    Route::post('/admin/rewards/toggle-availability', [AdminController::class, 'toggleRewardAvailability']);
     // Phase 5: SuperAdmin Management (Global Platform & Multi-Club)
     Route::get('/superadmin/overview', [\App\Http\Controllers\SuperAdminController::class, 'overview']);
     Route::get('/superadmin/clubs', [\App\Http\Controllers\SuperAdminController::class, 'getClubs']);
@@ -147,4 +151,3 @@ Route::get('/events/{id}/rps', [App\Http\Controllers\EventController::class, 'ge
 Route::get('/events/{id}/guestlist-summary', [App\Http\Controllers\EventController::class, 'getEventGuestlistSummary']);
 Route::get('/serve-image', [App\Http\Controllers\ServeImageController::class, 'serve']);
 Route::get('/events/{id}', [App\Http\Controllers\EventController::class, 'show']);
-Route::get('/user/clubs/{userId}', [App\Http\Controllers\ClubController::class, 'getUserClubs']);

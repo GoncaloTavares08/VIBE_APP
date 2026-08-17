@@ -11,6 +11,20 @@ use Intervention\Image\Drivers\Gd\Driver;
 
 class RpController extends Controller
 {
+    /**
+     * Verifies the authenticated user holds an RP-tier role (RP/TEAM_LEADER/ADMIN/
+     * OWNER/MANAGER) for the given club before allowing challenge management.
+     */
+    private function checkRpManageAccess($clubId)
+    {
+        $club = \App\Models\Club::find($clubId);
+        if (!$club) {
+            abort(404, 'Clube não encontrado.');
+        }
+
+        $this->authorize('promote', $club);
+    }
+
     public function showProfile(Request $request)
     {
         $user = $request->user();
@@ -149,7 +163,7 @@ class RpController extends Controller
     {
         $rawSlug = $request->header('X-Client-ID');
         $clubSlug = $rawSlug ? strtolower($rawSlug) : null;
-        $userId = $request->query('user_id', $request->user()->id ?? null);
+        $userId = $request->user()->id;
         $isAll = $request->query('all') === 'true';
         
         $query = \App\Models\Event::orderBy('date', 'desc')->orderBy('start_time', 'desc');
@@ -192,6 +206,10 @@ class RpController extends Controller
             'user_id' => 'required|integer|exists:users,id'
         ]);
 
+        if ((int) $validated['user_id'] !== (int) $request->user()->id) {
+            abort(403, 'Acesso negado.');
+        }
+
         \Illuminate\Support\Facades\DB::table('rp_profile_events')->updateOrInsert(
             ['rp_user_id' => $validated['user_id'], 'event_id' => $validated['event_id']],
             ['created_at' => now(), 'updated_at' => now()]
@@ -206,6 +224,10 @@ class RpController extends Controller
             'event_id' => 'required|integer',
             'user_id' => 'required|integer'
         ]);
+
+        if ((int) $validated['user_id'] !== (int) $request->user()->id) {
+            abort(403, 'Acesso negado.');
+        }
 
         \Illuminate\Support\Facades\DB::table('rp_profile_events')
             ->where('rp_user_id', $validated['user_id'])
@@ -830,6 +852,8 @@ class RpController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Clube não encontrado'], 404);
         }
 
+        $this->checkRpManageAccess($club->id);
+
         $challenge = \App\Models\RpChallenge::create([
             'club_id' => $club->id,
             'created_by' => $user->id,
@@ -852,6 +876,7 @@ class RpController extends Controller
     {
         $challenge = \App\Models\RpChallenge::find($id);
         if ($challenge) {
+            $this->checkRpManageAccess($challenge->club_id);
             $challenge->delete();
         }
 

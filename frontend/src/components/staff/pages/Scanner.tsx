@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { CheckCircle, XCircle, Gift, User, AlertTriangle, Camera, CameraOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Scanner as QrScanner } from '@yudiel/react-qr-scanner';
+import { Scanner as QrScanner, IScannerHandle } from '@yudiel/react-qr-scanner';
 import { apiFetch } from '../../../services/api';
 
 interface ScannerProps {
@@ -17,6 +17,20 @@ interface ScanResult {
   message: string;
 }
 
+interface PaymentData {
+  client: {
+    id: number;
+    name: string;
+    photo: string | null;
+  };
+  event?: {
+    id: number;
+    name?: string;
+    date?: string;
+  };
+}
+
+
 export function Scanner({ onOpenManual }: ScannerProps) {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -26,7 +40,7 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     const stored = sessionStorage.getItem('isCameraActive');
     return stored ? JSON.parse(stored) : true;
   });
-  const scannerRef = useRef<any>(null);
+  const scannerRef = useRef<IScannerHandle | null>(null);
 
   useEffect(() => {
     sessionStorage.setItem('isCameraActive', JSON.stringify(isCameraActive));
@@ -36,7 +50,9 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     // If the scanner library exposes the video element or stream, try to stop tracks directly
     if (scannerRef.current) {
       // The library exposes `getStream()` on the ref
-      const stream = typeof scannerRef.current.getStream === 'function' ? scannerRef.current.getStream() : null;
+      const stream = typeof (scannerRef.current as { getStream?: () => MediaStream | null }).getStream === 'function'
+        ? (scannerRef.current as { getStream?: () => MediaStream | null }).getStream!()
+        : null;
       if (stream) {
         stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
       }
@@ -61,7 +77,7 @@ export function Scanner({ onOpenManual }: ScannerProps) {
   // Payment states
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState<string>('');
-  const [paymentData, setPaymentData] = useState<any>(null);
+  const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [processingPayment, setProcessingPayment] = useState(false);
 
   useEffect(() => {
@@ -79,12 +95,10 @@ export function Scanner({ onOpenManual }: ScannerProps) {
     const checkPermissions = async () => {
       try {
         const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
-        console.log('Camera permission status:', result.state);
         setCameraPermission(result.state as 'granted' | 'denied' | 'prompt');
 
         // Listen for permission changes
         result.addEventListener('change', () => {
-          console.log('Camera permission changed to:', result.state);
           setCameraPermission(result.state as 'granted' | 'denied' | 'prompt');
         });
       } catch (error) {
@@ -99,7 +113,6 @@ export function Scanner({ onOpenManual }: ScannerProps) {
   const onScanSuccess = async (decodedText: string) => {
     if (!isScanning) return;
 
-    console.log(`Scan result: ${decodedText}`);
     handleProcessCode(decodedText);
   };
 
@@ -177,6 +190,8 @@ export function Scanner({ onOpenManual }: ScannerProps) {
       return;
     }
 
+    if (!paymentData) return;
+
     setProcessingPayment(true);
     try {
       const response = await apiFetch(`/staff/purchase`, {
@@ -249,7 +264,7 @@ export function Scanner({ onOpenManual }: ScannerProps) {
                       onScanSuccess(result[0].rawValue);
                     }
                   }}
-                  onError={(error) => console.log(error?.message)}
+                  onError={(error) => console.error(error?.message)}
                   styles={{
                     container: { width: '100%', height: '100%', paddingTop: 0 },
                     video: { objectFit: 'cover' }

@@ -98,13 +98,6 @@ export function ClientProfile({ onNavigate }: ClientProfileProps) {
         setPhotos(data.data.gallery_photos || []);
         setPartyHistory(data.data.party_history || []);
         setProfilePhotoUrl(data.data.profile_photo_path || null);
-
-        // DEBUG: Log para verificar os dados
-        console.log('Profile loaded:', {
-          profile_photo_path: data.data.profile_photo_path,
-          gallery_photos: data.data.gallery_photos,
-          full_url: data.data.profile_photo_path ? `/api/serve-image?file=${data.data.profile_photo_path}` : 'none'
-        });
       }
     } catch (err) {
       console.error('Error loading profile:', err);

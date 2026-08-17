@@ -26,16 +26,7 @@ class AdminController extends Controller
             abort(404, 'Club not found');
         }
 
-        $user = $request->user();
-
-        $access = DB::table('user_club_access')
-            ->where('user_id', $user->id)
-            ->where('club_id', $club->id)
-            ->first();
-
-        if (!$user->is_superadmin && (!$access || !in_array($access->role, ['ADMIN', 'OWNER', 'MANAGER']))) {
-            abort(403, 'Acesso negado.');
-        }
+        $this->authorize('manage', $club);
 
         return $club;
     }

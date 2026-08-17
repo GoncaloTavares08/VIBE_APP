@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\RedeemRewardRequest;
 use Illuminate\Http\Request;
 use App\Models\Reward;
 use App\Models\RewardRedemption;
@@ -43,11 +44,9 @@ class RewardController extends Controller
         ]);
     }
 
-    public function redeem(Request $request)
+    public function redeem(RedeemRewardRequest $request)
     {
-        $validated = $request->validate([
-            'reward_id' => 'required|integer|exists:rewards,id'
-        ]);
+        $validated = $request->validated();
 
         $user = $request->user();
         $clubId = $this->getClubId($request);

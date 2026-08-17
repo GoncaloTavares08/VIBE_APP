@@ -350,9 +350,7 @@ export function RPProfile() {
   const fetchAllEventsWithStatus = async () => {
     try {
       if (!userId) return;
-      console.log('[RPProfile] Fetching all events...');
       const response = await apiFetch(`/rp/events?all=true&user_id=${userId}`);
-      console.log('[RPProfile] Response:', response);
       if (response.status === 'success') {
         setAllEvents(response.data);
       } else {
