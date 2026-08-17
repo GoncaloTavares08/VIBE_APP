@@ -9,7 +9,6 @@ import { Leaderboard } from '../Leaderboard';
 import { MyMatches } from '../MyMatches';
 import { createPortal } from 'react-dom';
 import Skeleton from '../../ui/Skeleton';
-import { enablePushNotifications } from '../../../services/pushNotifications';
 
 type PartyState = 'no-guestlist' | 'has-guestlist' | 'live-party';
 
@@ -68,12 +67,6 @@ export function ClientHome() {
 
   useEffect(() => {
     fetchStatus();
-
-    // Ask once per browser permission state — if already granted/denied this
-    // resolves instantly with no extra prompt.
-    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      enablePushNotifications();
-    }
   }, []);
 
   if (loading) {

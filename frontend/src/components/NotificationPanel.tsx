@@ -7,7 +7,10 @@ import {
     AlertCircle,
     Check,
     X,
-    Flame
+    Flame,
+    LogIn,
+    Star,
+    ClipboardCheck
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { apiFetch } from '../services/api';
@@ -16,7 +19,7 @@ import { PersonProfileModal } from './client/PersonProfileModal';
 
 interface Notification {
     id: string;
-    type: 'registration' | 'payment' | 'event' | 'team' | 'system' | 'match';
+    type: 'registration' | 'payment' | 'event' | 'team' | 'system' | 'match' | 'check_in' | 'points_awarded' | 'guestlist_joined';
     title: string;
     description: string;
     timestamp: string;
@@ -40,6 +43,9 @@ const notificationIcons = {
     team: Users,
     system: AlertCircle,
     match: Flame,
+    check_in: LogIn,
+    points_awarded: Star,
+    guestlist_joined: ClipboardCheck,
 };
 
 const notificationColors = {
@@ -49,6 +55,9 @@ const notificationColors = {
     team: '#3B82F6', // Blue
     system: '#EF4444', // Red
     match: '#FF4500', // Orange Red
+    check_in: '#22C55E', // Green
+    points_awarded: '#D4AF37', // Gold
+    guestlist_joined: '#22C55E', // Green
 };
 
 export function NotificationPanel({ isOpen, onClose, onUnreadCountChange }: NotificationPanelProps) {

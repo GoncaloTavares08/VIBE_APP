@@ -179,7 +179,9 @@ export function ClientDashboardLayout({ children, currentPage, onPageChange, use
     if (echo) {
       channelName = `App.Models.User.${userId}`;
       echo.private(channelName).notification((notification: any) => {
-        if (notification.type === 'match') {
+        // Laravel's broadcast payload overwrites `type` with the notification's
+        // fully-qualified class name, so check a field unique to match data instead.
+        if (notification.matched_user_id !== undefined) {
           pollMatches();
         }
       });

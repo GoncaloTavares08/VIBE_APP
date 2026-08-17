@@ -56,6 +56,9 @@ class NotificationController extends Controller
             case 'payment': return 'Pagamento Recebido';
             case 'event': return 'Lembrete de Evento';
             case 'team': return 'Atividade da Equipa';
+            case 'check_in': return 'Entrada Confirmada! 🎉';
+            case 'points_awarded': return 'Pontos Recebidos! ⭐';
+            case 'guestlist_joined': return 'Guestlist Confirmada! ✅';
             default: return 'Alerta de Sistema';
         }
     }

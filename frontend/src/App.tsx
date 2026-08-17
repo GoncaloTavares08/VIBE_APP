@@ -17,6 +17,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import './styles/globals.css';
 import { MyClubs } from './components/MyClubs';
+import { enablePushNotifications } from './services/pushNotifications';
 
 interface AppUser {
   id: number;
@@ -62,6 +63,14 @@ export default function App() {
 
   // Verify club access
   const { hasAccess, isLoading, clubName, role: verifiedRole, points: verifiedPoints, memberSince: verifiedMemberSince } = useClubAccess(user?.id, currentPath);
+
+  // Ask for push notification permission once, right after a session is established
+  // (fresh login or restored from localStorage) — not tied to any specific screen.
+  useEffect(() => {
+    if (user?.id && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      enablePushNotifications();
+    }
+  }, [user?.id]);
 
   // Update user role and points in context if verified (fixes issue where login on landing page has no role/points)
   useEffect(() => {
