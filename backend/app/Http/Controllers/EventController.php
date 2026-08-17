@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\EventResource;
 use App\Models\Event;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
@@ -178,8 +179,7 @@ class EventController extends Controller
         $this->autoUpdateStatuses();
 
         $event = \Illuminate\Support\Facades\Cache::remember("event_{$id}", 60, function () use ($id) {
-            $model = Event::find($id);
-            return $model ? $model->toArray() : null;
+            return Event::find($id);
         });
 
         if (!$event) {
@@ -191,7 +191,7 @@ class EventController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $event
+            'data' => new EventResource($event)
         ]);
     }
 
@@ -342,6 +342,9 @@ class EventController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Club ID é obrigatório para criar um evento.'], 400);
         }
 
+        $club = \App\Models\Club::find($validated['club_id']);
+        $this->authorize('manage', $club);
+
         $event = Event::create($validated);
         \Illuminate\Support\Facades\Cache::flush();
 
@@ -362,6 +365,8 @@ class EventController extends Controller
                 'message' => 'Evento não encontrado.'
             ], 404);
         }
+
+        $this->authorize('update', $event);
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
@@ -384,7 +389,7 @@ class EventController extends Controller
         ]);
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $event = Event::find($id);
 
@@ -394,6 +399,8 @@ class EventController extends Controller
                 'message' => 'Evento não encontrado.'
             ], 404);
         }
+
+        $this->authorize('delete', $event);
 
         $event->delete();
         \Illuminate\Support\Facades\Cache::flush();

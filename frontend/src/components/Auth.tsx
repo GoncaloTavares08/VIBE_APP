@@ -283,7 +283,6 @@ export function Auth({ onLoginSuccess }: AuthProps) {
         }
 
         if (mode === 'login') {
-          console.log('Login success:', data.user);
           processLoginSuccess(data.user);
         } else {
           // Register success - switch to login mode with email pre-filled
@@ -316,7 +315,6 @@ export function Auth({ onLoginSuccess }: AuthProps) {
     onSuccess: async (tokenResponse) => {
       setIsLoading(true);
       setApiError('');
-      console.log('Google Response:', tokenResponse);
 
       try {
         const response = await apiFetch('/login/google', {
@@ -328,7 +326,6 @@ export function Auth({ onLoginSuccess }: AuthProps) {
         });
 
         if (response.status === 'success') {
-          console.log('Login success:', response.user);
           processLoginSuccess(response.user, response.token);
         } else {
           setApiError(response.message || 'Erro no login Google');

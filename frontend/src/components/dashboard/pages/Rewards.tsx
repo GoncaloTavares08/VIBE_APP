@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Gift, Plus, X, Upload, Package, Edit, Trash2, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { apiFetch } from '../../../services/api';
+import { processHeicFile } from '../../../utils/imageUtils';
 
 interface Reward {
   id: number;
@@ -124,7 +125,14 @@ export function Rewards() {
     formData.append('stock', stock);
 
     if (imageFile) {
-      formData.append('image', imageFile);
+      try {
+        const processedFile = await processHeicFile(imageFile);
+        formData.append('image', processedFile);
+      } catch (err) {
+        alert('Erro ao converter formato da imagem do iPhone');
+        setSaving(false);
+        return;
+      }
     }
 
     if (editingReward) {

@@ -221,7 +221,7 @@ class NetworkingController extends Controller
                     ->whereIn('liked_id', [$user->id, $validated['liked_id']])
                     ->update(['is_match' => 1]);
 
-                $p = ClientProfile::with('user')->where('user_id', $validated['liked_id'])->first();
+                $p = ClientProfile::with('user')->firstOrCreate(['user_id' => $validated['liked_id']]);
                 $matchedUser = [
                     'id' => $p->user_id,
                     'name' => $p->user->name,

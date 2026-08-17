@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\ClientProfileResource;
 use Illuminate\Http\Request;
 use App\Models\ClientProfile;
 use App\Models\UserClubAccess;
@@ -140,7 +141,7 @@ class ClientProfileController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Perfil atualizado com sucesso!',
-            'data' => $profile
+            'data' => new ClientProfileResource($profile)
         ]);
     }
 

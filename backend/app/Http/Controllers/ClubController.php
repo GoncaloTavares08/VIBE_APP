@@ -62,6 +62,14 @@ class ClubController extends Controller
     // Replaces user_clubs.php
     public function getUserClubs(Request $request, $userId)
     {
+        $authUser = $request->user();
+        if ((int) $authUser->id !== (int) $userId && !$authUser->is_superadmin) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Não autorizado.'
+            ], 403);
+        }
+
         $user = User::find($userId);
         if ($user && $user->is_superadmin) {
             $clubs = Club::where('is_active', 1)
@@ -110,7 +118,7 @@ class ClubController extends Controller
 
     public function verifyAccess(Request $request)
     {
-        $userId = $request->input('user_id') ?? $request->user()->id;
+        $userId = $request->user()->id;
         $rawSlug = $request->header('X-Client-ID');
         $clubSlug = $rawSlug ? strtolower($rawSlug) : null;
 

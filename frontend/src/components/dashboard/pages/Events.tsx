@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Calendar, Clock, Users, Plus, Trash2, TrendingUp, Loader2, Edit2, Euro, UploadCloud, Link as LinkIcon, Image as ImageIcon, X } from 'lucide-react';
 import { apiFetch } from '../../../services/api';
+import { GlassCard } from '../../ui/GlassCard';
+import { processHeicFile } from '../../../utils/imageUtils';
 
 const formatImageUrl = (url?: string | null) => {
   if (!url) return '';
@@ -141,8 +143,18 @@ export function Events() {
     try {
       setUploadingImage(true);
       setError(null);
+      
+      let processedFile = file;
+      try {
+        processedFile = await processHeicFile(file);
+      } catch (err) {
+        setError('Erro ao converter formato da imagem do iPhone');
+        setUploadingImage(false);
+        return;
+      }
+
       const data = new FormData();
-      data.append('banner', file);
+      data.append('banner', processedFile);
 
       const response = await apiFetch('/events/upload-banner', {
         method: 'POST',

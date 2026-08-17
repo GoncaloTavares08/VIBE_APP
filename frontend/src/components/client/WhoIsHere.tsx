@@ -61,7 +61,6 @@ export function WhoIsHere({ userId, onMatch, onPersonClick }: WhoIsHereProps) {
             const newOnes = freshPeople.filter((p: Person) => !existingIds.has(p.id));
 
             if (newOnes.length > 0) {
-              console.log(`[WhoIsHere] Found ${newOnes.length} new people!`);
               return [...prev, ...newOnes];
             }
             return prev;

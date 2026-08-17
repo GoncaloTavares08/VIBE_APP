@@ -2,6 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Auth\ChangePasswordRequest;
+use App\Http\Requests\Auth\ForgotPasswordRequest;
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Http\Requests\Auth\VerifyResetCodeRequest;
 use App\Models\User;
 use App\Models\Club;
 use App\Models\UserClubAccess;
@@ -14,14 +20,8 @@ use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
+    public function register(RegisterRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|min:2|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8', // Add more password rules if needed
-        ]);
-
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -60,13 +60,8 @@ class AuthController extends Controller
         ], 201);
     }
 
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
-
         $user = User::where('email', $request->email)->first();
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
@@ -143,6 +138,24 @@ class AuthController extends Controller
                 'status' => 'error',
                 'message' => 'Token do Google inválido.'
             ], 401);
+        }
+
+        // Verify the token was actually issued for this app's Google OAuth client
+        // (userinfo alone doesn't prove that — any valid Google access token would pass it).
+        $expectedClientId = config('services.google.client_id');
+        if ($expectedClientId) {
+            $tokenInfo = \Illuminate\Support\Facades\Http::get('https://oauth2.googleapis.com/tokeninfo', [
+                'access_token' => $googleToken,
+            ]);
+
+            $audience = $tokenInfo->json('aud') ?? $tokenInfo->json('azp');
+
+            if ($tokenInfo->failed() || $audience !== $expectedClientId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Token do Google não foi emitido para esta aplicação.'
+                ], 401);
+            }
         }
 
         $googleUser = $response->json();
@@ -232,12 +245,8 @@ class AuthController extends Controller
             'message' => 'Logout efetuado com sucesso.'
         ]);
     }
-    public function resetRequest(Request $request)
+    public function resetRequest(ForgotPasswordRequest $request)
     {
-        $request->validate([
-            'email' => 'required|email'
-        ]);
-
         $user = User::where('email', $request->email)->first();
 
         if (! $user) {
@@ -260,13 +269,8 @@ class AuthController extends Controller
         ]);
     }
 
-    public function verifyCode(Request $request)
+    public function verifyCode(VerifyResetCodeRequest $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'code' => 'required|string|size:6'
-        ]);
-
         $user = User::where('email', $request->email)
                     ->whereNotNull('reset_token')
                     ->where('reset_token_expiry', '>', now())
@@ -285,14 +289,8 @@ class AuthController extends Controller
         ]);
     }
 
-    public function resetPassword(Request $request)
+    public function resetPassword(ResetPasswordRequest $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'code' => 'required|string|size:6',
-            'password' => 'required|string|min:8'
-        ]);
-
         $user = User::where('email', $request->email)
                     ->whereNotNull('reset_token')
                     ->where('reset_token_expiry', '>', now())
@@ -316,13 +314,8 @@ class AuthController extends Controller
         ]);
     }
 
-    public function changePassword(Request $request)
+    public function changePassword(ChangePasswordRequest $request)
     {
-        $request->validate([
-            'current_password' => 'required',
-            'new_password' => 'required|string|min:8|different:current_password'
-        ]);
-
         $user = $request->user();
 
         if (! Hash::check($request->current_password, $user->password)) {

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\JoinGuestlistRequest;
+use App\Http\Resources\GuestlistResource;
 use Illuminate\Http\Request;
 use App\Models\Guestlist;
 use App\Models\Event;
@@ -112,35 +114,15 @@ class GuestlistController extends Controller
             })
             ->values();
 
-        $formatted = $guestlists->map(function ($gl) {
-            $prefix = $gl->status === 'checked_in' ? 'BAR:' : 'ENTRY:';
-            return [
-                'id' => $gl->id,
-                'event_id' => $gl->event_id,
-                'client_id' => $gl->client_id,
-                'rp_id' => $gl->rp_id,
-                'status' => $gl->status,
-                // Static encrypted QR for ENTRY or BAR scanning - rotated every 30s by frontend
-                'qr_code' => \Illuminate\Support\Facades\Crypt::encryptString($prefix . $gl->qr_code . '|' . time()),
-                'event_name' => $gl->event->name ?? 'Unknown Event',
-                'event_date' => $gl->event->date ?? 'N/A',
-                'start_time' => $gl->event->start_time ?? '00:00:00',
-                'end_time' => $gl->event->end_time ?? '00:00:00',
-            ];
-        });
-
         return response()->json([
             'status' => 'success',
-            'data' => $formatted
+            'data' => GuestlistResource::collection($guestlists)
         ]);
     }
 
-    public function join(Request $request)
+    public function join(JoinGuestlistRequest $request)
     {
-        $validated = $request->validate([
-            'event_id' => 'required|integer|exists:events,id',
-            'rp_id'    => 'required|integer|exists:users,id'
-        ]);
+        $validated = $request->validated();
 
         $user = $request->user();
 
