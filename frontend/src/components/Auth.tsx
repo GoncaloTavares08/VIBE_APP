@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Zap, Mail, Lock, User, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useGoogleLogin } from '@react-oauth/google';
+import { Capacitor } from '@capacitor/core';
+import { SocialLogin } from '@capgo/capacitor-social-login';
 import { InteractiveBackground } from './InteractiveBackground';
 import { ForgotPassword } from './ForgotPassword';
 import { apiFetch } from '../services/api';
@@ -343,6 +345,43 @@ export function Auth({ onLoginSuccess }: AuthProps) {
       setIsLoading(false);
     }
   });
+
+  const handleGoogleLogin = async () => {
+    if (!Capacitor.isNativePlatform()) {
+      loginWithGoogle();
+      return;
+    }
+
+    setIsLoading(true);
+    setApiError('');
+
+    try {
+      const login = await SocialLogin.login({
+        provider: 'google',
+        options: {},
+      });
+      const idToken = login.result.responseType === 'online' ? login.result.idToken : null;
+
+      const response = await apiFetch('/login/google', {
+        method: 'POST',
+        body: JSON.stringify({
+          token: idToken,
+          type: 'id_token'
+        }),
+      });
+
+      if (response.status === 'success') {
+        processLoginSuccess(response.user, response.token);
+      } else {
+        setApiError(response.message || 'Erro no login Google');
+      }
+    } catch (err: any) {
+      console.error('Google Login Error:', err);
+      setApiError('Falha ao autenticar com Google');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen relative overflow-hidden" style={{ background: '#0a0a0a' }}>
@@ -817,7 +856,7 @@ export function Auth({ onLoginSuccess }: AuthProps) {
               {/* Social Login */}
               <div className="flex flex-col gap-4">
                 <button
-                  onClick={() => loginWithGoogle()}
+                  onClick={() => handleGoogleLogin()}
                   className="w-full py-3 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 hover:scale-105"
                   style={{
                     background: 'rgba(255, 255, 255, 0.05)',

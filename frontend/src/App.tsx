@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import './styles/globals.css';
 import { MyClubs } from './components/MyClubs';
 import { enablePushNotifications, listenForForegroundMessages } from './services/pushNotifications';
+import { Capacitor } from '@capacitor/core';
 
 interface AppUser {
   id: number;
@@ -70,7 +71,14 @@ export default function App() {
   // just re-attach the foreground listener, since that's per-page-load, not
   // something that sticks around from the original grant.
   useEffect(() => {
-    if (!user?.id || typeof Notification === 'undefined') return;
+    if (!user?.id) return;
+
+    if (Capacitor.isNativePlatform()) {
+      enablePushNotifications();
+      return;
+    }
+
+    if (typeof Notification === 'undefined') return;
 
     if (Notification.permission === 'default') {
       enablePushNotifications();

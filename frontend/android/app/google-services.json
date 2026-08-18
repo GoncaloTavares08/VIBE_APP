@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "285037754408",
+    "project_id": "vibeapp-b5112",
+    "storage_bucket": "vibeapp-b5112.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:285037754408:android:4f375443871d6cb9e59d1d",
+        "android_client_info": {
+          "package_name": "com.vibe.nightlife"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDSbXGVw-LAvzJ-PTvFEeiu3MlMG2Mgb64"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

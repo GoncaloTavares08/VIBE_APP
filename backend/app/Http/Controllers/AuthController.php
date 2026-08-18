@@ -128,40 +128,62 @@ class AuthController extends Controller
         ]);
 
         $googleToken = $request->token;
-
-        // Fetch user info from Google
-        $response = \Illuminate\Support\Facades\Http::withToken($googleToken)
-            ->get('https://www.googleapis.com/oauth2/v3/userinfo');
-
-        if ($response->failed()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Token do Google inválido.'
-            ], 401);
-        }
-
-        // Verify the token was actually issued for this app's Google OAuth client
-        // (userinfo alone doesn't prove that — any valid Google access token would pass it).
+        $type = $request->input('type', 'access_token');
         $expectedClientId = config('services.google.client_id');
-        if ($expectedClientId) {
+
+        if ($type === 'id_token') {
+            // Native (Capacitor) Google Sign-In flow: the plugin hands back an ID token (JWT),
+            // not an OAuth access token. Google's tokeninfo endpoint validates the JWT signature
+            // server-side, so this stays consistent with the access_token branch's REST-based
+            // verification style below instead of adding a JWT library.
             $tokenInfo = \Illuminate\Support\Facades\Http::get('https://oauth2.googleapis.com/tokeninfo', [
-                'access_token' => $googleToken,
+                'id_token' => $googleToken,
             ]);
 
-            $audience = $tokenInfo->json('aud') ?? $tokenInfo->json('azp');
-
-            if ($tokenInfo->failed() || $audience !== $expectedClientId) {
+            if ($tokenInfo->failed() || ($expectedClientId && $tokenInfo->json('aud') !== $expectedClientId)) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => 'Token do Google não foi emitido para esta aplicação.'
+                    'message' => 'Token do Google inválido.'
                 ], 401);
             }
-        }
 
-        $googleUser = $response->json();
-        $email = $googleUser['email'] ?? null;
-        $name = $googleUser['name'] ?? 'Google User';
-        $picture = $googleUser['picture'] ?? null;
+            $email = $tokenInfo->json('email');
+            $name = $tokenInfo->json('name', 'Google User');
+            $picture = $tokenInfo->json('picture');
+        } else {
+            // Web flow: useGoogleLogin() hands back an OAuth access token.
+            $response = \Illuminate\Support\Facades\Http::withToken($googleToken)
+                ->get('https://www.googleapis.com/oauth2/v3/userinfo');
+
+            if ($response->failed()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Token do Google inválido.'
+                ], 401);
+            }
+
+            // Verify the token was actually issued for this app's Google OAuth client
+            // (userinfo alone doesn't prove that — any valid Google access token would pass it).
+            if ($expectedClientId) {
+                $tokenInfo = \Illuminate\Support\Facades\Http::get('https://oauth2.googleapis.com/tokeninfo', [
+                    'access_token' => $googleToken,
+                ]);
+
+                $audience = $tokenInfo->json('aud') ?? $tokenInfo->json('azp');
+
+                if ($tokenInfo->failed() || $audience !== $expectedClientId) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Token do Google não foi emitido para esta aplicação.'
+                    ], 401);
+                }
+            }
+
+            $googleUser = $response->json();
+            $email = $googleUser['email'] ?? null;
+            $name = $googleUser['name'] ?? 'Google User';
+            $picture = $googleUser['picture'] ?? null;
+        }
 
         if (!$email) {
             return response()->json([
@@ -170,6 +192,11 @@ class AuthController extends Controller
             ], 400);
         }
 
+        return $this->finishGoogleLogin($request, $email, $name, $picture);
+    }
+
+    private function finishGoogleLogin(Request $request, string $email, string $name, ?string $picture)
+    {
         // Find or Create user
         $user = User::where('email', $email)->first();
         $isNewUser = false;
