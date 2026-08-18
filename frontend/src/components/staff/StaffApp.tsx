@@ -271,7 +271,7 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
           {(!isCollapsed || isMobileMenuOpen) ? (
             <>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-white truncate text-sm md:text-base">{user?.name || 'Staff'}</p>
+                <p className="font-semibold text-white truncate text-sm md:text-base">{user?.name?.split(' ')[0] || 'Staff'}</p>
                 <p className="text-xs text-gray-400 truncate">{user?.email || 'staff@vibe.pt'}</p>
               </div>
               <button onClick={() => setShowLogoutModal(true)} className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-red-400 transition-colors" title="Sair">
@@ -290,7 +290,7 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
         <header className="sticky top-0 z-20 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between" style={{ background: 'rgba(10, 10, 10, 0.8)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: 'calc(env(safe-area-inset-top) + 1rem)' }}>
           <div>
             <h1 className="text-2xl md:text-3xl font-black mb-1" style={{ background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-              Olá, {user?.name || 'Staff'}
+              Olá, {user?.name?.split(' ')[0] || 'Staff'}
             </h1>
             <p className="text-xs md:text-sm text-gray-400">{currentDate} • {currentTime}</p>
           </div>
