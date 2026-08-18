@@ -287,7 +287,7 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
       </aside>
 
       <main className="flex-1 overflow-y-auto overflow-x-hidden relative transition-all duration-300 w-full">
-        <header className="sticky top-0 z-10 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between" style={{ background: 'rgba(10, 10, 10, 0.8)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+        <header className="sticky top-0 z-20 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between" style={{ background: 'rgba(10, 10, 10, 0.8)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
           <div>
             <h1 className="text-2xl md:text-3xl font-black mb-1" style={{ background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
               Olá, {user?.name || 'Staff'}
@@ -317,6 +317,7 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
           <div className="p-4 md:p-8 w-full"><Statistics /></div>
         )}
       </main>
+      {logoutModal}
     </div>
   );
 }
