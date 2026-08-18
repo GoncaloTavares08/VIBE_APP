@@ -4,20 +4,33 @@ import { HeroSection } from './components/HeroSection';
 import { Marquee } from './components/Marquee';
 import { FeaturesGrid } from './components/FeaturesGrid';
 import { Auth } from './components/Auth';
-import { Dashboard } from './components/Dashboard';
-import { RPDashboard } from './components/RPDashboard';
-import { ClientDashboard } from './components/ClientDashboard';
-import { DoorOpsApp } from './components/staff/StaffApp';
 import { AccessDenied } from './components/AccessDenied';
-import { RPPublicProfilePage } from './pages/RPPublicProfilePage';
-import { SuperAdminPortal } from './components/superadmin/SuperAdminPortal';
 import { useClubAccess } from './hooks/useClubAccess';
 import { clearAllAccessCache } from './utils/clearAccessCache';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import './styles/globals.css';
 import { MyClubs } from './components/MyClubs';
 import { enablePushNotifications, listenForForegroundMessages } from './services/pushNotifications';
+
+// Lazy-loaded: each of these is only ever needed by one role/route per
+// session, so splitting them out of the main bundle keeps the initial JS
+// payload (and mobile WebView parse/exec time) much smaller.
+const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
+const RPDashboard = lazy(() => import('./components/RPDashboard').then(m => ({ default: m.RPDashboard })));
+const ClientDashboard = lazy(() => import('./components/ClientDashboard').then(m => ({ default: m.ClientDashboard })));
+const DoorOpsApp = lazy(() => import('./components/staff/StaffApp').then(m => ({ default: m.DoorOpsApp })));
+const SuperAdminPortal = lazy(() => import('./components/superadmin/SuperAdminPortal').then(m => ({ default: m.SuperAdminPortal })));
+const RPPublicProfilePage = lazy(() => import('./pages/RPPublicProfilePage').then(m => ({ default: m.RPPublicProfilePage })));
+
+function RouteLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a' }}>
+      <Loader2 className="w-8 h-8 animate-spin text-[#D4AF37]" />
+    </div>
+  );
+}
 import { Capacitor } from '@capacitor/core';
 
 interface AppUser {
@@ -200,7 +213,11 @@ export default function App() {
 
   // Show SuperAdmin Portal when navigating to /superadmin or for superadmin
   if (user && isSuperAdmin && currentPath === '/superadmin') {
-    return <SuperAdminPortal user={user} onLogout={handleLogout} onBack={handleReturnHome} />;
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <SuperAdminPortal user={user} onLogout={handleLogout} onBack={handleReturnHome} />
+      </Suspense>
+    );
   }
 
   // Detect if we have a club in the URL (using currentPath state to ensure reactivity)
@@ -213,7 +230,11 @@ export default function App() {
 
   // Show guest profile (public access, no authentication needed)
   if (isGuestProfile && rpUsername) {
-    return <RPPublicProfilePage rpname={rpUsername} />;
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <RPPublicProfilePage rpname={rpUsername} />
+      </Suspense>
+    );
   }
 
   // Show loading while verifying access
@@ -274,17 +295,29 @@ export default function App() {
 
   // Show Staff App (does NOT need a club in URL)
   if (showStaffApp) {
-    return <DoorOpsApp onLogout={handleLogout} />;
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <DoorOpsApp onLogout={handleLogout} />
+      </Suspense>
+    );
   }
 
   // Show dashboard - admin or superadmin (entering any club with full permissions)
   if ((showDashboard || isSuperAdmin) && hasAccess && hasClubInUrl) {
-    return <Dashboard user={user} onLogout={handleLogout} />;
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <Dashboard user={user} onLogout={handleLogout} />
+      </Suspense>
+    );
   }
 
   // Show RP dashboard (only if has access AND club in URL)
   if (showRPDashboard && hasAccess && hasClubInUrl) {
-    return <RPDashboard userRole={showRPDashboard} user={user} onLogout={handleLogout} />;
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <RPDashboard userRole={showRPDashboard} user={user} onLogout={handleLogout} />
+      </Suspense>
+    );
   }
 
   // Show Client Dashboard (only if has access AND club in URL)
@@ -292,7 +325,11 @@ export default function App() {
   const isClient = effectiveRole && (effectiveRole.toUpperCase() === 'CLIENT');
 
   if (user && isClient && hasAccess && hasClubInUrl) {
-    return <ClientDashboard user={user} onLogout={handleLogout} />;
+    return (
+      <Suspense fallback={<RouteLoading />}>
+        <ClientDashboard user={user} onLogout={handleLogout} />
+      </Suspense>
+    );
   }
 
   // Show auth screen
