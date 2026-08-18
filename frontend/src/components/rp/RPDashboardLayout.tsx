@@ -368,6 +368,7 @@ export function RPDashboardLayout({ children, currentPage, onPageChange, rpName,
             background: 'rgba(10, 10, 10, 0.8)',
             backdropFilter: 'blur(20px)',
             borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            paddingTop: 'calc(env(safe-area-inset-top) + 1rem)',
           }}
         >
           <div>
