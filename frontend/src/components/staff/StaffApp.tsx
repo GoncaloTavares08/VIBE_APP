@@ -166,7 +166,7 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
     // Re-using the mobile layout from before, as that was specifically requested for mobile
     return (
       <div className="fixed inset-0 h-[100dvh] flex flex-col overflow-hidden w-full overscroll-none" style={{ background: '#0a0a0a' }}>
-        <div className={`flex-1 relative pb-24 ${currentView === 'scanner' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
+        <div className={`flex-1 relative pb-24 ${currentView === 'scanner' ? 'overflow-hidden' : 'overflow-y-auto'}`} style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           {currentView === 'scanner' && (
             <div className="h-full flex flex-col">
               <Scanner onOpenManual={() => setShowManualCheckin(true)} />
@@ -176,7 +176,7 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
         </div>
         {/* Bottom Nav */}
         <div className="fixed bottom-0 left-0 right-0 z-50" style={{ background: 'rgba(10, 10, 10, 0.95)', backdropFilter: 'blur(30px)', borderTop: '1px solid rgba(212, 175, 55, 0.2)', boxShadow: '0 -4px 40px rgba(0, 0, 0, 0.6)' }}>
-          <div className="flex items-center justify-around px-4 py-3 safe-area-bottom">
+          <div className="flex items-center justify-around px-4 py-3" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}>
             <button onClick={() => setCurrentView('scanner')} className="flex flex-col items-center gap-1 px-6 py-2" style={{ color: currentView === 'scanner' ? '#D4AF37' : '#888888' }}>
               <div className="p-3 rounded-full" style={{ background: currentView === 'scanner' ? 'rgba(212, 175, 55, 0.2)' : 'transparent' }}><ScanQrCode className="w-6 h-6" /></div>
               <span className="text-[10px] font-bold uppercase tracking-wider">Scanner</span>
@@ -287,7 +287,7 @@ export function DoorOpsApp({ onLogout }: DoorOpsAppProps) {
       </aside>
 
       <main className="flex-1 overflow-y-auto overflow-x-hidden relative transition-all duration-300 w-full">
-        <header className="sticky top-0 z-20 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between" style={{ background: 'rgba(10, 10, 10, 0.8)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
+        <header className="sticky top-0 z-20 px-4 md:px-8 py-4 md:py-6 flex items-center justify-between" style={{ background: 'rgba(10, 10, 10, 0.8)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: 'calc(env(safe-area-inset-top) + 1rem)' }}>
           <div>
             <h1 className="text-2xl md:text-3xl font-black mb-1" style={{ background: 'linear-gradient(135deg, #ffffff 0%, #D4AF37 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
               Olá, {user?.name || 'Staff'}
