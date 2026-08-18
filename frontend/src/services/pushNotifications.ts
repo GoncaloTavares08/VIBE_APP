@@ -1,16 +1,24 @@
 import { getToken, onMessage } from 'firebase/messaging';
 import { getFirebaseMessaging } from './firebase';
 import { apiFetch } from './api';
+import { Capacitor } from '@capacitor/core';
+import { PushNotifications } from '@capacitor/push-notifications';
 
 let foregroundListenerAttached = false;
+let nativeListenersAttached = false;
 
 /**
- * Requests notification permission and registers the resulting FCM token with
- * the backend. Fails silently (returns false) if the browser doesn't support
- * push, Firebase isn't configured, or the user declines — the app must work
- * fine without push, this is purely additive.
+ * Requests notification permission and registers the resulting device token
+ * (native APNs/FCM token on Capacitor, web-push FCM token in the browser)
+ * with the backend. Fails silently (returns false) if the platform doesn't
+ * support push, Firebase isn't configured, or the user declines — the app
+ * must work fine without push, this is purely additive.
  */
 export async function enablePushNotifications(): Promise<boolean> {
+  if (Capacitor.isNativePlatform()) {
+    return enableNativePushNotifications();
+  }
+
   if (!('serviceWorker' in navigator) || !('Notification' in window)) {
     return false;
   }
@@ -43,6 +51,52 @@ export async function enablePushNotifications(): Promise<boolean> {
     console.error('Push notification setup failed:', err);
     return false;
   }
+}
+
+/**
+ * Native (Capacitor) push registration: requests OS permission, registers
+ * with APNs/FCM, and sends the resulting device token to the backend. Also
+ * wires up a tap-to-open listener, mirroring sw.ts's notificationclick.
+ */
+async function enableNativePushNotifications(): Promise<boolean> {
+  try {
+    const permission = await PushNotifications.requestPermissions();
+    if (permission.receive !== 'granted') return false;
+
+    attachNativeListeners();
+
+    await PushNotifications.register();
+
+    return true;
+  } catch (err) {
+    console.error('Native push notification setup failed:', err);
+    return false;
+  }
+}
+
+function attachNativeListeners(): void {
+  if (nativeListenersAttached) return;
+  nativeListenersAttached = true;
+
+  PushNotifications.addListener('registration', async (token) => {
+    try {
+      await apiFetch('/push/subscribe', {
+        method: 'POST',
+        body: JSON.stringify({ token: token.value, platform: Capacitor.getPlatform() }),
+      });
+    } catch (err) {
+      console.error('Failed to register native push token:', err);
+    }
+  });
+
+  PushNotifications.addListener('registrationError', (err) => {
+    console.error('Native push registration error:', err);
+  });
+
+  PushNotifications.addListener('pushNotificationActionPerformed', () => {
+    // Tap-to-open: the OS already brings the app to the foreground: no extra
+    // navigation is needed today since notifications don't carry a deep link.
+  });
 }
 
 /**

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">VIBE</string>
+    <string name="title_activity_main">VIBE</string>
+    <string name="package_name">com.vibe.nightlife</string>
+    <string name="custom_url_scheme">com.vibe.nightlife</string>
+</resources>
