@@ -23,6 +23,13 @@ const config: CapacitorConfig = {
     contentInset: 'never',
   },
   plugins: {
+    // Capacitor's built-in SystemBars plugin auto-picks LIGHT/DARK status bar
+    // style based on the *device's* day/night system setting by default —
+    // overriding any manual native code. This app is always dark-themed, so
+    // force DARK (light icons) regardless of the device's own light/dark mode.
+    SystemBars: {
+      style: 'DARK',
+    },
     SplashScreen: {
       launchShowDuration: 1500,
       backgroundColor: '#0a0a0a',
